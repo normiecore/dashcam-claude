@@ -42,11 +42,17 @@ physical-device validation pass is complete.
   the camera at critical as Apple suggests; to be validated in the soak test.
 - Deployment target iOS 18.0 for reach; developed against the iOS 27 SDK.
 
+### Verified in CI
+- The app target builds with Xcode 26.6 (iOS 26.5 SDK, iOS 18 deployment target) and the Simulator
+  tests pass: the segmented writer produces an initialization segment plus media segments, a
+  mid-run clip loads with the right duration after timestamp rebasing, and the passthrough remux
+  succeeds on synthetic H.264 frames.
+
 ### Outstanding
-- Nothing has been compiled with Xcode yet: the app target and Simulator tests need a first build
-  on a Mac, and the capture path needs a physical iPhone.
-- fMP4 concatenation playback on device and the passthrough remux are verified only by design and
-  the Simulator test; confirm on hardware.
+- The capture path has not run on a physical iPhone: camera, microphone, HEVC hardware encoding,
+  interruptions, thermal behaviour and battery are all device-only (docs/TESTING.md checklist).
+- fMP4 concatenation and remux are verified on the Simulator with H.264; confirm with the device's
+  HEVC output and with audio.
 - Product decisions pending: pre-roll length, incident clips in iCloud backup, SafetyKit
   entitlement application, paid developer account, bundle identifier.
 - GPS metadata, overlays, configurable buffer beyond 1-10 min, cloud upload: later.
