@@ -1,10 +1,10 @@
 # Verification checkpoint — 29 September 2026
 
-Version: **0.1.0-dev.1**. Status: implementation candidate, **not iOS-compiled or device-qualified**.
+Version: **0.1.0-dev.1**. Status: implementation candidate, **iOS simulator builds pass; not device-qualified**.
 
 ## Actually executed in this environment
 
-Environment: Ubuntu 24.04, x86_64, GCC 13.3.0. No Swift compiler, Xcode, Apple SDK, simulator or attached iPhone is present. The attempted Swift download was unreachable under the environment's network restrictions. No remote macOS CI run was started.
+Local environment: Ubuntu 24.04, x86_64, GCC 13.3.0. No Swift compiler, Xcode, Apple SDK, simulator or attached iPhone is present locally. Hosted Xcode verification is now running through GitHub Actions; see below.
 
 | Check | Result | Scope |
 |---|---|---|
@@ -21,7 +21,15 @@ Run portable checks again with `bash Tools/test-core.sh` and `python3 Tools/veri
 
 These checks do not validate Swift persistence, capture, encoding, export, permissions or hardware. The 12-hour simulation is accelerated policy logic, **not twelve hours of camera recording**.
 
-## XCTest written, not executed
+## Hosted Xcode verification
+
+The [first hosted run](https://github.com/normiecore/dashcam-claude/actions/runs/36592348632) used Xcode 26.6 (17F113) on `macos-26`. Debug and Release simulator builds passed. All 12 storage tests and three media tests passed. The remaining integration test caught a real discrepancy: two sparse segments exported to 60 seconds instead of approximately 40 seconds.
+
+The writer now explicitly ends its session at the final accepted video sample's end, preventing an inferred final-frame duration from extending presentation. The integration test also checks each original segment's duration against the stored coverage. [The follow-up run](https://github.com/normiecore/dashcam-claude/actions/runs/36592919853) **passed both builds and all 16 XCTest cases with zero failures** on code commit `f3d7b8e68c50ba909a8c8337431ec5f1ea3ba018`. Linux policy checks passed in both hosted runs. [Logs and XCTest evidence](https://github.com/normiecore/dashcam-claude/actions/runs/36592919853/artifacts/11045135729) are retained as a GitHub artifact.
+
+Compiler warnings remain for deprecated orientation APIs and the legacy export completion callback's non-Sendable capture in Swift 5 mode. These are not build errors; a Swift 6 migration and physical orientation/audio checks remain separate work.
+
+## XCTest coverage
 
 Twelve storage tests cover durable triggers, past/future protection, overlapping incidents, old-session cleanup with reset monotonic clocks, crash/orphan recovery, corrupt/missing manifests, metadata replacement failure, finalized post-event coverage, accepted-frame start times, and retaining the buffer after unexpected termination or a storage fault.
 
@@ -39,12 +47,12 @@ Four media tests cover a synthetic playable MOV, empty-writer rejection, backwar
 
 ## Remaining gates and limitations
 
-1. Run `bash Tools/verify-mac.sh`: Debug and Release builds, then all 16 XCTest methods on an available iOS 17+ simulator. Results are preserved in separate run directories under `build/verification`.
-2. Resolve any Swift/API/build errors surfaced by the real compiler. Static checks are not a compilation guarantee.
+1. Hosted `bash Tools/verify-mac.sh` gate is complete: Debug and Release builds and all 16 XCTest methods pass. Re-run it for later code changes. Results are preserved in separate run directories under `build/verification`.
+2. Configure Apple signing/distribution to install on a physical iPhone. No signing credentials or paid Apple membership were used for the simulator gate.
 3. Perform the six-minute incident test and the full [physical acceptance matrix](DeviceAcceptance.md). Validate orientation, audio continuity, sample gaps, thermal behavior, memory, charging and interrupted file recovery.
 4. No automatic repair of damaged MOVs, no recovery-item deletion UI, and no automatic crash classifier. Suspicious buffers may consume extra disk space until reviewed; this is deliberate preservation-first behavior.
 5. File fragments and atomic journaling reduce loss but cannot guarantee zero loss during power failure, device damage or sudden termination.
 6. Unfinished export derivatives live in purgeable cache storage. Saved originals are local-only and excluded from backup. Export important evidence separately.
 7. Apple approval, actual SafetyKit integration, App Store assets/privacy submission, and release qualification are deferred. Current code deliberately uses iOS-17-compatible APIs, including some deprecated-but-available AVFoundation interfaces; modernizing those requires compile/device verification.
 
-Next authoritative result is an Xcode build, not another source-generation pass.
+The next gate is signed installation and physical-device acceptance.

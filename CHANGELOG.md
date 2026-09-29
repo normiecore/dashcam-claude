@@ -12,8 +12,10 @@ Implemented source:
 
 Verified here: C compiler/warnings, 400,036 checks in normal and ASan/UBSan builds, accelerated 12-hour policy simulation, PBX grammar/graph, plists, scripts and whitespace.
 
-Not verified: Swift compilation, XCTest execution, actual camera/encoder output, signing/install, interruption behavior and physical soak. See `Docs/Verification.md`; this is not a release build.
+Hosted verification: Xcode 26.6 Debug and Release simulator builds and all 16 XCTest cases pass. The first hosted test exposed inflated sparse-segment duration; explicitly ending the writer session at the last accepted frame fixes it. Added assertions for original segment duration and retained the export duration regression. Source and hosted workflow are in private GitHub draft PR #2; see `Docs/Verification.md` for evidence.
+
+Not verified: actual camera/hardware encoder output, signing/install, interruption behavior and physical soak. This is not a release build.
 
 Decisions: foreground/unlocked only; 720p30 target; audio off by default; no SafetyKit entitlement or motion classifier; originals in Application Support; backup excluded; preserve uncertain footage even at the cost of refusing further recording. C is a small production policy boundary enabling native execution on this Linux host, not a duplicate test implementation.
 
-Outstanding: Mac build fixes if any, physical acceptance, recovery/repair UX, SafetyKit eligibility and eventual integration. No `v0.1.0` release tag until these mandatory gates pass.
+Outstanding: Apple signing/distribution, physical acceptance, recovery/repair UX, SafetyKit eligibility and eventual integration. Compiler warnings remain for legacy orientation and export callback APIs. No `v0.1.0` release tag until mandatory gates pass.

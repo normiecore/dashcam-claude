@@ -1,0 +1,9 @@
+# Hosted Mac verification
+
+The private repository's [draft pull request #2](https://github.com/normiecore/dashcam-claude/pull/2) exercises the [verification workflow](../.github/workflows/verify.yml). The [passing macOS run](https://github.com/normiecore/dashcam-claude/actions/runs/36592919853) built Debug and Release and passed all 16 XCTest cases using Xcode 26.6. The first run exposed an overlong final-frame duration; the writer fix and regression assertions passed in this second run. Download the [build logs and XCTest evidence](https://github.com/normiecore/dashcam-claude/actions/runs/36592919853/artifacts/11045135729) while the artifact is retained by GitHub.
+
+On pull requests or manual dispatch, the `core` job checks project structure and the portable C policy on Linux. The `ios` job uses a GitHub-hosted `macos-26` runner and runs `bash Tools/verify-mac.sh`: project checks, Debug and Release iOS Simulator builds, then XCTest on an available iPhone simulator running iOS 17 or later. It uploads `build/verification` as the `dashcam-xcode-evidence` artifact, including build/test logs and the `.xcresult` bundle when produced. A failed step can leave partial evidence; inspect the job log as well as the artifact.
+
+This runner is temporary build/test infrastructure, not an interactive remote desktop or a connected physical iPhone. The simulator commands set `CODE_SIGNING_ALLOWED=NO`, so no Apple account or signing credentials are needed for this gate. To install on a real iPhone, configure an Apple development team, bundle ID and signing in Xcode; distributing through TestFlight requires its own Apple account and distribution setup. Keep credentials out of chat.
+
+For local Mac and physical-device steps, see the [README](../README.md) and [device acceptance checklist](DeviceAcceptance.md). Simulator success cannot establish camera behavior, long recordings, mounted-road performance or recovery on a physical device.
