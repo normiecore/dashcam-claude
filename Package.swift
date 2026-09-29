@@ -12,10 +12,18 @@ let package = Package(
     ],
     products: [
         .library(name: "DashcamCore", targets: ["DashcamCore"]),
+        .executable(name: "dashcam-sim", targets: ["DashcamSim"]),
     ],
     targets: [
         .target(
             name: "DashcamCore",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency"),
+            ]
+        ),
+        .executableTarget(
+            name: "DashcamSim",
+            dependencies: ["DashcamCore"],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
             ]

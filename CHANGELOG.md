@@ -21,6 +21,10 @@ physical-device validation pass is complete.
   privacy manifest and usage strings.
 - Simulator test that drives the real segmented writer with synthetic frames and verifies that
   whole-run and mid-run clips load with the expected duration.
+- `dashcam-sim` developer CLI (`swift run dashcam-sim drive --hours 2 --incidents 1200,4000`):
+  simulates multi-hour drives with incidents and storage pressure against the real core in
+  seconds and checks the retention and incident invariants; `replay` runs a motion trace through
+  the impact detector.
 - CI: Linux `swift test` lane and an on-demand macOS Simulator lane.
 
 ### Decisions
