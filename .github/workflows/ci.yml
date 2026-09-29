@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core-linux:
+    name: DashcamCore (Linux, swift test)
+    runs-on: ubuntu-latest
+    container: swift:6.4-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: swift test --parallel 2>&1 | tail -40
+
+  app-simulator:
+    # macOS minutes are the expensive lane; runs on pull requests and manual dispatch only.
+    name: App (iOS Simulator, xcodebuild test)
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: cd App && xcodegen generate
+      - name: Build and test on Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -80

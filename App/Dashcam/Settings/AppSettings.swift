@@ -33,6 +33,8 @@ final class AppSettings: ObservableObject {
     @Published var segmentSeconds: Int { didSet { defaults.set(segmentSeconds, forKey: Keys.segmentSeconds) } }
     @Published var minimumFreeMegabytes: Int { didSet { defaults.set(minimumFreeMegabytes, forKey: Keys.minimumFreeMB) } }
     @Published var developerMenuEnabled: Bool { didSet { defaults.set(developerMenuEnabled, forKey: Keys.developerMenu) } }
+    /// First-run consent/onboarding (App Review guideline 2.5.14: explicit consent for recording).
+    @Published var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.onboarding) } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -53,6 +55,7 @@ final class AppSettings: ObservableObject {
         #else
         developerMenuEnabled = defaults.object(forKey: Keys.developerMenu) as? Bool ?? false
         #endif
+        hasCompletedOnboarding = defaults.object(forKey: Keys.onboarding) as? Bool ?? false
     }
 
     var retentionPolicy: RetentionPolicy {
@@ -83,5 +86,6 @@ final class AppSettings: ObservableObject {
         static let segmentSeconds = "settings.segmentSeconds"
         static let minimumFreeMB = "settings.minimumFreeMegabytes"
         static let developerMenu = "settings.developerMenuEnabled"
+        static let onboarding = "settings.hasCompletedOnboarding"
     }
 }

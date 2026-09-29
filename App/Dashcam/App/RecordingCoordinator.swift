@@ -110,9 +110,29 @@ final class RecordingCoordinator: ObservableObject {
             .store(in: &cancellables)
     }
 
+    private var bootstrapState: BootstrapState = .notStarted
+
+    private enum BootstrapState { case notStarted, running, done }
+
+    /// Ensures storage is loaded before any work that depends on it. A SafetyKit event can launch the
+    /// process in the background with no scene, so `bootstrap()` cannot be assumed to have run.
+    func bootstrapIfNeeded() async {
+        switch bootstrapState {
+        case .done:
+            return
+        case .running:
+            while bootstrapState == .running { try? await Task.sleep(for: .milliseconds(50)) }
+        case .notStarted:
+            await bootstrap()
+        }
+    }
+
     /// Call once at launch. Rebuilds the on-disk index, recovers interrupted incidents and assembles
     /// anything left pending by a previous run of the app.
     func bootstrap() async {
+        guard bootstrapState == .notStarted else { await bootstrapIfNeeded(); return }
+        bootstrapState = .running
+        defer { bootstrapState = .done }
         do {
             try AppPaths.prepare()
             let report = try await store.load()
@@ -216,6 +236,11 @@ final class RecordingCoordinator: ObservableObject {
     /// The single entry point for every trigger source (manual button, motion, SafetyKit, developer).
     @discardableResult
     func triggerIncident(source: IncidentSource, note: String? = nil, occurredAt: Date? = nil) async -> Incident? {
+        // A delayed crash event may arrive in a cold background launch: keep the process alive long
+        // enough to link and persist the footage, and make sure the index is loaded first.
+        let task = UIApplication.shared.beginBackgroundTask(withName: "dashcam.incident-trigger") {}
+        defer { if task != .invalid { UIApplication.shared.endBackgroundTask(task) } }
+        await bootstrapIfNeeded()
         do {
             let incident = try await incidentManager.trigger(source: source, note: note, occurredAt: occurredAt)
             await refreshIncidents()
