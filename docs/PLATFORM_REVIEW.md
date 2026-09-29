@@ -66,7 +66,7 @@ Low confidence. Apple's Crash Detection reportedly uses a 256 g accelerometer, b
 
 Verified. Xcode 27 "includes Swift 6.4", needs macOS Tahoe 26.6 on Apple silicon and debugs iOS 17 and later ([release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-27-release-notes)). The Simulator "doesn't have access to device cameras" ([AVCam](https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app)) or motion and microphone input ([Simulator guide](https://developer.apple.com/library/archive/documentation/IDEs/Conceptual/iOS_Simulator_Guide/TestingontheiOSSimulator/TestingontheiOSSimulator.html)). Thermal states can be raised on a connected device through Device Conditions ([WWDC19 412](https://developer.apple.com/videos/play/wwdc2019/412/)). Free accounts get 7-day profiles on 3 devices ([memberships](https://developer.apple.com/support/compare-memberships/)). GitHub's macos-26 image defaults to Xcode 26.6.
 
-For this app. DashcamCore avoids os.Logger and Darwin-only volume keys, so it tests on Linux. AVFoundation file APIs are not on the Simulator's unsupported list (medium-high inference), so the Simulator test drives the real writer with synthetic frames. Nothing has been compiled with Xcode yet.
+For this app. DashcamCore avoids os.Logger and Darwin-only volume keys, so it tests on Linux. AVFoundation file APIs are absent from the Simulator's unsupported list (medium-high inference), so a Simulator test drives the real writer with synthetic frames. Nothing has been compiled with Xcode yet.
 
 ### App Store review and privacy
 
