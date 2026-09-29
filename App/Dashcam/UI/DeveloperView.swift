@@ -10,8 +10,15 @@ struct DeveloperView: View {
     @State private var replayResult: String? = nil
     @State private var replayEvents: [MotionEvent] = []
 
-    private let floorOptions: [(label: String, megabytes: Int)] = [
-        ("Off", 0), ("1 GB", 1_024), ("4 GB", 4_096), ("16 GB", 16_384), ("64 GB", 65_536), ("256 GB", 262_144),
+    private struct FloorOption: Identifiable {
+        let label: String
+        let megabytes: Int
+        var id: Int { megabytes }
+    }
+
+    private let floorOptions: [FloorOption] = [
+        FloorOption(label: "Off", megabytes: 0), FloorOption(label: "1 GB", megabytes: 1_024), FloorOption(label: "4 GB", megabytes: 4_096),
+        FloorOption(label: "16 GB", megabytes: 16_384), FloorOption(label: "64 GB", megabytes: 65_536), FloorOption(label: "256 GB", megabytes: 262_144),
     ]
     private let traces = ["pothole", "hard-braking", "impact"]
 
@@ -22,7 +29,7 @@ struct DeveloperView: View {
                     Haptics.heavyImpact()
                     Task { await coordinator.developerSimulateCrash() }
                 } label: {
-                    Label("Simulate Crash", systemImage: "car.side.rear.and.collision.and.car.side.front")
+                    Label("Simulate Crash", systemImage: "exclamationmark.octagon.fill")
                         .font(.title3.weight(.bold))
                 }
                 .buttonStyle(BigButtonStyle(color: .red))
@@ -38,7 +45,7 @@ struct DeveloperView: View {
                 Button("Simulate media services reset") { coordinator.developerSimulateMediaServicesReset() }
                 Button("Simulate writer failure") { coordinator.developerSimulateWriterFailure() }
                 Picker("Storage floor override", selection: $storageFloorMB) {
-                    ForEach(floorOptions, id: \.megabytes) { option in
+                    ForEach(floorOptions) { option in
                         Text(option.label).tag(option.megabytes)
                     }
                 }
