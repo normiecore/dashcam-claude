@@ -115,6 +115,12 @@ final class SegmentWriter {
             completion(.failure(writer.error ?? SegmentWriterError.writerFailed))
             return
         }
+        // Bound presentation to accepted video coverage. Without an explicit end,
+        // the encoder can infer a long final-frame duration from sparse timestamps.
+        // Audio past this point is retained in the file but not presented.
+        if let lastVideoEnd {
+            writer.endSession(atSourceTime: CMTime(seconds: lastVideoEnd, preferredTimescale: 1_000_000_000))
+        }
         videoInput.markAsFinished()
         audioInput?.markAsFinished()
         writer.finishWriting { [writer] in

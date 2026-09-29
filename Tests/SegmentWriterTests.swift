@@ -58,6 +58,10 @@ final class SegmentWriterTests: XCTestCase {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             writer.finish { continuation.resume(with: $0) }
         }
+        let duration = try await AVURLAsset(url: url).load(.duration)
+        let expectedDuration = try XCTUnwrap(writer.lastVideoEnd) - XCTUnwrap(writer.firstVideoTime)
+        XCTAssertEqual(duration.seconds, expectedDuration, accuracy: 0.05,
+                       "Finalized media must match accepted video coverage, including sparse final frames")
         let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber
         try store.finishSegment(id: segment.id, end: XCTUnwrap(writer.lastVideoEnd),
                                 byteCount: XCTUnwrap(size?.int64Value), actualStart: writer.firstVideoTime)
