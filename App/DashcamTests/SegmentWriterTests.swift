@@ -80,7 +80,8 @@ final class SegmentWriterTests: XCTestCase {
         let fullAsset = AVURLAsset(url: full)
         let fullDuration = try await fullAsset.load(.duration)
         XCTAssertEqual(fullDuration.seconds, Double(seconds), accuracy: 1.0)
-        XCTAssertEqual(try await fullAsset.loadTracks(withMediaType: .video).count, 1)
+        let videoTracks = try await fullAsset.loadTracks(withMediaType: .video)
+        XCTAssertEqual(videoTracks.count, 1)
 
         // Mid-run range (what an incident export uses): must start at zero, not at the run offset.
         let range = Array(mediaURLs[1...2])
