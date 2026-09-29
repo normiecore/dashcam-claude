@@ -256,6 +256,31 @@ struct IncidentManagerTests {
         #expect(done.clipRelativePaths[1].hasSuffix("-part2.mp4"))
     }
 
+    @Test("A delayed crash event protects footage retroactively and needs no post-roll")
+    func retroactiveTrigger() async throws {
+        let env = try BufferTestEnvironment(retention: RetentionPolicy(targetDuration: 600, minimumFreeBytes: 0), incidentPolicy: IncidentPolicy(preRoll: 8, postRoll: 8))
+        try await env.load()
+        let run = RunID.make(at: env.clock.now())
+        try await env.buffer.beginRun(run)
+        try await env.writeInitialization(run: run)
+        _ = try await fill(env, run: run, from: 1, count: 20) // 80 s of footage
+        let eventTime = env.clock.now().addingTimeInterval(-40)
+        let incident = try await env.incidents.trigger(source: .appleCrashDetection, occurredAt: eventTime)
+        #expect(incident.state == .readyToAssemble)
+        #expect(incident.triggerTime == eventTime)
+        // Window [-48, -32] relative to now: segments 9 through 12 (each 4 s, 20 segments ending at now).
+        #expect(incident.mediaParts.map(\.segment.id.sequence) == [9, 10, 11, 12])
+
+        // A retroactive event with no footage fails cleanly.
+        let ancient = try await env.incidents.trigger(source: .appleCrashDetection, occurredAt: env.clock.now().addingTimeInterval(-3_600))
+        #expect(ancient.state == .failed)
+
+        // A future-dated event is clamped to now and collects like a live trigger.
+        let future = try await env.incidents.trigger(source: .developerSimulation, occurredAt: env.clock.now().addingTimeInterval(60))
+        #expect(future.state == .collecting)
+        #expect(future.triggerTime == env.clock.now())
+    }
+
     @Test("Events are published for the UI layer")
     func events() async throws {
         let env = try BufferTestEnvironment(incidentPolicy: IncidentPolicy(preRoll: 4, postRoll: 4))

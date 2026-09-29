@@ -1,0 +1,93 @@
+# XcodeGen specification for the iOS app. Generate the project with:
+#   cd App && DASHCAM_TEAM_ID=YOURTEAMID xcodegen generate
+# The generated Dashcam.xcodeproj is ignored by git; this file is the source of truth.
+name: Dashcam
+options:
+  bundleIdPrefix: com.matrixengineered
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  xcodeVersion: "27.0"
+
+settings:
+  base:
+    # The app target uses Swift 5 language mode with targeted concurrency checking so AVFoundation
+    # delegate callbacks compile without a fight; DashcamCore (the package) is Swift 6 mode.
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: targeted
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: "${DASHCAM_TEAM_ID}"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SUPPORTS_MACCATALYST: NO
+    # Add DASHCAM_SAFETYKIT here (or via DASHCAM_EXTRA_CONDITIONS) once Apple grants the
+    # com.apple.developer.severe-vehicular-crash-event entitlement.
+    SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ${DASHCAM_EXTRA_CONDITIONS}"
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG ${DASHCAM_EXTRA_CONDITIONS}"
+
+packages:
+  DashcamCore:
+    path: ..
+
+targets:
+  Dashcam:
+    type: application
+    platform: iOS
+    sources:
+      - path: Dashcam
+        excludes:
+          - "**/*.md"
+    dependencies:
+      - package: DashcamCore
+        product: DashcamCore
+    info:
+      path: Dashcam/Info.plist
+      properties:
+        CFBundleDisplayName: Dashcam
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIRequiredDeviceCapabilities:
+          - arm64
+          - video-camera
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: "Dashcam records the road ahead continuously while you drive so footage from an incident can be saved."
+        NSMicrophoneUsageDescription: "Dashcam can record cabin audio with your video. You can turn audio recording off in Settings."
+        NSPhotoLibraryAddUsageDescription: "Dashcam saves incident clips you choose to your Photos library."
+        NSMotionUsageDescription: "Dashcam can use motion sensors to detect a possible impact and save footage automatically."
+        NSLocationWhenInUseUsageDescription: "Dashcam can tag saved clips with your location and speed. This is optional."
+    entitlements:
+      path: Dashcam/Dashcam.entitlements
+      properties: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam
+        PRODUCT_NAME: Dashcam
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    scheme:
+      testTargets:
+        - DashcamTests
+      gatherCoverageData: true
+
+  DashcamTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: DashcamTests
+    dependencies:
+      - target: Dashcam
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam.tests

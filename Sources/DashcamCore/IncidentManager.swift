@@ -94,19 +94,28 @@ public actor IncidentManager {
         return allIncidents()
     }
 
+    public func setPolicy(_ policy: IncidentPolicy) {
+        self.policy = policy
+    }
+
     // MARK: Triggering
 
     /// The single entry point for every incident source.
+    ///
+    /// - Parameter occurredAt: When the event happened, if different from now. Apple Crash Detection
+    ///   delivers events minutes after the fact (after Emergency SOS completes), so the window is built
+    ///   around the event time and any footage already on disk is protected retroactively.
     @discardableResult
-    public func trigger(source: IncidentSource, note: String? = nil) async throws -> Incident {
+    public func trigger(source: IncidentSource, note: String? = nil, occurredAt: Date? = nil) async throws -> Incident {
         let now = clock.now()
-        let trigger = IncidentTrigger(source: source, time: now, note: note)
-        logger.notice(.incident, "Incident trigger from \(source.rawValue) at \(now)")
+        let eventTime = min(occurredAt ?? now, now)
+        let trigger = IncidentTrigger(source: source, time: eventTime, note: note)
+        logger.notice(.incident, "Incident trigger from \(source.rawValue) at \(eventTime) (received \(now))")
 
         if policy.mergeOverlappingTriggers,
-           var existing = incidents.values.first(where: { $0.state == .collecting && $0.windowEnd >= now }) {
+           var existing = incidents.values.first(where: { $0.state == .collecting && $0.windowStart <= eventTime && $0.windowEnd >= eventTime }) {
             existing.triggers.append(trigger)
-            existing.windowEnd = max(existing.windowEnd, now.addingTimeInterval(policy.postRoll))
+            existing.windowEnd = max(existing.windowEnd, eventTime.addingTimeInterval(policy.postRoll))
             incidents[existing.id] = existing
             try persist(existing)
             continuation.yield(.updated(existing))
@@ -118,8 +127,8 @@ public actor IncidentManager {
             id: UUID(),
             createdAt: now,
             triggers: [trigger],
-            windowStart: now.addingTimeInterval(-policy.preRoll),
-            windowEnd: now.addingTimeInterval(policy.postRoll)
+            windowStart: eventTime.addingTimeInterval(-policy.preRoll),
+            windowEnd: eventTime.addingTimeInterval(policy.postRoll)
         )
         try fs.createDirectory(at: partsDirectory(for: incident.id))
 
@@ -129,10 +138,15 @@ public actor IncidentManager {
         for segment in overlapping.chronological() {
             attach(segment, to: &incident, from: available)
         }
+        // A fully retroactive window (delayed crash event) has nothing more to wait for.
+        if incident.windowEnd <= now || (overlapping.last.map { $0.endTime >= incident.windowEnd } ?? false) {
+            incident.state = incident.parts.isEmpty ? .failed : .readyToAssemble
+            if incident.parts.isEmpty { incident.failureReason = "No footage on disk covered the reported event time." }
+        }
         incidents[incident.id] = incident
         try persist(incident)
-        continuation.yield(.triggered(incident))
-        logger.notice(.incident, "Incident \(incident.id) opened with \(incident.mediaParts.count) pre-roll segments (\(Int(incident.footageDuration))s)")
+        continuation.yield(incident.state == .collecting ? .triggered(incident) : (incident.state == .failed ? .failed(incident) : .readyToAssemble(incident)))
+        logger.notice(.incident, "Incident \(incident.id) opened as \(incident.state.rawValue) with \(incident.mediaParts.count) pre-roll segments (\(Int(incident.footageDuration))s)")
         return incident
     }
 

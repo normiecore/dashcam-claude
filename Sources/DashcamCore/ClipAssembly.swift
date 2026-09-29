@@ -59,8 +59,9 @@ public protocol ClipAssembler: Sendable {
     func assemble(_ plan: ClipAssemblyPlan, into outputDirectory: URL, baseName: String) async throws -> [String]
 }
 
-/// Byte-level concatenation. An fMP4 initialization segment followed by its media segments, in order,
-/// is itself a valid fragmented MP4 file, so no re-encoding or AVFoundation is needed to produce a clip.
+/// Builds a fragmented MP4 clip from an initialization segment and its media segments. Fragment
+/// timestamps are rebased so the clip starts at zero (see `FMP4`). When the inputs are not parseable
+/// as fMP4 the segments are concatenated untouched rather than failing: footage first.
 /// One output file per run.
 public struct FMP4ClipAssembler: ClipAssembler {
     public var fileExtension: String
@@ -72,19 +73,49 @@ public struct FMP4ClipAssembler: ClipAssembler {
     public func assemble(_ plan: ClipAssemblyPlan, into outputDirectory: URL, baseName: String) async throws -> [String] {
         guard !plan.isEmpty else { throw DashcamCoreError.emptyAssemblyPlan }
         var outputs: [String] = []
-        for (index, group) in plan.groups.enumerated() where !group.media.isEmpty {
+        let groups = plan.groups.filter { !$0.media.isEmpty }
+        for (index, group) in groups.enumerated() {
             guard let initialization = group.initialization else {
                 throw DashcamCoreError.missingInitializationSegment(group.run)
             }
-            let name = plan.groups.count == 1 ? "\(baseName).\(fileExtension)" : "\(baseName)-part\(index + 1).\(fileExtension)"
+            let name = groups.count == 1 ? "\(baseName).\(fileExtension)" : "\(baseName)-part\(index + 1).\(fileExtension)"
             let destination = outputDirectory.appendingPathComponent(name)
-            try FMP4ClipAssembler.concatenate([initialization] + group.media, to: destination)
+            _ = try FMP4ClipAssembler.writeClip(initialization: initialization, mediaSegments: group.media, to: destination)
             outputs.append(name)
         }
         return outputs
     }
 
+    /// Writes `initialization` followed by `mediaSegments` (rebased to start at zero) to `output`
+    /// atomically. Returns the rebase plan, or nil if the inputs were concatenated without rebasing.
+    @discardableResult
+    public static func writeClip(initialization: URL, mediaSegments: [URL], to output: URL) throws -> FMP4.RebasePlan? {
+        let plan = FMP4.rebasePlan(initialization: initialization, mediaSegments: mediaSegments)
+        try writeConcatenated(to: output) { emit in
+            try emit(Data(contentsOf: initialization, options: .mappedIfSafe))
+            for url in mediaSegments {
+                var data = try Data(contentsOf: url, options: .mappedIfSafe)
+                if let plan, let fields = try? FMP4.timeFields(mediaSegment: data) {
+                    var copy = Data(data)
+                    try FMP4.apply(plan, to: &copy, fields: fields)
+                    data = copy
+                }
+                try emit(data)
+            }
+        }
+        return plan
+    }
+
+    /// Plain concatenation with no timestamp rewriting.
     public static func concatenate(_ inputs: [URL], to output: URL) throws {
+        try writeConcatenated(to: output) { emit in
+            for input in inputs {
+                try emit(Data(contentsOf: input, options: .mappedIfSafe))
+            }
+        }
+    }
+
+    private static func writeConcatenated(to output: URL, body: (_ emit: (Data) throws -> Void) throws -> Void) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
         let temporary = output.deletingLastPathComponent().appendingPathComponent(".\(output.lastPathComponent).partial")
@@ -95,10 +126,7 @@ public struct FMP4ClipAssembler: ClipAssembler {
         let handle = try FileHandle(forWritingTo: temporary)
         var closed = false
         defer { if !closed { handle.closeFile() } }
-        for input in inputs {
-            let data = try Data(contentsOf: input, options: .mappedIfSafe)
-            handle.write(data)
-        }
+        try body { data in handle.write(data) }
         handle.synchronizeFile()
         handle.closeFile()
         closed = true

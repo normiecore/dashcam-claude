@@ -64,6 +64,11 @@ public final class DashcamLogger: Sendable {
 
     public static let disabled = DashcamLogger(sinks: [], minimumLevel: .fault)
 
+    /// Sinks of a given concrete type (for example to flush the file sink before sharing it).
+    public func sinksOfType<T: LogSink>(_ type: T.Type) -> [T] {
+        sinks.compactMap { $0 as? T }
+    }
+
     public func log(_ level: LogLevel, _ category: LogCategory, _ message: @autoclosure () -> String) {
         guard level >= minimumLevel, !sinks.isEmpty else { return }
         let entry = LogEntry(timestamp: clock.now(), level: level, category: category, message: message())
