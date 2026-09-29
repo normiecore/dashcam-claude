@@ -27,7 +27,8 @@ final class MotionIncidentDetector: IncidentDetector {
     private let manager = CMMotionManager()
     private let queue = OperationQueue()
     private let logger: DashcamLogger
-    private var detector: MotionImpactDetector
+    /// Touched from the Core Motion operation queue; every access is guarded by `lock`.
+    nonisolated(unsafe) private var detector: MotionImpactDetector
     private let lock = NSLock()
     private var isRunning = false
     private(set) var lastMagnitude: Double = 0

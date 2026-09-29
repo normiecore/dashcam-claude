@@ -94,7 +94,11 @@ final class RecordingCoordinator: ObservableObject {
         safetyKit = SafetyKitIncidentDetector(logger: logger)
 
         capture.sink = router
-        capture.eventHandler = { [weak self] event in self?.handle(event) }
+        // Delivered on the main queue by the capture service, but the closure type is nonisolated;
+        // hop explicitly so the call is main-actor isolated. Tasks created in order run in order here.
+        capture.eventHandler = { [weak self] event in
+            Task { @MainActor in self?.handle(event) }
+        }
         motionDetector.onIncident = { [weak self] detected in
             Task { await self?.triggerIncident(source: detected.source, note: detected.note, occurredAt: detected.occurredAt) }
         }
