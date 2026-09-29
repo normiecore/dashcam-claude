@@ -70,6 +70,7 @@ final class RecordingCoordinator: ObservableObject {
 
     private var userWantsRecording = false
     private var isTransitioning = false
+    private var interruptedAt: Date?
     private var ingestContinuation: AsyncStream<IngestItem>.Continuation?
     private var ingestTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
@@ -620,7 +621,21 @@ final class RecordingCoordinator: ObservableObject {
     private func watchdogTick() {
         videoFrames = router.videoFrames
         droppedFrames = router.droppedFrames
-        guard case .recording = state, !isTransitioning, let started = runStartedAt else { return }
+        guard !isTransitioning else { return }
+        // Interruption-ended delivery is not guaranteed by Apple; the session's isInterrupted flag is
+        // the truth source. Reconcile our state with it in both directions.
+        if case .interrupted = state, userWantsRecording, capture.session.isRunning, !capture.session.isInterrupted,
+           let since = interruptedAt, Date().timeIntervalSince(since) > 5 {
+            logger.notice(.recorder, "Session no longer interrupted but no notification arrived; resuming")
+            Task { await resumeAfterInterruption() }
+            return
+        }
+        if case .recording = state, capture.session.isInterrupted {
+            logger.warning(.recorder, "Session reports interrupted while recording; pausing run")
+            Task { await pauseForInterruption("camera interrupted") }
+            return
+        }
+        guard case .recording = state, let started = runStartedAt else { return }
         let stalled: Bool
         if let gap = router.secondsSinceLastVideoFrame {
             stalled = gap > 8
@@ -763,6 +778,7 @@ final class RecordingCoordinator: ObservableObject {
         if let next = RecorderStateMachine.reduce(state, event) {
             logger.debug(.recorder, "State \(state) --\(event)--> \(next)")
             state = next
+            if case .interrupted = next { interruptedAt = Date() } else { interruptedAt = nil }
         } else {
             logger.warning(.recorder, "Ignored event \(event) in state \(state)")
         }

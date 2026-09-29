@@ -304,6 +304,12 @@ final class CameraCaptureService: NSObject {
         if #available(iOS 18.0, *) {
             session.configuresApplicationAudioSessionToMixWithOthers = true
         }
+        // Banner-style incoming calls then only interrupt audio if the call is answered (iOS 14.5+).
+        do {
+            try AVAudioSession.sharedInstance().setPrefersNoInterruptionsFromSystemAlerts(true)
+        } catch {
+            logger.warning(.capture, "Could not set prefersNoInterruptionsFromSystemAlerts: \(error)")
+        }
 
         rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         installObservers(for: device)
