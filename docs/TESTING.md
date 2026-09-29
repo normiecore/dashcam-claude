@@ -1,0 +1,55 @@
+# Testing
+
+## Core package on Linux or macOS
+
+```
+make test            # or: swift test
+make sim ARGS="drive --hours 2 --incidents 1200,4000"
+swift run dashcam-sim replay App/Dashcam/Resources/Traces/impact.csv --sensitivity medium
+```
+
+Any Swift 6 toolchain works. In the Linux environment this project was built in, the toolchain lives at `/opt/swift-rootfs/usr/bin` (extracted from the `swift:6.4-noble` image); that path is specific to that environment.
+
+## App on the iOS Simulator
+
+Requires a Mac with Xcode 26.6 or later (Xcode 27 recommended) and XcodeGen (`brew install xcodegen`). The `.xcodeproj` is generated and not committed.
+
+```
+cd App && DASHCAM_TEAM_ID=YOURTEAMID xcodegen generate && cd ..
+xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
+```
+
+The Simulator has no camera, microphone or motion sensors. `SegmentWriterTests` still exercises the real segmented `AVAssetWriter` path with synthetic frames and verifies that whole-run and mid-run clips load with the right duration; `PrivacyManifestTests` guards the manifest and usage strings. The app itself launches in the Simulator but the Record tab reports that no camera is available.
+
+CI runs the same command on a `macos-26` runner for pull requests (`.github/workflows/ci.yml`).
+
+## Physical iPhone checklist
+
+Prerequisites: an iPhone on iOS 18 or later with Developer Mode on (Settings > Privacy & Security > Developer Mode, then restart), and a signing team. A free Apple account works for on-device installs (3 devices, profiles expire after 7 days); TestFlight and restricted entitlements need the paid program.
+
+1. Generate the project with your team id, open `App/Dashcam.xcodeproj`, select your iPhone as the run destination, and run. If signing complains, pick your team under Signing & Capabilities for the Dashcam target.
+2. First launch: read the welcome screen, tap Continue, tap Start recording, allow camera and (if audio is on) microphone. Confirm the preview is upright in portrait and in landscape, and the HUD shows REC, the buffer counting up to 5:00, the free space chip and the format (expect 1080p 30fps HEVC).
+3. Driveway test (10 minutes, engine off, phone mounted): let the buffer fill, watch Settings > Storage show the buffer stabilise around 170 MB, then tap Save Incident. The orange card should count down 60 s and the Clips tab badge should show 1. Open the clip: playback should start at the beginning of the pre-roll, not with a blank lead-in, and the duration should be about 6 minutes. Share it via AirDrop to a Mac and confirm QuickTime plays it. Save to Photos and confirm it appears.
+4. Lock the screen while recording, wait 20 s, unlock. Expect "Paused: camera unavailable in background" then automatic resume with a new run; the buffer keeps its earlier footage. Save an incident that spans the gap and confirm two clip files appear.
+5. Incoming phone call (ask someone to call): with the banner style, video should continue and the mic chip should appear; accept the call, then hang up and return. Confirm recording resumed.
+6. Open the Camera app from the Lock Screen or Control Center while Dashcam is frontmost, then return. Expect a pause and a resume.
+7. Settings > Developer > Reset Media Services while recording. Expect "Recovering camera" and a resume within a few seconds.
+8. In Xcode, Window > Devices and Simulators, select the iPhone, under Device Conditions choose Thermal State: Serious, then Critical. Expect the frame rate to drop to 24 then 15 fps in the developer live stats and the heat chip to appear; stop the condition and confirm 30 fps returns.
+9. Low storage: in Developer tools set Storage floor override to 64 GB or higher than your free space. Expect the buffer to trim and recording to stop with the "almost out of storage" message. Set it back to Off.
+10. Force quit the app mid-recording (with an incident collecting if possible), relaunch. Expect the incident to appear as ready or exporting, then complete, and the buffer to still hold its earlier footage minus at most one segment.
+11. Soak: mount the phone on the windshield on a car charger, record for at least 60 minutes with Dim screen on. Note the thermal state, frame rate, battery level and any pauses from the developer live stats and log. Export the log afterwards.
+12. False positives: turn on Impact detection at Low, drive a normal route with speed bumps and hard stops, and count unwanted incidents. Repeat at Medium. Report the counts and export the log.
+13. Optional: connect and disconnect CarPlay while recording; note any audio route changes or pauses.
+
+## Collecting logs
+
+In the app: Settings > Developer > View recent log, then Export log file (share sheet). The file holds the last 2 MB with one rotation.
+
+On a Mac with the iPhone connected, Console.app filters by subsystem `com.matrixengineered.dashcam`. For a range of time:
+
+```
+sudo log collect --device --start "2026-09-29 10:00:00" --output dashcam.logarchive
+```
+
+For a system-level failure, hold Volume Up and Volume Down together until the phone vibrates to capture a sysdiagnose, then find it under Settings > Privacy & Security > Analytics & Improvements > Analytics Data. Crash reports for the app appear in the same place and in Xcode's Organizer.
