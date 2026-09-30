@@ -15,7 +15,8 @@ struct CameraPreviewView: UIViewRepresentable {
     func makeUIView(context: Context) -> PreviewUIView {
         let view = PreviewUIView()
         view.previewLayer.videoGravity = .resizeAspect
-        // Attached on the session queue so it cannot race a configuration block.
+        // Attached on the session queue so it cannot race a configuration block; the hook also fires
+        // after every graph rebuild, which recreates the preview connection at the default angle.
         capture.attachPreview(view.previewLayer) { [weak view] in
             view?.reapplyRotation()
         }
@@ -36,11 +37,13 @@ final class PreviewUIView: UIView {
 
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var rotationObservation: NSKeyValueObservation?
-    private var attachedDeviceID: String?
+    private weak var attachedDevice: AVCaptureDevice?
 
     func attachRotationCoordinator(for device: AVCaptureDevice) {
-        guard attachedDeviceID != device.uniqueID else { return }
-        attachedDeviceID = device.uniqueID
+        // Object identity, not uniqueID: a media-services reset hands back a new device object with the
+        // same identifier, and the coordinator must be bound to the live one.
+        guard attachedDevice !== device else { return }
+        attachedDevice = device
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
         rotationCoordinator = coordinator
         applyPreviewRotation(coordinator.videoRotationAngleForHorizonLevelPreview)

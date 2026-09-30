@@ -32,6 +32,10 @@ struct ClipDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear {
             for player in players.values { player.pause() }
+            // Give other apps' audio (music, navigation) back; AVPlayer activated the session on play.
+            if !coordinator.state.isActive {
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            }
         }
     }
 
@@ -157,11 +161,11 @@ struct ClipDetailView: View {
                 } label: {
                     Label("Delete clip", systemImage: "trash")
                 }
-                // Deleting mid-export would race the assembler, which would recreate the incident.
-                .disabled(incident.state == .readyToAssemble || incident.state == .assembling)
+                // Same rule as the Clips list and the coordinator: only finished incidents can go.
+                .disabled(!RecordingCoordinator.canDelete(incident))
             } footer: {
-                if incident.state == .readyToAssemble || incident.state == .assembling {
-                    Text("The clip can be deleted once the export finishes.")
+                if !RecordingCoordinator.canDelete(incident) {
+                    Text("The clip can be deleted once it has finished saving.")
                 }
             }
         }
@@ -189,18 +193,21 @@ struct ClipDetailView: View {
         }
     }
 
-    /// Players are created once per set of clip URLs, outside `body`. When one part starts playing the
-    /// others pause, so multi-part incidents never play over each other.
+    /// Players are created outside `body` and reused across re-appearances (a tab switch fires
+    /// onDisappear/onAppear and would otherwise rebuild them at time zero); they are rebuilt only when
+    /// the set of clip URLs changes. When one part starts playing the others pause.
     private func preparePlayers(for urls: [URL]) {
+        if !urls.isEmpty, !coordinator.state.isActive {
+            // Clip review should be audible with the Ring/Silent switch on and come out of the speaker.
+            // The category alone is set here; AVPlayer activates the session when the user presses play,
+            // so merely opening a clip does not interrupt music or navigation. Never touched while a
+            // session is active: the capture session owns the audio session then.
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        }
+        if !players.isEmpty, Set(players.keys) == Set(urls), !playbackObservers.isEmpty { return }
         for player in players.values { player.pause() }
         playbackObservers.removeAll()
         guard !urls.isEmpty else { players = [:]; return }
-        if !coordinator.state.isActive {
-            // Clip review should be audible with the Ring/Silent switch on and come out of the speaker.
-            // Never touched while a session is active: the capture session owns the audio session then.
-            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
-            try? AVAudioSession.sharedInstance().setActive(true)
-        }
         let created = Dictionary(uniqueKeysWithValues: urls.map { ($0, AVPlayer(url: $0)) })
         players = created
         for (url, player) in created {

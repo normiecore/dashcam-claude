@@ -1,5 +1,6 @@
 import CoreMotion
 import Foundation
+import UIKit
 import DashcamCore
 
 /// A source of automatic incident triggers. Manual and developer triggers call the coordinator
@@ -161,7 +162,9 @@ final class SafetyKitIncidentDetector: NSObject, IncidentDetector, SACrashDetect
     private let logger: DashcamLogger
     private let defaults: UserDefaults
     private(set) var availability: SafetyKitAvailability = .notDetermined
-    var onIncident: ((DetectedIncident) -> Void)?
+    /// Returns true when the incident was durably recorded; only then is the event marked handled.
+    var onIncident: ((DetectedIncident) async -> Bool)?
+    private var inFlightEventDates: [Date] = []
 
     init(logger: DashcamLogger, defaults: UserDefaults = .standard) {
         self.logger = logger
@@ -207,11 +210,23 @@ final class SafetyKitIncidentDetector: NSObject, IncidentDetector, SACrashDetect
                 self.logger.notice(.incident, "Ignoring redelivered crash event from \(date)")
                 return
             }
-            self.defaults.set(date, forKey: key)
+            if self.inFlightEventDates.contains(where: { abs($0.timeIntervalSince(date)) < 1 }) { return }
+            self.inFlightEventDates.append(date)
+            defer { self.inFlightEventDates.removeAll { abs($0.timeIntervalSince(date)) < 1 } }
+            // A cold background launch: keep the process alive while the footage is linked.
+            let task = UIApplication.shared.beginBackgroundTask(withName: "dashcam.safetykit-event") {}
+            defer { if task != .invalid { UIApplication.shared.endBackgroundTask(task) } }
             var note = "Apple Crash Detection; SOS \(response == .attempted ? "attempted" : "disabled")"
             if let location { note += String(format: " at %.5f,%.5f", location.coordinate.latitude, location.coordinate.longitude) }
             self.logger.fault(.incident, "Crash event received: \(note)")
-            self.onIncident?(DetectedIncident(source: .appleCrashDetection, occurredAt: date, note: note))
+            let handled = await self.onIncident?(DetectedIncident(source: .appleCrashDetection, occurredAt: date, note: note)) ?? false
+            if handled {
+                // Marked handled only now: if the trigger failed (storage not ready), a redelivery on a
+                // later launch must still be able to protect the footage.
+                self.defaults.set(date, forKey: key)
+            } else {
+                self.logger.error(.incident, "Crash event from \(date) was not recorded; it will be retried if the system redelivers it")
+            }
         }
     }
 }
@@ -221,7 +236,7 @@ final class SafetyKitIncidentDetector: NSObject, IncidentDetector, SACrashDetect
 final class SafetyKitIncidentDetector: IncidentDetector {
     let source: IncidentSource = .appleCrashDetection
     let availability: SafetyKitAvailability = .notIncludedInBuild
-    var onIncident: ((DetectedIncident) -> Void)?
+    var onIncident: ((DetectedIncident) async -> Bool)?
 
     init(logger: DashcamLogger) {}
 

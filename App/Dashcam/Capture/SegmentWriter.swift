@@ -283,6 +283,12 @@ extension SegmentWriter: AVAssetWriterDelegate {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             // Atomic: Foundation writes to a temporary file and renames, so a kill mid-write leaves nothing partial.
             try data.write(to: url, options: .atomic)
+            // The index sidecar is written here too, right behind the media, rather than only when the
+            // main-actor ingest loop gets to this segment: a kill in between would otherwise leave a
+            // complete media file that the next launch deletes as an orphan. The store rewrites it
+            // idempotently when it indexes the segment.
+            let sidecar = url.deletingPathExtension().appendingPathExtension(SegmentStore.sidecarExtension)
+            try SegmentStore.makeEncoder().encode(segment).write(to: sidecar, options: .atomic)
             onSegment?(segment)
         } catch {
             // A segment that cannot be written is footage lost; the coordinator should rotate to a new run

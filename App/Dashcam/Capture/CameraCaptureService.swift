@@ -76,6 +76,9 @@ final class CameraCaptureService: NSObject {
     /// What the caller asked for (the cache key) versus what the graph has (`configuredAudio`).
     private var requestedAudio = false
     private var configuredAudio = false
+    /// Main-queue hook run whenever the preview layer's connection may have been recreated (attach and
+    /// every graph rebuild), so the preview can re-apply its rotation.
+    private var previewConnectionChanged: (() -> Void)?
 
     init(logger: DashcamLogger) {
         self.logger = logger
@@ -92,11 +95,14 @@ final class CameraCaptureService: NSObject {
     }
 
     /// Attaches a preview layer to the session on the session queue, so the attachment never races a
-    /// `beginConfiguration`/`commitConfiguration` block. `completion` runs on the main queue afterwards.
-    func attachPreview(_ layer: AVCaptureVideoPreviewLayer, completion: @escaping () -> Void) {
+    /// `beginConfiguration`/`commitConfiguration` block. `onConnectionChanged` runs on the main queue
+    /// once attached and again after every graph rebuild, because removing and re-adding the camera
+    /// input recreates the preview connection with the default rotation.
+    func attachPreview(_ layer: AVCaptureVideoPreviewLayer, onConnectionChanged: @escaping () -> Void) {
         sessionQueue.async {
             if layer.session !== self.session { layer.session = self.session }
-            DispatchQueue.main.async(execute: completion)
+            self.previewConnectionChanged = onConnectionChanged
+            DispatchQueue.main.async(execute: onConnectionChanged)
         }
     }
 
@@ -125,9 +131,13 @@ final class CameraCaptureService: NSObject {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CaptureConfigurationSummary, Error>) in
             sessionQueue.async {
                 do {
-                    let summary = try self.configureIfNeeded(quality: quality, audioEnabled: audioEnabled, stabilization: stabilization)
+                    let (summary, rebuilt) = try self.configureIfNeeded(quality: quality, audioEnabled: audioEnabled, stabilization: stabilization)
                     if !self.session.isRunning {
                         self.session.startRunning()
+                    }
+                    // Sent only after configureIfNeeded returned, which is after its deferred commit.
+                    if rebuilt, let hook = self.previewConnectionChanged {
+                        DispatchQueue.main.async(execute: hook)
                     }
                     continuation.resume(returning: summary)
                 } catch {
@@ -234,9 +244,13 @@ final class CameraCaptureService: NSObject {
         configuredStabilization = nil
     }
 
-    private func configureIfNeeded(quality: VideoQualityTier, audioEnabled: Bool, stabilization: Bool) throws -> CaptureConfigurationSummary {
-        if isConfigured, configuredQuality == quality, requestedAudio == audioEnabled, configuredStabilization == stabilization, let configuration {
-            return configuration
+    /// Returns the configuration and whether the graph was rebuilt (false when the cache was used).
+    private func configureIfNeeded(quality: VideoQualityTier, audioEnabled: Bool, stabilization: Bool) throws -> (CaptureConfigurationSummary, Bool) {
+        // Audio asked for and permitted but not in the graph (denied at the time, or the input could
+        // not be added) is not a cache hit: the next configure must try the microphone again.
+        let microphoneMissing = audioEnabled && !configuredAudio && CameraCaptureService.microphoneAuthorization() == .authorized
+        if isConfigured, !microphoneMissing, configuredQuality == quality, requestedAudio == audioEnabled, configuredStabilization == stabilization, let configuration {
+            return (configuration, false)
         }
         guard CameraCaptureService.cameraAuthorization() == .authorized else { throw CaptureError.cameraAccessDenied }
 
@@ -363,7 +377,7 @@ final class CameraCaptureService: NSObject {
         configuredStabilization = stabilization
         isConfigured = true
         logger.notice(.capture, "Configured \(summary.deviceName) \(summary.width)x\(summary.height)@\(summary.frameRate) stabilization=\(stabilizationName) audio=\(configuredAudio) preset=\(usingPreset)")
-        return summary
+        return (summary, true)
     }
 
     static func selectFormat(for device: AVCaptureDevice, quality: VideoQualityTier) -> AVCaptureDevice.Format? {
@@ -443,7 +457,9 @@ final class CameraCaptureService: NSObject {
             self?.eventHandler?(.didStopRunning)
         })
 
-        pressureObservation = device.observe(\.systemPressureState, options: [.new]) { [weak self] device, _ in
+        // .initial: after a rebuild the current level is delivered again, so the coordinator can
+        // re-apply a throttle the rebuild just undid.
+        pressureObservation = device.observe(\.systemPressureState, options: [.initial, .new]) { [weak self] device, _ in
             guard let self else { return }
             let state = device.systemPressureState
             let level = state.level

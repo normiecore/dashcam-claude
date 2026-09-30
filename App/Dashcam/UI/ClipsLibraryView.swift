@@ -46,10 +46,10 @@ struct ClipsLibraryView: View {
         }
     }
 
-    /// Deleting during export would race the assembler, which recreates the incident directory; the
-    /// coordinator refuses it too, but the affordance is hidden so the user is not invited to try.
+    /// Only finished incidents can be deleted (the coordinator enforces the same rule); the affordance
+    /// is hidden so the user is not invited to try.
     private func canDelete(_ incident: Incident) -> Bool {
-        incident.state == .complete || incident.state == .failed
+        RecordingCoordinator.canDelete(incident)
     }
 
     @ViewBuilder private func row(for incident: Incident) -> some View {

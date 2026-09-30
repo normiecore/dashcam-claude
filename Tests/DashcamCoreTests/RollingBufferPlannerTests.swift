@@ -73,6 +73,26 @@ struct RollingBufferPlannerTests {
         #expect(hopeless.isStorageCritical)
     }
 
+    @Test("Segments hard-linked into an incident are deleted but not credited as freed space")
+    func sharedStorageNotCredited() {
+        let segments = backToBack(count: 10, bytes: 100)
+        var floor = policy
+        floor.minimumFreeBytes = 1_000
+        // Every segment's bytes are also held by an incident's link: deleting the buffer copies frees nothing.
+        let shared = Set(segments.map(\.id))
+        let plan = RollingBufferPlanner.plan(segments: segments, protected: [], activeRun: run, now: now, policy: floor, availableBytes: 500, sharedStorage: shared)
+        #expect(plan.delete.count == 10, "buffer copies may still be deleted")
+        #expect(plan.reclaimedBytes == 0)
+        #expect(plan.isStorageCritical, "the floor is still unmet because nothing was really freed")
+
+        // Half shared: only the unshared half counts, so the floor is met after deleting all of them.
+        let halfShared = Set(segments.prefix(5).map(\.id))
+        let mixed = RollingBufferPlanner.plan(segments: segments, protected: [], activeRun: run, now: now, policy: floor, availableBytes: 500, sharedStorage: halfShared)
+        #expect(mixed.reclaimedBytes == 500)
+        #expect(!mixed.isStorageCritical)
+        #expect(mixed.deletedBytes == 1_000)
+    }
+
     @Test("Initialization segment is removed only when its run has no media and is inactive")
     func initializationSegmentLifecycle() {
         let oldRun = RunID(rawValue: "run-old")

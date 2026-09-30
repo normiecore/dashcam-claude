@@ -94,9 +94,22 @@ final class RecordingCoordinator: ObservableObject {
     private var userWantsRecording = false
     private var isTransitioning = false
     private var stopRequested = false
-    private var pendingRotation: String?
+    private var pendingRotation: (reason: String, reconfigure: Bool)?
     private var pendingWriterFailure: (run: RunID, error: Error)?
+    private var pendingRecovery: (error: Error, reset: Bool)?
+    private var pendingInterruption: String?
     private var writerFailures: [Date] = []
+    /// When the audio interruption began; the watchdog clears a stale flag if no ended notification comes.
+    private var audioInterruptedAt: Date?
+    /// One resume is attempted while only audio is interrupted; if that run gets no frames it is paused
+    /// again and no further resume is tried until the session's interruption clears.
+    private var resumedDuringAudioInterruption = false
+    /// The segment interval the current writer was built with (the setting may change mid-run).
+    private var runSegmentInterval: TimeInterval = 4
+    /// The teardown started by fail(); start() waits for it so a restart cannot race it.
+    private var failTeardown: Task<Void, Never>?
+    /// Set when bootstrap held auto-start back for the consent screen; only then does Continue start.
+    private var autoStartDeferredByOnboarding = false
     private var interruptedAt: Date?
     private var runAngle: CGFloat = 0
     private var rotationCheck: Task<Void, Never>?
@@ -138,8 +151,11 @@ final class RecordingCoordinator: ObservableObject {
         motionDetector.onIncident = { [weak self] detected in
             Task { await self?.triggerIncident(source: detected.source, note: detected.note, occurredAt: detected.occurredAt) }
         }
+        // SafetyKit marks an event handled only when this returns true, so a failed trigger (storage not
+        // ready in a cold background launch) can still be protected when the system redelivers it.
         safetyKit.onIncident = { [weak self] detected in
-            Task { await self?.triggerIncident(source: detected.source, note: detected.note, occurredAt: detected.occurredAt) }
+            guard let self else { return false }
+            return await self.triggerIncident(source: detected.source, note: detected.note, occurredAt: detected.occurredAt) != nil
         }
         startIngestPipeline()
         startIncidentEventConsumer()
@@ -171,20 +187,33 @@ final class RecordingCoordinator: ObservableObject {
         await bootstrapIfNeeded()
         guard !launchWorkDone else { return }
         launchWorkDone = true
-        for incident in incidents where incident.state == .readyToAssemble {
-            await assemble(incident.id)
-        }
-        // Retention also runs without a session so a relaunch trims stale footage.
+        // Retention also runs without a session so a relaunch trims stale footage before the
+        // free-space gate in start() looks at it.
         _ = try? await buffer.enforceRetention()
         await refreshStats()
         // Never record before the consent screen has been accepted (App Review 2.5.14).
-        if settings.autoStartRecording, settings.hasCompletedOnboarding, permissions.cameraGranted {
-            await start()
+        if settings.autoStartRecording {
+            if settings.hasCompletedOnboarding {
+                if permissions.cameraGranted { await start() }
+            } else {
+                autoStartDeferredByOnboarding = true
+            }
+        }
+        // Recovered exports can take many seconds each (passthrough remux of hundreds of MB); they
+        // must not hold the camera back, so they run after the session is up.
+        let pending = incidents.filter { $0.state == .readyToAssemble }.map(\.id)
+        if !pending.isEmpty {
+            Task { @MainActor [weak self] in
+                for id in pending { await self?.assemble(id) }
+            }
         }
     }
 
-    /// The consent screen's Continue button. Starts recording if auto-start was deferred by it.
+    /// The consent screen's Continue button. Starts recording only if bootstrap deferred an auto-start
+    /// for it; re-reading the welcome screen from Settings must never start a recording.
     func onboardingCompleted() async {
+        guard autoStartDeferredByOnboarding else { return }
+        autoStartDeferredByOnboarding = false
         if settings.autoStartRecording, permissions.cameraGranted, !state.isActive {
             await start()
         }
@@ -210,6 +239,8 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: Session control
 
     func start() async {
+        // A failed session tears itself down asynchronously; a restart must not race that teardown.
+        if let teardown = failTeardown { await teardown.value }
         guard !state.isActive, beginTransition() else { return }
         defer { endTransition() }
         setError(nil)
@@ -217,10 +248,7 @@ final class RecordingCoordinator: ObservableObject {
         userWantsRecording = true
         recoveryAttempts = 0
         writerFailures.removeAll()
-        audioInterrupted = false
-        stopRequested = false
-        pendingRotation = nil
-        pendingWriterFailure = nil
+        clearPendingIntents()
         transition(.startRequested)
 
         var camera = CameraCaptureService.cameraAuthorization()
@@ -252,7 +280,7 @@ final class RecordingCoordinator: ObservableObject {
             }
             try await beginRun()
             sessionStartedAt = Date()
-            currentFrameRate = settings.quality.frameRate
+            resyncFrameRate()
             applyIdleTimer()
             startWatchdog()
             if settings.motionDetectionEnabled { motionDetector.start() }
@@ -274,6 +302,10 @@ final class RecordingCoordinator: ObservableObject {
         }
         defer { endTransition() }
         stopRequested = false
+        // .stopping is not an active state, so the lifecycle-armed background task does not cover this
+        // flush; hold one here so a lock during the final finishWriting cannot suspend us mid-flush.
+        let flushTask = BackgroundTaskHolder(name: "dashcam.stop")
+        defer { flushTask.end() }
         transition(.stopRequested)
         motionDetector.stop()
         stopWatchdog()
@@ -286,9 +318,7 @@ final class RecordingCoordinator: ObservableObject {
         sessionStartedAt = nil
         runStartedAt = nil
         isDimmed = false
-        audioInterrupted = false
-        pendingRotation = nil
-        pendingWriterFailure = nil
+        clearPendingIntents()
         writerFailures.removeAll()
         setStatus(nil)
         applyIdleTimer()
@@ -315,9 +345,16 @@ final class RecordingCoordinator: ObservableObject {
             var incident = try await incidentManager.trigger(source: source, note: note, occurredAt: occurredAt)
             saveMotionTrace(for: incident)
             if incident.state == .collecting, !state.isActive {
-                // Nothing is recording, so no post-roll can ever arrive: close the incident now with
-                // the buffered footage instead of leaving it "collecting" until the next session.
-                try await incidentManager.recordingDidStop()
+                // Nothing is recording, so no post-roll can ever arrive: close the incident with the
+                // buffered footage instead of leaving it "collecting" until the next session. A stop or
+                // failure teardown may still be flushing the writer's last segment (the seconds right
+                // before the tap), so join it and drain ingest first; then re-check, because a new
+                // session may have started while we waited. Never reached from ingest itself.
+                await endRun()
+                await drainIngest()
+                if !state.isActive {
+                    try await incidentManager.recordingDidStop()
+                }
                 incident = await incidentManager.incident(incident.id) ?? incident
             }
             await refreshIncidents()
@@ -350,9 +387,15 @@ final class RecordingCoordinator: ObservableObject {
         }
     }
 
+    /// Deletion is only offered for finished incidents; the UI mirrors this rule.
+    static func canDelete(_ incident: Incident) -> Bool {
+        incident.state == .complete || incident.state == .failed
+    }
+
     func deleteIncident(_ id: UUID) async {
-        guard !assembling.contains(id) else {
-            setError("This clip is still being exported. Try again when it finishes.")
+        guard let incident = incidents.first(where: { $0.id == id }) else { return }
+        guard RecordingCoordinator.canDelete(incident), !assembling.contains(id) else {
+            setError("This clip is still being saved. Try again when it finishes.")
             return
         }
         do {
@@ -495,6 +538,16 @@ final class RecordingCoordinator: ObservableObject {
             if state.isActive { Task { await stop() } }
             return
         }
+        // A runtime error supersedes a pending writer failure or rotation: recovery replaces the run.
+        if let pending = pendingRecovery {
+            pendingRecovery = nil
+            if state.isActive, pending.reset || !capture.session.isRunning {
+                pendingWriterFailure = nil
+                pendingRotation = nil
+                Task { await recover(from: pending.error, mediaServicesReset: pending.reset) }
+                return
+            }
+        }
         if let pending = pendingWriterFailure {
             pendingWriterFailure = nil
             if case .recording(let run) = state, run == pending.run {
@@ -502,10 +555,17 @@ final class RecordingCoordinator: ObservableObject {
                 return
             }
         }
-        if let reason = pendingRotation {
+        if let pending = pendingRotation {
             pendingRotation = nil
             if isRecording {
-                Task { await rotateRun(reason: reason) }
+                Task { await rotateRun(reason: pending.reason, reconfigure: pending.reconfigure) }
+                return
+            }
+        }
+        if let reason = pendingInterruption {
+            pendingInterruption = nil
+            if case .recording = state, sessionInterrupted {
+                Task { await pauseForInterruption(reason) }
                 return
             }
         }
@@ -513,15 +573,55 @@ final class RecordingCoordinator: ObservableObject {
         if case .recording = state {
             if inBackground {
                 Task { await pauseForInterruption("app in background") }
-            } else if sessionInterrupted, !audioInterrupted, !videoFramesFlowing {
+            } else if !capture.session.isRunning, !sessionInterrupted {
+                // The session died (a runtime error dropped during a transition); do not wait 10 s for the stall check.
+                Task { await recover(from: CaptureError.configurationFailed("session stopped running"), mediaServicesReset: false) }
+            } else if sessionInterrupted, !videoFramesFlowing, runOldEnoughToJudgeFrames {
                 Task { await pauseForInterruption("camera interrupted") }
             }
             return
         }
-        if case .interrupted = state, userWantsRecording, !inBackground,
-           capture.session.isRunning, !sessionInterrupted {
+        if case .interrupted = state, userWantsRecording, !inBackground, interruptionAllowsResume {
             Task { await resumeAfterInterruption() }
         }
+    }
+
+    /// The session's interruption flag no longer blocks a resume, or only audio is interrupted and a
+    /// video-only resume has not been tried yet for this interruption.
+    private var interruptionAllowsResume: Bool {
+        !sessionInterrupted || (audioInterrupted && !resumedDuringAudioInterruption)
+    }
+
+    /// Right after a run is armed no frame has arrived yet; give the first one 2 s before missing frames
+    /// count as a camera interruption.
+    private var runOldEnoughToJudgeFrames: Bool {
+        runStartedAt.map { Date().timeIntervalSince($0) > 2 } ?? true
+    }
+
+    /// Audio is wanted and permitted but the capture graph has no microphone input (denied at start and
+    /// granted since, or the input could not be added): the next rotation must rebuild the graph.
+    private var needsMicrophoneRebuild: Bool {
+        settings.audioEnabled && !audioInterrupted && configuration?.audioEnabled != true
+            && CameraCaptureService.microphoneAuthorization() == .authorized
+    }
+
+    private func clearPendingIntents() {
+        stopRequested = false
+        pendingRotation = nil
+        pendingWriterFailure = nil
+        pendingRecovery = nil
+        pendingInterruption = nil
+        audioInterrupted = false
+        audioInterruptedAt = nil
+        resumedDuringAudioInterruption = false
+    }
+
+    /// Makes the coordinator's idea of the frame rate match the device after a (re)configuration and
+    /// re-applies thermal mitigation, so a throttle is neither lost by a rebuild nor kept after Stop/Start.
+    private func resyncFrameRate() {
+        currentFrameRate = configuration?.frameRate ?? settings.quality.frameRate
+        thermalState = ProcessInfo.processInfo.thermalState
+        applyThermalMitigation(force: true)
     }
 
     /// The session's interruption flag, or the developer simulation of one.
@@ -564,6 +664,7 @@ final class RecordingCoordinator: ObservableObject {
         runAudioRequested = wantsAudio
         runHasAudio = audio != nil
         runAngle = angle
+        runSegmentInterval = settings.segmentInterval
         router.audioMuted = audio == nil
         router.resetStatistics()
         capture.onDataQueue { [router, logger] in
@@ -583,10 +684,10 @@ final class RecordingCoordinator: ObservableObject {
     /// callers share one teardown, so nobody returns while a writer is still flushing, and a wedged
     /// `finishWriting` cannot freeze every later transition (15 s cap, logged as a fault).
     private func endRun() async {
-        if let pending = runTeardown {
-            await pending.value
-            return
-        }
+        // Join any teardown in flight, then still run our own: a writer armed after that teardown began
+        // (a restart racing a failure teardown) must be finished too. With nothing armed this is a
+        // no-op swap that resumes at once.
+        while let pending = runTeardown { await pending.value }
         let task = Task { @MainActor [capture, router, logger] in
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 let once = ResumeOnce(continuation)
@@ -615,16 +716,17 @@ final class RecordingCoordinator: ObservableObject {
     private func rotateRun(reason: String, reconfigure: Bool = false) async {
         guard isRecording else { return }
         guard beginTransition() else {
-            pendingRotation = reason
+            pendingRotation = (reason, reconfigure || (pendingRotation?.reconfigure ?? false))
             return
         }
         defer { endTransition() }
         logger.notice(.recorder, "Rotating run: \(reason)")
         await endRun()
         do {
-            if reconfigure {
+            if reconfigure || needsMicrophoneRebuild {
                 configuration = try await capture.configureAndStart(quality: settings.quality, audioEnabled: settings.audioEnabled, stabilization: settings.stabilizationEnabled)
                 previewDevice = capture.videoDevice
+                resyncFrameRate()
             }
             try await beginRun()
         } catch {
@@ -659,6 +761,8 @@ final class RecordingCoordinator: ObservableObject {
             if reason == .audioDeviceInUseByAnotherClient {
                 guard !audioInterrupted else { return }
                 audioInterrupted = true
+                audioInterruptedAt = Date()
+                resumedDuringAudioInterruption = false
                 setStatus("Audio paused by a call or alarm; video continues")
                 // A writer whose audio input has gone silent is on undocumented ground; continue in a
                 // video-only run and bring audio back in a new run when the interruption ends.
@@ -668,12 +772,10 @@ final class RecordingCoordinator: ObservableObject {
             let description = reason.map(CameraCaptureService.describe) ?? "camera interrupted"
             Task { await pauseForInterruption(description) }
         case .interruptionEnded:
-            if audioInterrupted {
-                audioInterrupted = false
-                if isRecording {
-                    setStatus(nil)
-                    if settings.audioEnabled, !runAudioRequested { Task { await rotateRun(reason: "audio available again") } }
-                }
+            // With a call and a camera interruption overlapping, one "ended" does not mean the audio
+            // device is back; the session's flag says whether anything is still interrupted.
+            if audioInterrupted, !capture.session.isInterrupted {
+                clearAudioInterruption()
             }
             if case .interrupted = state, userWantsRecording {
                 // If a pause is still in flight, reconcile() resumes when it ends.
@@ -688,6 +790,17 @@ final class RecordingCoordinator: ObservableObject {
             scheduleRotationCheck(angle)
         case .didStartRunning, .didStopRunning:
             break
+        }
+    }
+
+    /// The audio device is back: clear the flag and, if this run was built without audio, rotate to one with it.
+    private func clearAudioInterruption() {
+        audioInterrupted = false
+        audioInterruptedAt = nil
+        resumedDuringAudioInterruption = false
+        if isRecording {
+            setStatus(nil)
+            if settings.audioEnabled, !runAudioRequested { Task { await rotateRun(reason: "audio available again") } }
         }
     }
 
@@ -708,7 +821,10 @@ final class RecordingCoordinator: ObservableObject {
     private func pauseForInterruption(_ reason: String) async {
         guard state.isActive else { return }
         if case .interrupted = state { return }
-        guard beginTransition() else { return } // reconcile() re-checks the session when the transition ends
+        guard beginTransition() else {
+            pendingInterruption = reason // reconcile() acts on it when the transition ends
+            return
+        }
         defer { endTransition() }
         transition(.interruptionBegan(reason))
         setStatus("Paused: \(reason)")
@@ -726,10 +842,12 @@ final class RecordingCoordinator: ObservableObject {
     private func performResume() async {
         guard case .interrupted = state, userWantsRecording else { return }
         transition(.interruptionEnded)
+        if sessionInterrupted, audioInterrupted { resumedDuringAudioInterruption = true }
         do {
-            if !capture.session.isRunning {
+            if !capture.session.isRunning || needsMicrophoneRebuild {
                 configuration = try await capture.configureAndStart(quality: settings.quality, audioEnabled: settings.audioEnabled, stabilization: settings.stabilizationEnabled)
                 previewDevice = capture.videoDevice
+                resyncFrameRate()
             }
             try await beginRun()
             setStatus(nil)
@@ -744,8 +862,16 @@ final class RecordingCoordinator: ObservableObject {
     /// session, and resume after a short pause. Holds the transition slot throughout so nothing can
     /// arm a writer against a session that is about to be torn down.
     private func recover(from error: Error, mediaServicesReset: Bool) async {
-        guard state.isActive, beginTransition() else { return }
+        guard state.isActive else { return }
+        guard beginTransition() else {
+            // Recorded, not dropped: reconcile() runs it when the current transition ends. A reset is
+            // never downgraded by a later plain error.
+            pendingRecovery = (error, mediaServicesReset || (pendingRecovery?.reset ?? false))
+            logger.notice(.recorder, "Runtime error during a transition; recovering when it ends")
+            return
+        }
         defer { endTransition() }
+        pendingRecovery = nil
         recoveryAttempts += 1
         logger.error(.recorder, "Recovering from runtime error (attempt \(recoveryAttempts)): \(error.localizedDescription)")
         if case .interrupted = state {} else {
@@ -843,7 +969,9 @@ final class RecordingCoordinator: ObservableObject {
 
     // MARK: Thermal
 
-    private func applyThermalMitigation() {
+    /// `force` re-applies the target even when the bookkeeping already matches: after a rebuild the
+    /// device is back at the format's rate, and after Stop/Start it keeps whatever was last set.
+    private func applyThermalMitigation(force: Bool = false) {
         guard state.isActive else { return }
         var target = settings.quality.frameRate
         switch pressureLevel {
@@ -855,10 +983,13 @@ final class RecordingCoordinator: ObservableObject {
         }
         if thermalState == .critical { target = min(target, 15) }
         if thermalState == .serious { target = min(target, 24) }
-        if target != currentFrameRate {
+        let changed = target != currentFrameRate
+        if changed || force {
             currentFrameRate = target
             capture.setFrameRate(target)
-            setStatus(target < settings.quality.frameRate ? "Reducing frame rate to \(target) fps to cool down" : nil)
+            if changed || target < settings.quality.frameRate {
+                setStatus(target < settings.quality.frameRate ? "Reducing frame rate to \(target) fps to cool down" : nil)
+            }
         }
     }
 
@@ -880,23 +1011,37 @@ final class RecordingCoordinator: ObservableObject {
         videoFrames = router.videoFrames
         droppedFrames = router.droppedFrames
         guard !isTransitioning else { return }
+        let inBackground = UIApplication.shared.applicationState == .background
+        // The audio flag has no "ended" guarantee either: clear it once the session is no longer
+        // interrupted for 5 s, and bring audio back.
+        if audioInterrupted, !sessionInterrupted, !inBackground,
+           let since = audioInterruptedAt, Date().timeIntervalSince(since) > 5 {
+            logger.notice(.recorder, "Audio interruption over but no notification arrived; restoring audio")
+            clearAudioInterruption()
+        }
         // Interruption-ended delivery is not guaranteed by Apple; the session's isInterrupted flag is
         // the truth source. Reconcile our state with it in both directions.
-        if case .interrupted = state, userWantsRecording, capture.session.isRunning, !sessionInterrupted,
-           UIApplication.shared.applicationState != .background,
+        if case .interrupted = state, userWantsRecording, interruptionAllowsResume, !inBackground,
            let since = interruptedAt, Date().timeIntervalSince(since) > 5 {
             logger.notice(.recorder, "Session no longer interrupted but no notification arrived; resuming")
             Task { await resumeAfterInterruption() }
             return
         }
-        // An audio-only interruption (call, alarm) also sets isInterrupted; video is meant to continue.
-        // The flag may lag the notification by a main-actor hop, so also require frames to have stopped.
-        if case .recording = state, sessionInterrupted, !audioInterrupted, !videoFramesFlowing {
+        // A camera interruption stops frames at once, whether or not a call is also interrupting
+        // audio; pause instead of spending recovery attempts on a session that cannot deliver.
+        if case .recording = state, sessionInterrupted, !videoFramesFlowing, runOldEnoughToJudgeFrames {
             logger.warning(.recorder, "Session reports interrupted while recording; pausing run")
             Task { await pauseForInterruption("camera interrupted") }
             return
         }
         guard case .recording = state, let started = runStartedAt else { return }
+        if !capture.session.isRunning, !sessionInterrupted, !inBackground {
+            logger.fault(.recorder, "Session stopped running while recording; recovering")
+            Task { await recover(from: CaptureError.configurationFailed("session stopped running"), mediaServicesReset: false) }
+            return
+        }
+        // While interrupted, missing frames are the interruption, not a stall; do not spend attempts.
+        guard !sessionInterrupted else { return }
         let stalled: Bool
         if let gap = router.secondsSinceLastVideoFrame {
             stalled = gap > 8
@@ -908,10 +1053,11 @@ final class RecordingCoordinator: ObservableObject {
             Task { await recover(from: CaptureError.configurationFailed("video frames stopped arriving"), mediaServicesReset: false) }
             return
         }
-        // Frames arrive but nothing reaches disk: a writer that failed silently or never started.
+        // Frames arrive but nothing reaches disk: a writer that failed silently or never started. The
+        // threshold follows the interval the running writer was built with, not the live setting.
         let lastOutput = max(lastSegmentAt ?? .distantPast, started)
         let silence = Date().timeIntervalSince(lastOutput)
-        if silence > max(3 * settings.segmentInterval, 15), let run = state.runID {
+        if silence > max(3 * runSegmentInterval, 15), let run = state.runID {
             logger.fault(.recorder, "Frames arriving but no segment written for \(Int(silence)) s; rotating writer")
             Task { await handleWriterFailure(CaptureError.configurationFailed("segments stopped"), run: run) }
         }
@@ -1052,15 +1198,18 @@ final class RecordingCoordinator: ObservableObject {
         if state.isActive {
             if settings.motionDetectionEnabled { motionDetector.start() } else { motionDetector.stop() }
         }
-        if isRecording, (settings.audioEnabled && !audioInterrupted) != runAudioRequested {
-            // Audio was switched on or off mid-session: a new run with the right tracks, rebuilding the
-            // capture graph if the microphone is not in it yet.
-            if settings.audioEnabled, CameraCaptureService.microphoneAuthorization() == .notDetermined {
-                _ = await CameraCaptureService.requestMicrophoneAccess()
-                refreshPermissions()
-            }
-            let needsMicrophone = settings.audioEnabled && configuration?.audioEnabled != true
-            await rotateRun(reason: settings.audioEnabled ? "audio turned on" : "audio turned off", reconfigure: needsMicrophone)
+        if isRecording, settings.audioEnabled, !audioInterrupted, CameraCaptureService.microphoneAuthorization() == .notDetermined {
+            _ = await CameraCaptureService.requestMicrophoneAccess()
+            refreshPermissions()
+        }
+        let wantsAudio = settings.audioEnabled && !audioInterrupted
+        if isRecording, wantsAudio != runAudioRequested || (wantsAudio && !runHasAudio && needsMicrophoneRebuild) {
+            // Audio was switched on or off mid-session (or the microphone became available): a new run
+            // with the right tracks, rebuilding the capture graph if the microphone is not in it yet.
+            await rotateRun(reason: wantsAudio ? "audio turned on" : "audio turned off", reconfigure: needsMicrophoneRebuild)
+        } else if isRecording, settings.segmentInterval != runSegmentInterval {
+            // A writer's segment interval cannot change after it starts; a new run picks the setting up.
+            await rotateRun(reason: "segment length changed")
         }
         applyIdleTimer()
     }
@@ -1105,9 +1254,21 @@ final class RecordingCoordinator: ObservableObject {
         sessionStartedAt = nil
         isDimmed = false
         audioInterrupted = false
+        audioInterruptedAt = nil
         applyIdleTimer()
-        Task { @MainActor [weak self] in
+        // The teardown holds a background task (.failed is not an active state, so the lifecycle one
+        // does not cover it) and takes the transition slot, so a Start tapped meanwhile waits for it
+        // (start() awaits failTeardown) instead of arming a writer the teardown then stops.
+        let holder = BackgroundTaskHolder(name: "dashcam.fail-teardown")
+        failTeardown = Task { @MainActor [weak self] in
+            defer { holder.end() }
             guard let self else { return }
+            await self.waitForTransition(upTo: 20)
+            self.isTransitioning = true
+            defer {
+                self.isTransitioning = false
+                self.failTeardown = nil
+            }
             await self.endRun()
             await self.drainIngest()
             await self.capture.stop()
@@ -1115,6 +1276,25 @@ final class RecordingCoordinator: ObservableObject {
             await self.refreshIncidents()
             await self.refreshStats()
         }
+    }
+}
+
+/// A UIKit background task that ends itself on expiry and is idempotent to end, for flushes that
+/// happen while the recorder is not in an active state (stop and failure teardowns).
+@MainActor
+private final class BackgroundTaskHolder {
+    private var identifier: UIBackgroundTaskIdentifier = .invalid
+
+    init(name: String) {
+        identifier = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+            Task { @MainActor in self?.end() }
+        }
+    }
+
+    func end() {
+        guard identifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(identifier)
+        identifier = .invalid
     }
 }
 

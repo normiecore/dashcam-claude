@@ -23,6 +23,12 @@ public actor IncidentManager {
     private let clock: WallClock
     private let logger: DashcamLogger
     private var incidents: [UUID: Incident] = [:]
+    /// Incidents registered by `trigger` that are still waiting for their buffer snapshot. Actors are
+    /// reentrant, so other calls run while `trigger` awaits the store; these incidents accept attached
+    /// segments but are not closed or announced until the snapshot has been applied.
+    private var snapshotting: Set<UUID> = []
+    /// Incidents for which `recordingDidStop` arrived while they were snapshotting; closed by `trigger`.
+    private var stopRequestedWhileSnapshotting: Set<UUID> = []
     public nonisolated let events: AsyncStream<IncidentEvent>
     private let continuation: AsyncStream<IncidentEvent>.Continuation
 
@@ -132,46 +138,68 @@ public actor IncidentManager {
         )
         try fs.createDirectory(at: partsDirectory(for: incident.id))
 
-        // Snapshot the buffer, then attach synchronously so retention cannot slip in between.
-        let available = await store.segments()
-        let overlapping = available.filter { $0.overlaps(start: incident.windowStart, end: incident.windowEnd) }
-        for segment in overlapping.chronological() {
-            attach(segment, to: &incident, from: available)
-        }
-        // A fully retroactive window (delayed crash event) has nothing more to wait for.
-        if incident.windowEnd <= now || (overlapping.last.map { $0.endTime >= incident.windowEnd } ?? false) {
-            incident.state = incident.parts.isEmpty ? .failed : .readyToAssemble
-            if incident.parts.isEmpty { incident.failureReason = "No footage on disk covered the reported event time." }
-        }
+        // Register before the snapshot hop. The store is another actor, so this actor is free while we
+        // wait: a second trigger must merge into this incident rather than duplicate it, and a segment
+        // finalized meanwhile must attach to it rather than fall through unprotected.
         incidents[incident.id] = incident
+        snapshotting.insert(incident.id)
         try persist(incident)
-        continuation.yield(incident.state == .collecting ? .triggered(incident) : (incident.state == .failed ? .failed(incident) : .readyToAssemble(incident)))
-        logger.notice(.incident, "Incident \(incident.id) opened as \(incident.state.rawValue) with \(incident.mediaParts.count) pre-roll segments (\(Int(incident.footageDuration))s)")
-        return incident
+        let available = await store.segments()
+        snapshotting.remove(incident.id)
+        let closedByStop = stopRequestedWhileSnapshotting.remove(incident.id) != nil
+
+        // Re-read: a merge, an attached segment or a delete may have happened during the hop.
+        guard var current = incidents[incident.id] else {
+            logger.notice(.incident, "Incident \(incident.id) was deleted while its snapshot was taken")
+            return incident
+        }
+        let overlapping = available.filter { $0.overlaps(start: current.windowStart, end: current.windowEnd) }
+        for segment in overlapping.chronological() {
+            attach(segment, to: &current, from: available)
+        }
+        // A fully retroactive window (delayed crash event) has nothing more to wait for; neither does an
+        // incident whose recording already stopped, or whose post-roll is already covered.
+        let covered = current.coveredEnd.map { $0 >= current.windowEnd } ?? false
+        if current.windowEnd <= now || covered || closedByStop {
+            current.state = current.parts.isEmpty ? .failed : .readyToAssemble
+            if current.parts.isEmpty {
+                current.failureReason = closedByStop ? "Recording stopped before any footage was captured." : "No footage on disk covered the reported event time."
+            }
+        }
+        incidents[current.id] = current
+        try persist(current)
+        continuation.yield(current.state == .collecting ? .triggered(current) : (current.state == .failed ? .failed(current) : .readyToAssemble(current)))
+        logger.notice(.incident, "Incident \(current.id) opened as \(current.state.rawValue) with \(current.mediaParts.count) pre-roll segments (\(Int(current.footageDuration))s)")
+        return current
     }
 
     /// Called by the buffer manager after each finished segment is indexed.
+    ///
+    /// The only suspension point is the store hop, taken first; everything after it reads and writes
+    /// `incidents` synchronously, so a merged trigger or a stop that ran during the hop is never
+    /// overwritten by a stale copy.
     public func segmentDidFinalize(_ segment: Segment) async throws {
-        guard segment.kind == .media else { return }
-        let collecting = incidents.values.filter { $0.state == .collecting }
-        guard !collecting.isEmpty else { return }
-        var snapshot: [Segment]?
-        for var incident in collecting {
+        guard segment.kind == .media, incidents.values.contains(where: { $0.state == .collecting }) else { return }
+        let snapshot = await store.segments()
+        for id in incidents.values.filter({ $0.state == .collecting }).map(\.id) {
+            guard var incident = incidents[id], incident.state == .collecting else { continue }
             var changed = false
             if segment.overlaps(start: incident.windowStart, end: incident.windowEnd), !incident.contains(segment.id) {
-                if snapshot == nil { snapshot = await store.segments() }
-                attach(segment, to: &incident, from: snapshot ?? [])
+                attach(segment, to: &incident, from: snapshot)
                 changed = true
             }
-            if segment.endTime >= incident.windowEnd {
+            // An incident still taking its snapshot is closed by `trigger`, which also announces it.
+            if segment.endTime >= incident.windowEnd, !snapshotting.contains(id) {
                 incident.state = .readyToAssemble
                 changed = true
                 logger.notice(.incident, "Incident \(incident.id) collected \(Int(incident.footageDuration))s of footage; ready to assemble")
             }
             if changed {
-                incidents[incident.id] = incident
+                incidents[id] = incident
                 try persist(incident)
-                continuation.yield(incident.state == .readyToAssemble ? .readyToAssemble(incident) : .updated(incident))
+                if !snapshotting.contains(id) {
+                    continuation.yield(incident.state == .readyToAssemble ? .readyToAssemble(incident) : .updated(incident))
+                }
             }
         }
     }
@@ -179,7 +207,8 @@ public actor IncidentManager {
     /// Recording stopped (user action, interruption that will not resume, app going away): close out
     /// collecting incidents with whatever they have.
     public func recordingDidStop() throws {
-        for var incident in incidents.values where incident.state == .collecting {
+        for id in snapshotting { stopRequestedWhileSnapshotting.insert(id) }
+        for var incident in incidents.values where incident.state == .collecting && !snapshotting.contains(incident.id) {
             incident.state = incident.parts.isEmpty ? .failed : .readyToAssemble
             if incident.parts.isEmpty { incident.failureReason = "Recording stopped before any footage was captured." }
             incidents[incident.id] = incident
@@ -242,6 +271,19 @@ public actor IncidentManager {
 
     public func incidents(in states: Set<IncidentState>) -> [Incident] {
         allIncidents().filter { states.contains($0.state) }
+    }
+
+    /// Buffer segments whose bytes are shared with an incident's hard-linked part. Deleting the buffer
+    /// copy of one of these frees nothing while the incident keeps its link, which it does until its
+    /// parts are released after assembly, so retention must not count them as reclaimed space.
+    public func sharedStorageSegmentIDs() -> Set<Segment.ID> {
+        var ids = Set<Segment.ID>()
+        for incident in incidents.values where incident.state != .complete {
+            for part in incident.parts where part.linkedRelativePath != nil {
+                ids.insert(part.segment.id)
+            }
+        }
+        return ids
     }
 
     /// Buffer segments that must not be deleted because an unfinished incident still depends on the buffer copy.

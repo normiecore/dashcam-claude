@@ -53,6 +53,7 @@ public actor RollingBufferManager {
     public func enforceRetention() async throws -> RetentionPlan {
         let segments = await store.segments()
         let protected = await incidents.protectedSegmentIDs()
+        let shared = await incidents.sharedStorageSegmentIDs()
         let available: Int64? = try? await store.availableCapacity()
         let plan = RollingBufferPlanner.plan(
             segments: segments,
@@ -60,7 +61,8 @@ public actor RollingBufferManager {
             activeRun: activeRun,
             now: clock.now(),
             policy: policy,
-            availableBytes: available
+            availableBytes: available,
+            sharedStorage: shared
         )
         for segment in plan.delete {
             do {
@@ -78,7 +80,7 @@ public actor RollingBufferManager {
         lastPlan = plan
         if let available {
             lastStorageStatus = StorageStatus.evaluate(
-                availableBytes: available + plan.deletedBytes,
+                availableBytes: available + plan.reclaimedBytes,
                 bufferBytes: plan.retainedBytes,
                 incidentBytes: 0,
                 policy: policy

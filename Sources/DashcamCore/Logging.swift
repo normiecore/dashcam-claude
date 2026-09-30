@@ -145,17 +145,18 @@ public final class FileLogSink: LogSink, @unchecked Sendable {
             if currentSize + data.count > maxBytes {
                 try rotate()
             }
-            handle?.seekToEndOfFile()
-            handle?.write(data)
+            _ = try handle?.seekToEnd()
+            try handle?.write(contentsOf: data)
             currentSize += data.count
         } catch {
-            // Logging must never take the app down; drop the line.
+            // Logging must never take the app down; drop the line. (The throwing FileHandle API is used
+            // because the legacy one raises an uncatchable exception when the disk is full.)
         }
     }
 
     public func flush() {
         lock.lock(); defer { lock.unlock() }
-        handle?.synchronizeFile()
+        try? handle?.synchronize()
     }
 
     private func openIfNeeded() throws {
@@ -171,7 +172,7 @@ public final class FileLogSink: LogSink, @unchecked Sendable {
     }
 
     private func rotate() throws {
-        handle?.closeFile()
+        try? handle?.close()
         handle = nil
         let fm = FileManager.default
         if fm.fileExists(atPath: rotatedURL.path) {

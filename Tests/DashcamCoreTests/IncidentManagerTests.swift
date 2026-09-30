@@ -112,6 +112,49 @@ struct IncidentManagerTests {
         #expect(all.count == 1)
     }
 
+    @Test("Two triggers that reach the manager together merge into one incident")
+    func concurrentTriggersMerge() async throws {
+        let env = try BufferTestEnvironment(incidentPolicy: IncidentPolicy(preRoll: 10, postRoll: 10))
+        try await env.load()
+        let run = RunID.make(at: env.clock.now())
+        try await env.buffer.beginRun(run)
+        try await env.writeInitialization(run: run)
+        _ = try await fill(env, run: run, from: 1, count: 3)
+        // Both calls suspend on the store snapshot inside the actor; the second must see the first's
+        // registration and merge, not open a duplicate incident with the same footage.
+        async let a = env.incidents.trigger(source: .manual)
+        async let b = env.incidents.trigger(source: .motionHeuristic, note: "impact")
+        let (first, second) = try await (a, b)
+        #expect(first.id == second.id)
+        let all = await env.incidents.allIncidents()
+        #expect(all.count == 1)
+        #expect(all[0].triggers.count == 2)
+        #expect(all[0].mediaParts.map(\.segment.id.sequence) == [1, 2, 3])
+        #expect(all[0].state == .collecting)
+    }
+
+    @Test("Recording stop during a trigger's snapshot closes the incident once, with its footage")
+    func stopDuringSnapshot() async throws {
+        let env = try BufferTestEnvironment(incidentPolicy: IncidentPolicy(preRoll: 10, postRoll: 10))
+        try await env.load()
+        let run = RunID.make(at: env.clock.now())
+        try await env.buffer.beginRun(run)
+        try await env.writeInitialization(run: run)
+        _ = try await fill(env, run: run, from: 1, count: 3)
+        async let triggered = env.incidents.trigger(source: .manual)
+        try await env.buffer.endRun()
+        let incident = try await triggered
+        let stored = await env.incidents.incident(incident.id)
+        #expect(stored?.state == .readyToAssemble || stored?.state == .collecting)
+        if stored?.state == .collecting {
+            // The stop ran before the registration; a later stop closes it as usual.
+            try await env.incidents.recordingDidStop()
+        }
+        let final = await env.incidents.incident(incident.id)
+        #expect(final?.state == .readyToAssemble)
+        #expect(final?.mediaParts.count == 3)
+    }
+
     @Test("With merging disabled, overlapping triggers create separate incidents sharing footage")
     func separateIncidents() async throws {
         let env = try BufferTestEnvironment(incidentPolicy: IncidentPolicy(preRoll: 10, postRoll: 10, mergeOverlappingTriggers: false))

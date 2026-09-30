@@ -40,11 +40,16 @@ struct DashcamView: View {
 
     // MARK: Layout
 
+    // Layout priorities: the information area is offered everything the controls do not need, so it
+    // scrolls only when it truly cannot fit; the center message gets what is left; the Spacers, at the
+    // default priority, only share out the remainder.
     private var portraitLayout: some View {
         VStack(spacing: 12) {
             scrollableInformation
+                .layoutPriority(2)
             Spacer(minLength: 0)
             centerMessage
+                .layoutPriority(1)
             Spacer(minLength: 0)
             controls
         }
@@ -57,8 +62,10 @@ struct DashcamView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 10) {
                 scrollableInformation
+                    .layoutPriority(2)
                 Spacer(minLength: 0)
                 centerMessage
+                    .layoutPriority(1)
                 Spacer(minLength: 0)
             }
             VStack {

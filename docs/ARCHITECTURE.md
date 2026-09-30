@@ -115,7 +115,11 @@ Nothing goes in tmp/ or Caches/. Files use the default protection class (complet
 | Writer failure (append rejected, writer failed asynchronously, segment file could not be written) | Finish the run and start a new one; more than three in two minutes fails the session. `finish` checks `AVAssetWriter.status` first so a failed writer is never finished (that raises an exception). |
 | Phone rotated into its mount after Start | The writer's transform is fixed per run, so after the orientation has been stable for 2 s the run is rotated with the new angle. |
 | Audio switched on or off in Settings while recording | The run is rotated with the right tracks, rebuilding the capture graph if the microphone was not in it. |
-| Storage critical while recording | Recording stops from a separate task; stopping inline from the ingest loop would deadlock the drain barrier. |
+| Storage critical while recording | Recording stops from a separate task; stopping inline from the ingest loop would deadlock the drain barrier. Retention counts hard-linked incident footage as zero bytes freed, so the critical signal stays honest while an incident is collecting. |
+| Runtime error or camera interruption during a transition | Recorded as pending intent and run by the reconciliation when the transition ends; a session found stopped while recording is recovered at once rather than after the 10 s stall check. |
+| App killed between a segment's media write and its indexing | The writer stores the index sidecar right behind the media file, so the next launch indexes the segment instead of deleting it as an orphan. |
+| Disk full during an export | The throwing FileHandle API surfaces the error; the incident is marked failed with its parts kept for a retry, instead of the app crashing and re-crashing at the next launch. |
+| Stop or failure while footage is still flushing | Both teardowns hold a background task; the failure teardown owns the transition slot so a restart waits for it; Save Incident during the flush joins it before closing the incident. |
 | Save Incident while not recording | The incident is closed at once with the buffered footage and exported; it cannot wait for a post-roll that will never come. |
 | System pressure or thermal state serious / critical | 24 fps / 15 fps. At pressure shutdown AVFoundation interrupts the session, handled as an interruption. |
 | Storage low / critical | Warning / refuse to start or stop recording. Protected footage is never deleted. |

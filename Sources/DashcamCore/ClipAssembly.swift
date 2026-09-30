@@ -123,13 +123,21 @@ public struct FMP4ClipAssembler: ClipAssembler {
         guard fm.createFile(atPath: temporary.path, contents: nil) else {
             throw DashcamCoreError.fileSystem("Could not create \(temporary.lastPathComponent)")
         }
+        // The throwing FileHandle API: the legacy write(_:)/synchronizeFile() raise an Objective-C
+        // exception on a full disk, which Swift cannot catch, and a disk-full export is exactly when
+        // this code runs. A thrown error reaches the incident manager, which marks the incident failed.
         let handle = try FileHandle(forWritingTo: temporary)
         var closed = false
-        defer { if !closed { handle.closeFile() } }
-        try body { data in handle.write(data) }
-        handle.synchronizeFile()
-        handle.closeFile()
-        closed = true
+        defer { if !closed { try? handle.close() } }
+        do {
+            try body { data in try handle.write(contentsOf: data) }
+            try handle.synchronize()
+            try handle.close()
+            closed = true
+        } catch {
+            try? fm.removeItem(at: temporary)
+            throw error
+        }
         if fm.fileExists(atPath: output.path) { try fm.removeItem(at: output) }
         try fm.moveItem(at: temporary, to: output)
     }

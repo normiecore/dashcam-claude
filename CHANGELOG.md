@@ -76,6 +76,27 @@ physical-device validation pass is complete.
 - With synthetic audio and video fed together, every segment carries both tracks, a mid-run clip
   rebases one delta per track, and the audio and video tracks start and end within 150 ms of each
   other before and after the remux.
+- Third review (Opus agents, four lenses, 28 findings, each confirmed by a code-path skeptic and a
+  platform-facts skeptic), fixes applied: runtime errors and camera interruptions that arrive during
+  a transition are recorded and acted on afterwards; a deferred rotation keeps its rebuild flag; a
+  stale audio-interruption flag is cleared by the watchdog and the resume paths allow one video-only
+  resume while only audio is interrupted; stop and failure teardowns hold a background task and the
+  failure teardown takes the transition slot so a restart waits for it; Save Incident during a stop
+  joins the writer flush before closing the incident; the frame rate is re-synced with the device
+  after every configuration so a thermal throttle is neither lost by a rebuild nor kept after
+  Stop/Start; the watchdog threshold follows the running writer's segment interval and a changed
+  interval rotates the run; recovery exports no longer delay auto-start; the welcome screen's
+  Continue starts recording only when bootstrap deferred it; SafetyKit marks an event handled only
+  after the incident is recorded; the microphone is retried when it was requested but missing from
+  the capture graph; the preview re-applies its rotation after every graph rebuild; opening a clip no
+  longer interrupts other apps' audio and players survive tab switches; delete is offered only for
+  finished incidents everywhere; layout priorities keep the HUD from scrolling while space is free.
+  In DashcamCore: `IncidentManager.trigger` registers the incident before its store snapshot so
+  concurrent triggers merge and concurrent segments attach; `segmentDidFinalize` never writes back
+  a stale copy across its await; retention no longer credits hard-linked incident footage as freed
+  space (`sharedStorage`, `reclaimedBytes`); clip and log writes use the throwing `FileHandle` API
+  so a full disk fails the export instead of crashing the app; the writer stores each segment's
+  index sidecar with the media so a kill between the two never orphans a complete segment.
 
 ### Outstanding
 - The capture path has not run on a physical iPhone: camera, microphone, HEVC hardware encoding,
@@ -89,3 +110,7 @@ physical-device validation pass is complete.
   Condition still exists there is unverified (docs/TESTING.md step 8).
 - Legal review: California Vehicle Code 26708 defines a "video event recorder" with a 30-second
   storage limit; whether a phone app with a 5-minute loop is in that class is for counsel.
+- Whether video keeps flowing during a phone call (`audioDeviceInUseByAnotherClient`) is
+  undocumented; Apple's AVCam treats it as a whole-session interruption. The code handles both:
+  frames flowing means a video-only run, frames stopped means a pause that resumes after the call.
+  Confirm on a device (checklist step 5).
