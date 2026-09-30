@@ -73,6 +73,9 @@ physical-device validation pass is complete.
   tests pass: the segmented writer produces an initialization segment plus media segments, a
   mid-run clip loads with the right duration after timestamp rebasing, and the passthrough remux
   succeeds on synthetic H.264 frames.
+- With synthetic audio and video fed together, every segment carries both tracks, a mid-run clip
+  rebases one delta per track, and the audio and video tracks start and end within 150 ms of each
+  other before and after the remux.
 
 ### Outstanding
 - The capture path has not run on a physical iPhone: camera, microphone, HEVC hardware encoding,
