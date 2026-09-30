@@ -102,6 +102,108 @@ final class SegmentWriterTests: XCTestCase {
         XCTAssertEqual(exportedDuration.seconds, partialDuration.seconds, accuracy: 0.5)
     }
 
+    /// Audio and video together: the writer muxes both tracks into each segment, the rebase plan
+    /// carries one delta per track, and the remuxed clip keeps both tracks the same length. This is
+    /// the off-device check for the "A/V alignment after remux" item in the platform review.
+    func testAudioAndVideoSegmentsRebaseAndRemuxTogether() async throws {
+        let run = RunID(rawValue: "run-av")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(run.rawValue), withIntermediateDirectories: true)
+        let width = 320, height = 240, frameRate = 30, seconds = 8, sampleRate = 44_100
+        let videoSettings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: 600_000,
+                AVVideoMaxKeyFrameIntervalDurationKey: 2,
+                AVVideoExpectedSourceFrameRateKey: frameRate,
+                AVVideoAllowFrameReorderingKey: false,
+            ],
+        ]
+        let audioSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderBitRateKey: 64_000,
+        ]
+        let configuration = SegmentWriter.Configuration(runID: run, bufferRoot: root, segmentInterval: 2, videoSettings: videoSettings, audioSettings: audioSettings)
+        let writer = try SegmentWriter(configuration: configuration, logger: .disabled)
+        let collector = SegmentCollector()
+        writer.onSegment = { collector.append($0) }
+        writer.onFailure = { XCTFail("writer failed: \($0)") }
+
+        let video = try SyntheticFrameSource(width: width, height: height)
+        let audio = try SyntheticToneSource(sampleRate: sampleRate)
+        let feedQueue = DispatchQueue(label: "test.feed.av")
+        let frameCount = frameRate * seconds
+        let samplesPerFrame = sampleRate / frameRate
+        feedQueue.sync {
+            for index in 0..<frameCount {
+                let pts = CMTime(value: CMTimeValue(index), timescale: CMTimeScale(frameRate))
+                let frame = try! video.makeSampleBuffer(presentationTime: pts, duration: CMTime(value: 1, timescale: CMTimeScale(frameRate)), frameIndex: index)
+                writer.appendVideo(frame)
+                // One audio buffer per frame, on the same timeline, starting at the same instant.
+                let audioPTS = CMTime(value: CMTimeValue(index * samplesPerFrame), timescale: CMTimeScale(sampleRate))
+                let tone = try! audio.makeSampleBuffer(presentationTime: audioPTS, frameCount: samplesPerFrame)
+                writer.appendAudio(tone)
+                usleep(4_000)
+            }
+        }
+        let finished = expectation(description: "finishWriting")
+        feedQueue.async { writer.finish { finished.fulfill() } }
+        await fulfillment(of: [finished], timeout: 30)
+
+        let segments = collector.segments
+        let inits = segments.filter { $0.kind == .initialization }
+        let media = segments.filter { $0.kind == .media }
+        XCTAssertEqual(inits.count, 1)
+        XCTAssertGreaterThanOrEqual(media.count, 3)
+        let initURL = root.appendingPathComponent(inits[0].relativePath)
+        let mediaURLs = media.map { root.appendingPathComponent($0.relativePath) }
+
+        // Two tracks in the initialization segment, so the rebase plan must carry two deltas.
+        let timescales = try FMP4.trackTimescales(initializationSegment: Data(contentsOf: initURL))
+        XCTAssertEqual(timescales.count, 2, "video and audio tracks")
+
+        // Mid-run range with both tracks: both must start near zero and end together.
+        let range = Array(mediaURLs[1...2])
+        let partial = root.appendingPathComponent("partial-av.mp4")
+        let plan = try FMP4ClipAssembler.writeClip(initialization: initURL, mediaSegments: range, to: partial)
+        let unwrappedPlan = try XCTUnwrap(plan, "two-track segments must still be parseable fMP4")
+        XCTAssertEqual(unwrappedPlan.deltas.count, 2, "one delta per track")
+        XCTAssertGreaterThan(unwrappedPlan.originSeconds, 1.0)
+        let partialAsset = AVURLAsset(url: partial)
+        let partialDuration = try await partialAsset.load(.duration)
+        XCTAssertEqual(partialDuration.seconds, media[1].duration + media[2].duration, accuracy: 0.5)
+        let audioTracks = try await partialAsset.loadTracks(withMediaType: .audio)
+        let videoTracks = try await partialAsset.loadTracks(withMediaType: .video)
+        XCTAssertEqual(audioTracks.count, 1)
+        XCTAssertEqual(videoTracks.count, 1)
+        let audioRange = try await XCTUnwrap(audioTracks.first).load(.timeRange)
+        let videoRange = try await XCTUnwrap(videoTracks.first).load(.timeRange)
+        // AAC carries encoder priming (about 2 048 samples, 46 ms at 44.1 kHz) which the CMAF edit list
+        // trims, so allow one segment's worth of slack for the start and a tenth of a second at the end.
+        XCTAssertLessThan(abs(audioRange.start.seconds - videoRange.start.seconds), 0.15, "tracks start together")
+        XCTAssertLessThan(abs(audioRange.end.seconds - videoRange.end.seconds), 0.15, "tracks end together")
+
+        // Remux keeps both tracks and the duration.
+        let exporter = ClipExportService(logger: .disabled)
+        let assemblyPlan = ClipAssemblyPlan(groups: [.init(run: run, initialization: initURL, media: range, startTime: Date(), duration: partialDuration.seconds)])
+        let outputs = try await exporter.assemble(assemblyPlan, into: root.appendingPathComponent("export-av"), baseName: "clip")
+        XCTAssertEqual(outputs, ["clip.mp4"])
+        let exported = AVURLAsset(url: root.appendingPathComponent("export-av/clip.mp4"))
+        let exportedDuration = try await exported.load(.duration)
+        XCTAssertEqual(exportedDuration.seconds, partialDuration.seconds, accuracy: 0.5)
+        let exportedAudio = try await exported.loadTracks(withMediaType: .audio)
+        let exportedVideo = try await exported.loadTracks(withMediaType: .video)
+        XCTAssertEqual(exportedAudio.count, 1)
+        XCTAssertEqual(exportedVideo.count, 1)
+        let exportedAudioRange = try await XCTUnwrap(exportedAudio.first).load(.timeRange)
+        let exportedVideoRange = try await XCTUnwrap(exportedVideo.first).load(.timeRange)
+        XCTAssertLessThan(abs(exportedAudioRange.start.seconds - exportedVideoRange.start.seconds), 0.15)
+        XCTAssertLessThan(abs(exportedAudioRange.end.seconds - exportedVideoRange.end.seconds), 0.15)
+    }
+
     func testFinishBeforeFirstFrameProducesNothing() throws {
         let run = RunID(rawValue: "run-empty")
         let configuration = SegmentWriter.Configuration(runID: run, bufferRoot: root, segmentInterval: 2, videoSettings: [
@@ -186,6 +288,61 @@ struct SyntheticFrameSource {
         var sampleBuffer: CMSampleBuffer?
         let status = CMSampleBufferCreateReadyWithImageBuffer(allocator: nil, imageBuffer: pixelBuffer, formatDescription: formatDescription, sampleTiming: &timing, sampleBufferOut: &sampleBuffer)
         guard status == noErr, let sampleBuffer else { throw NSError(domain: "SyntheticFrameSource", code: Int(status)) }
+        return sampleBuffer
+    }
+}
+
+/// Produces 16-bit mono PCM sample buffers with a 440 Hz tone, on the same timeline as the frames.
+final class SyntheticToneSource {
+    private let sampleRate: Int
+    private let formatDescription: CMAudioFormatDescription
+    private var phase = 0.0
+
+    init(sampleRate: Int) throws {
+        self.sampleRate = sampleRate
+        var description = AudioStreamBasicDescription(
+            mSampleRate: Float64(sampleRate),
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 2,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 2,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 16,
+            mReserved: 0
+        )
+        var format: CMAudioFormatDescription?
+        let status = CMAudioFormatDescriptionCreate(allocator: nil, asbd: &description, layoutSize: 0, layout: nil, magicCookieSize: 0, magicCookie: nil, extensions: nil, formatDescriptionOut: &format)
+        guard status == noErr, let format else { throw NSError(domain: "SyntheticToneSource", code: Int(status)) }
+        formatDescription = format
+    }
+
+    func makeSampleBuffer(presentationTime: CMTime, frameCount: Int) throws -> CMSampleBuffer {
+        var samples = [Int16](repeating: 0, count: frameCount)
+        let step = 2.0 * Double.pi * 440.0 / Double(sampleRate)
+        for index in 0..<frameCount {
+            samples[index] = Int16(sin(phase) * 12_000)
+            phase += step
+        }
+        let byteCount = frameCount * 2
+        var blockBuffer: CMBlockBuffer?
+        var status = CMBlockBufferCreateWithMemoryBlock(allocator: nil, memoryBlock: nil, blockLength: byteCount, blockAllocator: nil, customBlockSource: nil, offsetToData: 0, dataLength: byteCount, flags: 0, blockBufferOut: &blockBuffer)
+        guard status == noErr, let blockBuffer else { throw NSError(domain: "SyntheticToneSource", code: Int(status)) }
+        status = samples.withUnsafeBytes { raw in
+            CMBlockBufferReplaceDataBytes(with: raw.baseAddress!, blockBuffer: blockBuffer, offsetIntoDestination: 0, dataLength: byteCount)
+        }
+        guard status == noErr else { throw NSError(domain: "SyntheticToneSource", code: Int(status)) }
+        var sampleBuffer: CMSampleBuffer?
+        status = CMAudioSampleBufferCreateReadyWithPacketDescriptions(
+            allocator: nil,
+            dataBuffer: blockBuffer,
+            formatDescription: formatDescription,
+            sampleCount: frameCount,
+            presentationTimeStamp: presentationTime,
+            packetDescriptions: nil,
+            sampleBufferOut: &sampleBuffer
+        )
+        guard status == noErr, let sampleBuffer else { throw NSError(domain: "SyntheticToneSource", code: Int(status)) }
         return sampleBuffer
     }
 }
