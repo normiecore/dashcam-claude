@@ -41,6 +41,7 @@ jobs:
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
 
   app-simulator-xcode27:
@@ -64,6 +65,7 @@ jobs:
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
       - name: Build Release for device
         # Debug builds carry the simulated camera and the UI-test launch options. This checks that the

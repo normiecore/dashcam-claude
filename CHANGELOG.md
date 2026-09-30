@@ -105,6 +105,10 @@ physical-device validation pass is complete.
 ### Verified in CI
 - Both Simulator lanes (Xcode 26.6 / iOS 26.5 and Xcode 27 / iOS 27.0) pass the full suite,
   including the 14 coordinator tests against the fake camera.
+- Xcode 27 / iOS 27.0: the 20 unit tests (including the 78 s buffer rollover test) and the 4 UI
+  tests pass, and the Release configuration builds for a generic iOS device. CI skips the
+  simulator diagnostics collection that xcodebuild attempted after the UI tests, which spent its
+  full 600 s timeout on a passing run.
 - The app target builds with Xcode 26.6 (iOS 26.5 SDK, iOS 18 deployment target) and the Simulator
   tests pass: the segmented writer produces an initialization segment plus media segments, a
   mid-run clip loads with the right duration after timestamp rebasing, and the passthrough remux
