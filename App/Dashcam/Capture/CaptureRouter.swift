@@ -49,7 +49,7 @@ final class CaptureRouter: CaptureSampleSink {
         _droppedFrames = 0
     }
 
-    func captureService(_ service: CameraCaptureService, didOutputVideo sampleBuffer: CMSampleBuffer) {
+    func captureDidOutputVideo(_ sampleBuffer: CMSampleBuffer) {
         lock.lock()
         _lastVideoFrameHostSeconds = CMClockGetTime(CMClockGetHostTimeClock()).seconds
         _videoFrames += 1
@@ -58,14 +58,14 @@ final class CaptureRouter: CaptureSampleSink {
         target?.appendVideo(sampleBuffer)
     }
 
-    func captureService(_ service: CameraCaptureService, didOutputAudio sampleBuffer: CMSampleBuffer) {
+    func captureDidOutputAudio(_ sampleBuffer: CMSampleBuffer) {
         lock.lock()
         let target = _audioMuted ? nil : writer
         lock.unlock()
         target?.appendAudio(sampleBuffer)
     }
 
-    func captureService(_ service: CameraCaptureService, didDropVideoFrameWithReason reason: String) {
+    func captureDidDropVideoFrame(reason: String) {
         lock.lock()
         _droppedFrames += 1
         lock.unlock()

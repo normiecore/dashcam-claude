@@ -5,9 +5,9 @@ import DashcamCore
 
 /// Receives raw sample buffers on the capture data queue. Implementations must return quickly.
 protocol CaptureSampleSink: AnyObject {
-    func captureService(_ service: CameraCaptureService, didOutputVideo sampleBuffer: CMSampleBuffer)
-    func captureService(_ service: CameraCaptureService, didOutputAudio sampleBuffer: CMSampleBuffer)
-    func captureService(_ service: CameraCaptureService, didDropVideoFrameWithReason reason: String)
+    func captureDidOutputVideo(_ sampleBuffer: CMSampleBuffer)
+    func captureDidOutputAudio(_ sampleBuffer: CMSampleBuffer)
+    func captureDidDropVideoFrame(reason: String)
 }
 
 enum CaptureEvent {
@@ -32,6 +32,37 @@ struct CaptureConfigurationSummary: Equatable {
     var usingPreset: Bool
 }
 
+/// What the recording coordinator needs from the camera. `CameraCaptureService` is the real
+/// implementation; the test target supplies a fake that feeds synthetic frames on host-clock
+/// timestamps, so the coordinator's lifecycle and transition logic can be tested without a camera.
+protocol CaptureControlling: AnyObject {
+    var sink: CaptureSampleSink? { get set }
+    /// Delivered on the main queue.
+    var eventHandler: ((CaptureEvent) -> Void)? { get set }
+    var isRunning: Bool { get }
+    var isInterrupted: Bool { get }
+    /// The clock capture sample timestamps are on.
+    var synchronizationClock: CMClock? { get }
+    /// Read only after an awaited configure/reset has returned.
+    var videoDevice: AVCaptureDevice? { get }
+    var horizonLevelCaptureAngle: CGFloat { get }
+
+    func currentCameraAuthorization() -> AVAuthorizationStatus
+    func currentMicrophoneAuthorization() -> AVAuthorizationStatus
+    func requestCameraPermission() async -> Bool
+    func requestMicrophonePermission() async -> Bool
+
+    func configureAndStart(quality: VideoQualityTier, audioEnabled: Bool, stabilization: Bool) async throws -> CaptureConfigurationSummary
+    func stop() async
+    func reset() async
+    func setFrameRate(_ fps: Int)
+    /// Runs `block` serialized with sample delivery.
+    func onDataQueue(_ block: @escaping () -> Void)
+    func recommendedVideoSettings(quality: VideoQualityTier, segmentInterval: TimeInterval) -> (settings: [String: Any], codec: AVVideoCodecType)?
+    func recommendedAudioSettings() -> [String: Any]?
+    func attachPreview(_ layer: AVCaptureVideoPreviewLayer, onConnectionChanged: @escaping () -> Void)
+}
+
 enum CaptureError: LocalizedError {
     case cameraUnavailable
     case cameraAccessDenied
@@ -48,7 +79,7 @@ enum CaptureError: LocalizedError {
 
 /// Owns the AVCaptureSession. All session mutation happens on `sessionQueue`; sample buffers are
 /// delivered on `dataQueue`. This class knows nothing about files or incidents.
-final class CameraCaptureService: NSObject {
+final class CameraCaptureService: NSObject, CaptureControlling {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "com.matrixengineered.dashcam.capture.session")
     private let dataQueue = DispatchQueue(label: "com.matrixengineered.dashcam.capture.data", qos: .userInitiated)
@@ -123,6 +154,17 @@ final class CameraCaptureService: NSObject {
     static func requestMicrophoneAccess() async -> Bool {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
+
+    func currentCameraAuthorization() -> AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .video) }
+    func currentMicrophoneAuthorization() -> AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .audio) }
+    func requestCameraPermission() async -> Bool { await AVCaptureDevice.requestAccess(for: .video) }
+    func requestMicrophonePermission() async -> Bool { await AVCaptureDevice.requestAccess(for: .audio) }
+
+    // MARK: Session state
+
+    var isRunning: Bool { session.isRunning }
+    var isInterrupted: Bool { session.isInterrupted }
+    var synchronizationClock: CMClock? { session.synchronizationClock }
 
     // MARK: Lifecycle
 
@@ -504,9 +546,9 @@ extension CameraCaptureService: AVCaptureVideoDataOutputSampleBufferDelegate, AV
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let sink else { return }
         if output === videoOutput {
-            sink.captureService(self, didOutputVideo: sampleBuffer)
+            sink.captureDidOutputVideo(sampleBuffer)
         } else if output === audioOutput {
-            sink.captureService(self, didOutputAudio: sampleBuffer)
+            sink.captureDidOutputAudio(sampleBuffer)
         }
     }
 
@@ -516,6 +558,6 @@ extension CameraCaptureService: AVCaptureVideoDataOutputSampleBufferDelegate, AV
         if let attachment = CMGetAttachment(sampleBuffer, key: kCMSampleBufferAttachmentKey_DroppedFrameReason, attachmentModeOut: nil) {
             reason = String(describing: attachment)
         }
-        sink?.captureService(self, didDropVideoFrameWithReason: reason)
+        sink?.captureDidDropVideoFrame(reason: reason)
     }
 }

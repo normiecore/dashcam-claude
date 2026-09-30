@@ -9,7 +9,7 @@ import UIKit
 /// SwiftUI re-runs `updateUIView` when it becomes available; the capture service's own device
 /// property is owned by the session queue and must not be read from here.
 struct CameraPreviewView: UIViewRepresentable {
-    let capture: CameraCaptureService
+    let capture: any CaptureControlling
     let device: AVCaptureDevice?
 
     func makeUIView(context: Context) -> PreviewUIView {

@@ -11,6 +11,17 @@ struct PermissionSnapshot: Equatable {
     var cameraDenied: Bool { camera == .denied || camera == .restricted }
 }
 
+/// Where the coordinator keeps footage. The app uses its Application Support directories; tests pass
+/// temporary ones so they never touch the app's own buffer.
+struct StorageLocations {
+    var buffer: URL
+    var incidents: URL
+    /// True for the app's real directories, which get backup exclusions at launch.
+    var isAppDefault: Bool
+
+    static let app = StorageLocations(buffer: AppPaths.buffer, incidents: AppPaths.incidents, isAppDefault: true)
+}
+
 /// A message for the Record screen. Each instance has its own identity so the UI can dismiss one
 /// banner without hiding the next identical message (two incidents in a row produce the same text).
 struct Banner: Identifiable, Equatable {
@@ -75,7 +86,7 @@ final class RecordingCoordinator: ObservableObject {
     let settings: AppSettings
     let logger: DashcamLogger
     let memoryLog: InMemoryLogSink
-    let capture: CameraCaptureService
+    let capture: any CaptureControlling
     let store: SegmentStore
     let incidentManager: IncidentManager
     let buffer: RollingBufferManager
@@ -128,24 +139,30 @@ final class RecordingCoordinator: ObservableObject {
     private var clipsSavedToPhotos = Set<String>()
     private var statusClearTask: Task<Void, Never>?
 
-    init(settings: AppSettings, logger: DashcamLogger, memoryLog: InMemoryLogSink) {
+    private let storageLocations: StorageLocations
+
+    /// - Parameters:
+    ///   - capture: The camera. Defaults to the real `CameraCaptureService`; tests inject a fake.
+    ///   - storage: Where footage lives. Defaults to the app's directories.
+    init(settings: AppSettings, logger: DashcamLogger, memoryLog: InMemoryLogSink, capture: (any CaptureControlling)? = nil, storage: StorageLocations = .app) {
         self.settings = settings
         self.logger = logger
         self.memoryLog = memoryLog
+        self.storageLocations = storage
         let fileSystem = DefaultFileSystem()
-        store = SegmentStore(rootURL: AppPaths.buffer, fileSystem: fileSystem, logger: logger)
-        incidentManager = IncidentManager(rootURL: AppPaths.incidents, store: store, fileSystem: fileSystem, policy: settings.incidentPolicy, logger: logger)
+        store = SegmentStore(rootURL: storage.buffer, fileSystem: fileSystem, logger: logger)
+        incidentManager = IncidentManager(rootURL: storage.incidents, store: store, fileSystem: fileSystem, policy: settings.incidentPolicy, logger: logger)
         buffer = RollingBufferManager(store: store, incidents: incidentManager, policy: settings.retentionPolicy, logger: logger)
-        capture = CameraCaptureService(logger: logger)
+        self.capture = capture ?? CameraCaptureService(logger: logger)
         exporter = ClipExportService(logger: logger)
         motionDetector = MotionIncidentDetector(configuration: settings.motionSensitivity.configuration, logger: logger)
         safetyKit = SafetyKitIncidentDetector(logger: logger)
 
-        capture.sink = router
+        self.capture.sink = router
         // Delivered on the main queue by the capture service, but the closure type is nonisolated;
         // hop explicitly so the call is main-actor isolated. Ordering between these Tasks is not
         // guaranteed, which is why `handle` records intent instead of assuming order.
-        capture.eventHandler = { [weak self] event in
+        self.capture.eventHandler = { [weak self] event in
             Task { @MainActor in self?.handle(event) }
         }
         motionDetector.onIncident = { [weak self] detected in
@@ -221,7 +238,13 @@ final class RecordingCoordinator: ObservableObject {
 
     private func loadStorage() async {
         do {
-            try AppPaths.prepare()
+            if storageLocations.isAppDefault {
+                try AppPaths.prepare()
+            } else {
+                for url in [storageLocations.buffer, storageLocations.incidents] {
+                    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                }
+            }
             let report = try await store.load()
             logger.notice(.app, "Launch: buffer index \(report.indexed) segments, \(report.orphanFilesRemoved) orphans removed")
             let recovered = try await incidentManager.load()
@@ -251,13 +274,13 @@ final class RecordingCoordinator: ObservableObject {
         clearPendingIntents()
         transition(.startRequested)
 
-        var camera = CameraCaptureService.cameraAuthorization()
+        var camera = capture.currentCameraAuthorization()
         if camera == .notDetermined {
-            _ = await CameraCaptureService.requestCameraAccess()
-            camera = CameraCaptureService.cameraAuthorization()
+            _ = await capture.requestCameraPermission()
+            camera = capture.currentCameraAuthorization()
         }
-        if settings.audioEnabled, CameraCaptureService.microphoneAuthorization() == .notDetermined {
-            _ = await CameraCaptureService.requestMicrophoneAccess()
+        if settings.audioEnabled, capture.currentMicrophoneAuthorization() == .notDetermined {
+            _ = await capture.requestMicrophonePermission()
         }
         refreshPermissions()
         guard camera == .authorized else {
@@ -435,16 +458,16 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: Permissions
 
     func refreshPermissions() {
-        permissions = PermissionSnapshot(camera: CameraCaptureService.cameraAuthorization(), microphone: CameraCaptureService.microphoneAuthorization())
+        permissions = PermissionSnapshot(camera: capture.currentCameraAuthorization(), microphone: capture.currentMicrophoneAuthorization())
     }
 
     /// Prompts for the camera and, only if audio recording is on, the microphone.
     func requestPermissions() async {
-        if CameraCaptureService.cameraAuthorization() == .notDetermined {
-            _ = await CameraCaptureService.requestCameraAccess()
+        if capture.currentCameraAuthorization() == .notDetermined {
+            _ = await capture.requestCameraPermission()
         }
-        if settings.audioEnabled, CameraCaptureService.microphoneAuthorization() == .notDetermined {
-            _ = await CameraCaptureService.requestMicrophoneAccess()
+        if settings.audioEnabled, capture.currentMicrophoneAuthorization() == .notDetermined {
+            _ = await capture.requestMicrophonePermission()
         }
         refreshPermissions()
     }
@@ -465,7 +488,7 @@ final class RecordingCoordinator: ObservableObject {
             simulatedInterruption = false
             // A real interruption may have begun meanwhile; the session says so, and then a fake
             // "ended" would force a resume the camera cannot honour.
-            if !capture.session.isInterrupted { handle(.interruptionEnded) }
+            if !capture.isInterrupted { handle(.interruptionEnded) }
         }
     }
 
@@ -541,7 +564,7 @@ final class RecordingCoordinator: ObservableObject {
         // A runtime error supersedes a pending writer failure or rotation: recovery replaces the run.
         if let pending = pendingRecovery {
             pendingRecovery = nil
-            if state.isActive, pending.reset || !capture.session.isRunning {
+            if state.isActive, pending.reset || !capture.isRunning {
                 pendingWriterFailure = nil
                 pendingRotation = nil
                 Task { await recover(from: pending.error, mediaServicesReset: pending.reset) }
@@ -573,7 +596,7 @@ final class RecordingCoordinator: ObservableObject {
         if case .recording = state {
             if inBackground {
                 Task { await pauseForInterruption("app in background") }
-            } else if !capture.session.isRunning, !sessionInterrupted {
+            } else if !capture.isRunning, !sessionInterrupted {
                 // The session died (a runtime error dropped during a transition); do not wait 10 s for the stall check.
                 Task { await recover(from: CaptureError.configurationFailed("session stopped running"), mediaServicesReset: false) }
             } else if sessionInterrupted, !videoFramesFlowing, runOldEnoughToJudgeFrames {
@@ -602,7 +625,7 @@ final class RecordingCoordinator: ObservableObject {
     /// granted since, or the input could not be added): the next rotation must rebuild the graph.
     private var needsMicrophoneRebuild: Bool {
         settings.audioEnabled && !audioInterrupted && configuration?.audioEnabled != true
-            && CameraCaptureService.microphoneAuthorization() == .authorized
+            && capture.currentMicrophoneAuthorization() == .authorized
     }
 
     private func clearPendingIntents() {
@@ -625,7 +648,7 @@ final class RecordingCoordinator: ObservableObject {
     }
 
     /// The session's interruption flag, or the developer simulation of one.
-    private var sessionInterrupted: Bool { capture.session.isInterrupted || simulatedInterruption }
+    private var sessionInterrupted: Bool { capture.isInterrupted || simulatedInterruption }
 
     /// True while video frames have arrived in the last 2 s. An audio-only interruption (call, alarm)
     /// sets `session.isInterrupted` but leaves video flowing; a camera interruption stops it at once.
@@ -647,13 +670,13 @@ final class RecordingCoordinator: ObservableObject {
         let angle = capture.horizonLevelCaptureAngle
         var writerConfiguration = SegmentWriter.Configuration(
             runID: run,
-            bufferRoot: AppPaths.buffer,
+            bufferRoot: store.rootURL,
             segmentInterval: settings.segmentInterval,
             videoSettings: video.settings,
             audioSettings: audio,
             transform: CGAffineTransform(rotationAngle: angle * .pi / 180)
         )
-        writerConfiguration.sourceClock = capture.session.synchronizationClock
+        writerConfiguration.sourceClock = capture.synchronizationClock
         let writer = try SegmentWriter(configuration: writerConfiguration, logger: logger)
         let continuation = ingestContinuation
         writer.onSegment = { segment in continuation?.yield(.segment(segment)) }
@@ -774,7 +797,7 @@ final class RecordingCoordinator: ObservableObject {
         case .interruptionEnded:
             // With a call and a camera interruption overlapping, one "ended" does not mean the audio
             // device is back; the session's flag says whether anything is still interrupted.
-            if audioInterrupted, !capture.session.isInterrupted {
+            if audioInterrupted, !capture.isInterrupted {
                 clearAudioInterruption()
             }
             if case .interrupted = state, userWantsRecording {
@@ -844,7 +867,7 @@ final class RecordingCoordinator: ObservableObject {
         transition(.interruptionEnded)
         if sessionInterrupted, audioInterrupted { resumedDuringAudioInterruption = true }
         do {
-            if !capture.session.isRunning || needsMicrophoneRebuild {
+            if !capture.isRunning || needsMicrophoneRebuild {
                 configuration = try await capture.configureAndStart(quality: settings.quality, audioEnabled: settings.audioEnabled, stabilization: settings.stabilizationEnabled)
                 previewDevice = capture.videoDevice
                 resyncFrameRate()
@@ -1035,7 +1058,7 @@ final class RecordingCoordinator: ObservableObject {
             return
         }
         guard case .recording = state, let started = runStartedAt else { return }
-        if !capture.session.isRunning, !sessionInterrupted, !inBackground {
+        if !capture.isRunning, !sessionInterrupted, !inBackground {
             logger.fault(.recorder, "Session stopped running while recording; recovering")
             Task { await recover(from: CaptureError.configurationFailed("session stopped running"), mediaServicesReset: false) }
             return
@@ -1181,7 +1204,7 @@ final class RecordingCoordinator: ObservableObject {
         bufferSegmentCount = await store.count
         let available = (try? await store.availableCapacity()) ?? 0
         let bufferBytes = await store.totalBytes
-        let incidentBytes = AppPaths.directorySize(AppPaths.incidents)
+        let incidentBytes = AppPaths.directorySize(storageLocations.incidents)
         storage = StorageStatus.evaluate(availableBytes: available, bufferBytes: bufferBytes, incidentBytes: incidentBytes, policy: effectiveRetentionPolicy)
     }
 
@@ -1198,8 +1221,8 @@ final class RecordingCoordinator: ObservableObject {
         if state.isActive {
             if settings.motionDetectionEnabled { motionDetector.start() } else { motionDetector.stop() }
         }
-        if isRecording, settings.audioEnabled, !audioInterrupted, CameraCaptureService.microphoneAuthorization() == .notDetermined {
-            _ = await CameraCaptureService.requestMicrophoneAccess()
+        if isRecording, settings.audioEnabled, !audioInterrupted, capture.currentMicrophoneAuthorization() == .notDetermined {
+            _ = await capture.requestMicrophonePermission()
             refreshPermissions()
         }
         let wantsAudio = settings.audioEnabled && !audioInterrupted

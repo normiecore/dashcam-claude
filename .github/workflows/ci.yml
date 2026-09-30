@@ -17,10 +17,12 @@ jobs:
         run: swift test --parallel 2>&1 | tail -40
 
   app-simulator:
-    # macOS minutes are the expensive lane; runs on pull requests and manual dispatch only.
+    # macOS minutes are the expensive lane (the repository is private, so they bill at a multiple);
+    # runs on pull requests and manual dispatch only.
     name: App (iOS Simulator, xcodebuild test)
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: macos-26
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -32,4 +34,26 @@ jobs:
           set -o pipefail
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -80
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -200
+
+  app-simulator-xcode27:
+    # Xcode 27 and the iOS 27 SDK, which is what the project is opened with. GitHub's xcode-27 label
+    # is a public preview (macOS 27, Xcode 27.0 default, iOS 27.0 simulators).
+    name: App (Xcode 27, iOS 27 Simulator)
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version && xcrun simctl list devices available | grep -i iphone | head -5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: cd App && xcodegen generate
+      - name: Build and test on Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -200
