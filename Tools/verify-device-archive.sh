@@ -26,7 +26,7 @@ assert info['CFBundleIcons']['CFBundlePrimaryIcon']['CFBundleIconName'] == 'AppI
 assert (app / 'Assets.car').is_file()
 with (app / 'PrivacyInfo.xcprivacy').open('rb') as f:
     plistlib.load(f)
-subprocess.run(['lipo', '-verify_arch', 'arm64', str(app / info['CFBundleExecutable'])], check=True)
+subprocess.run(['lipo', str(app / info['CFBundleExecutable']), '-verify_arch', 'arm64'], check=True)
 assert (archive / 'dSYMs/Dashcam.app.dSYM').is_dir()
 print('PASS: unsigned arm64 iPhone archive, app icon, privacy manifest and symbols')
 print('Not installable: Apple signing, export and physical testing remain required.')
