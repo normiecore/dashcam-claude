@@ -215,7 +215,14 @@ final class SimulatedCaptureService: CaptureControlling, @unchecked Sendable {
             target.captureDidOutputVideo(frame)
         }
         if state.audio {
-            // Contiguous audio timestamps from the moment audio (re)started, like a microphone.
+            // Contiguous audio timestamps from the moment audio (re)started, like a microphone. When the
+            // timeline falls behind the clock (coalesced timer fires, a suspended process, a breakpoint),
+            // a new stretch starts at the clock, as a microphone restarts after a gap, so audio never
+            // lags the video.
+            if let start = audioStart {
+                let expected = CMTimeAdd(start, CMTime(value: audioSamplesSent, timescale: CMTimeScale(SimulatedCaptureService.sampleRate)))
+                if abs(CMTimeSubtract(now, expected).seconds) > 0.1 { audioStart = nil }
+            }
             let start = audioStart ?? now
             if audioStart == nil {
                 audioStart = now

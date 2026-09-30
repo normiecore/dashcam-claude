@@ -143,24 +143,35 @@ final class RecordingCoordinatorTests: XCTestCase {
     // MARK: Rolling buffer
 
     @MainActor
-    func testTheBufferRollsOverWhileRecordingAndSavedFootageOutlivesIt() async throws {
-        // The harness keeps a 1 minute buffer of 2 s segments, so this test records for about 75 s.
+    func testTheBufferRollsOverUnderACollectingIncidentAndItsFootageSurvives() async throws {
+        // A 1 minute buffer of 2 s segments. The incident is saved about 50 s in with a 20 s post-roll,
+        // so its oldest footage ages out of the buffer while it is still collecting. About 85 s.
+        executionTimeAllowance = 240
         let target: TimeInterval = 60
         let segmentLength: TimeInterval = 2
-        let h = CoordinatorHarness(); h.cleanUp(after: self)
+        let h = CoordinatorHarness(postRollSeconds: 20); h.cleanUp(after: self)
         try await h.startRecording()
-        try await h.waitForMediaSegments(3)
+        try await h.waitForMediaSegments(24, timeout: 90)
         let initial = await h.mediaSegments()
         let first = try XCTUnwrap(initial.first)
         let firstBufferURL = h.coordinator.store.url(for: first)
         let triggered = await h.coordinator.triggerIncident(source: .manual, note: "before the rollover")
         let incident = try XCTUnwrap(triggered)
-        XCTAssertTrue(incident.mediaParts.contains { $0.segment.id == first.id }, "the incident protects the first segment")
-        try await h.waitUntil("incident exported", timeout: 45) { h.incident(incident.id)?.state == .complete }
+        let firstPart = try XCTUnwrap(incident.mediaParts.first { $0.segment.id == first.id }, "the pre-roll reaches back to the first segment")
+        XCTAssertNotNil(firstPart.linkedRelativePath, "the incident holds its own link to the footage")
 
-        try await h.waitUntil("the first segment ages out of the buffer", timeout: 120) {
+        try await h.waitUntil("the first segment ages out of the buffer", timeout: 40) {
             await !h.mediaSegments().contains { $0.id == first.id }
         }
+        let current = await h.coordinator.incidentManager.incident(incident.id)
+        let collecting = try XCTUnwrap(current)
+        XCTAssertEqual(collecting.state, .collecting, "the rollover happened while the incident was still collecting its post-roll")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstBufferURL.path), "the expired segment's buffer file is deleted")
+        let heldPart = try XCTUnwrap(collecting.mediaParts.first { $0.segment.id == first.id }, "the incident still lists the expired segment")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: h.coordinator.incidentManager.url(for: heldPart, of: incident.id).path),
+                      "the incident's link keeps the expired footage on disk")
+
+        try await h.waitUntil("incident exported", timeout: 60) { h.incident(incident.id)?.state == .complete }
         try await h.waitForMediaSegments(3, after: Date())
         let media = await h.mediaSegments()
         let buffered = media.mediaDuration
@@ -170,7 +181,6 @@ final class RecordingCoordinatorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(buffered, target - segmentLength - 0.5, "retention deletes only footage that has aged out")
         let oldest = try XCTUnwrap(media.first)
         XCTAssertGreaterThan(oldest.endTime, Date().addingTimeInterval(-(target + 2 * segmentLength + 1)), "nothing older than the buffer is kept")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: firstBufferURL.path), "the expired segment's buffer file is deleted")
         XCTAssertTrue(h.coordinator.isRecording, "retention runs while recording continues")
 
         await h.coordinator.stop()
@@ -184,15 +194,14 @@ final class RecordingCoordinatorTests: XCTestCase {
         XCTAssertEqual(onDisk.subtracting(expected).sorted(), [], "no buffer file outlives its index entry")
         XCTAssertEqual(expected.subtracting(onDisk).sorted(), [], "every indexed segment is on disk")
 
-        // The exported clip holds the incident's footage after the buffer copies have rolled out, and the
-        // incident's working links were released once the clip was written.
         let done = try XCTUnwrap(h.incident(incident.id))
         XCTAssertEqual(done.state, .complete)
-        XCTAssertFalse(indexed.contains { $0.id == first.id }, "the incident's oldest footage is no longer in the buffer")
+        let coveredStart = try XCTUnwrap(done.coveredStart)
+        XCTAssertEqual(coveredStart.timeIntervalSince(first.startTime), 0, accuracy: 0.1, "the clip starts with footage that had left the buffer")
         XCTAssertFalse(FileManager.default.fileExists(atPath: h.coordinator.incidentManager.partsDirectory(for: done.id).path), "the incident's links are released after export")
         let clip = try XCTUnwrap(h.coordinator.clipURLs(for: done).first)
         let duration = try await AVURLAsset(url: clip).load(.duration)
-        XCTAssertEqual(duration.seconds, done.footageDuration, accuracy: 0.6, "the clip still plays in full")
+        XCTAssertEqual(duration.seconds, done.footageDuration, accuracy: 0.6, "the clip holds all of the protected footage")
         await h.finish()
     }
 
@@ -378,12 +387,12 @@ final class CoordinatorHarness {
     let coordinator: RecordingCoordinator
     private let defaultsSuite: String
 
-    init(audio: Bool = false) {
+    init(audio: Bool = false, postRollSeconds: Int = 5) {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("coordinator-\(UUID().uuidString)", isDirectory: true)
         defaultsSuite = "dashcam-tests-\(UUID().uuidString)"
         settings = AppSettings(defaults: UserDefaults(suiteName: defaultsSuite) ?? .standard)
         settings.segmentSeconds = 2
-        settings.postRollSeconds = 5
+        settings.postRollSeconds = postRollSeconds
         settings.bufferMinutes = 1
         settings.audioEnabled = audio
         settings.hasCompletedOnboarding = true

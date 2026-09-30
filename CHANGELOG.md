@@ -56,9 +56,10 @@ physical-device validation pass is complete.
   clip detail and delete, dimmed mode (REC indicator, hold to save, tap to wake), Simulate Crash
   from the developer menu, and the camera-denied screen. Accessibility identifiers on the controls
   they use.
-- Coordinator test that records past the 1 minute buffer: expired segments leave the index and the
-  disk, the buffer holds about its target length, no buffer file outlives its index entry, and an
-  incident saved before the rollover still exports a clip with all of its footage.
+- Coordinator test that records past the 1 minute buffer with an incident still collecting: its
+  oldest footage leaves the buffer index and buffer directory while the incident's links keep it,
+  the exported clip starts with that footage, the buffer holds about its target length, and no
+  buffer file outlives its index entry.
 - CI builds the Release configuration for a generic iOS device after the Simulator tests.
 - Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
   write throws while it is on.
