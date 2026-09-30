@@ -26,6 +26,9 @@ physical-device validation pass is complete.
   seconds and checks the retention and incident invariants; `replay` runs a motion trace through
   the impact detector.
 - CI: Linux `swift test` lane and an on-demand macOS Simulator lane.
+- Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
+  write throws while it is on.
+- One-minute motion sample ring saved as `motion.csv` alongside each incident.
 
 ### Decisions
 - Segmented AVAssetWriter (fMP4/CMAF) instead of AVCaptureMovieFileOutput: iOS cannot switch
@@ -56,3 +59,7 @@ physical-device validation pass is complete.
 - Product decisions pending: pre-roll length, incident clips in iCloud backup, SafetyKit
   entitlement application, paid developer account, bundle identifier.
 - GPS metadata, overlays, configurable buffer beyond 1-10 min, cloud upload: later.
+- Xcode 27 replaced the Devices and Simulators window with Device Hub; whether the thermal Device
+  Condition still exists there is unverified (docs/TESTING.md step 8).
+- Legal review: California Vehicle Code 26708 defines a "video event recorder" with a 30-second
+  storage limit; whether a phone app with a 5-minute loop is in that class is for counsel.

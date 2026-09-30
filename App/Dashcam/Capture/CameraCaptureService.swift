@@ -162,6 +162,7 @@ final class CameraCaptureService: NSObject {
             let clamped = min(max(Double(fps), minSupported), maxSupported)
             do {
                 try device.lockForConfiguration()
+                if device.isAutoVideoFrameRateEnabled { device.isAutoVideoFrameRateEnabled = false }
                 let duration = CMTime(value: 1, timescale: CMTimeScale(clamped.rounded()))
                 device.activeVideoMinFrameDuration = duration
                 device.activeVideoMaxFrameDuration = duration
@@ -240,6 +241,9 @@ final class CameraCaptureService: NSObject {
             do {
                 try device.lockForConfiguration()
                 device.activeFormat = format
+                // iOS 18 automatic frame rate makes frame-duration writes throw; it defaults to off and
+                // resets on a format change, but pin it explicitly so the next two lines are safe.
+                if device.isAutoVideoFrameRateEnabled { device.isAutoVideoFrameRateEnabled = false }
                 let duration = CMTime(value: 1, timescale: CMTimeScale(quality.frameRate))
                 device.activeVideoMinFrameDuration = duration
                 device.activeVideoMaxFrameDuration = duration
