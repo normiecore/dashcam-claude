@@ -29,8 +29,9 @@ physical-device validation pass is complete.
 - Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
   write throws while it is on.
 - One-minute motion sample ring saved as `motion.csv` alongside each incident.
-- Second adversarial review of the iOS layer (four lenses, each finding independently verified),
-  fixes applied: storage-critical stop no longer deadlocks the ingest pipeline; concurrent run
+- Second adversarial review of the iOS layer (four lenses, 47 findings; 24 were independently
+  verified by a second agent before a usage limit stopped the rest, which were confirmed by reading
+  the code), fixes applied: storage-critical stop no longer deadlocks the ingest pipeline; concurrent run
   teardowns are shared so the background task is not released before the last segment is on disk;
   interruption-ended events that arrive mid-transition are honoured by a post-transition
   reconciliation; Stop tapped during a pause/resume is honoured; the watchdog no longer pauses video
