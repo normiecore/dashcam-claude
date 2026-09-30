@@ -27,6 +27,8 @@ jobs:
           xcrun simctl list devices available
       - name: Compile and test
         run: bash Tools/verify-mac.sh
+      - name: Device SDK and archive packaging
+        run: bash Tools/verify-device-archive.sh
       - name: Upload compiler and XCTest evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -13,7 +13,7 @@ SOURCE_FILES = [
     'App/SegmentWriter.swift', 'Core/RecordingStore.swift', 'Core/RetentionPolicy.c',
 ]
 TEST_FILES = ['Tests/RecordingStoreTests.swift', 'Tests/SegmentWriterTests.swift']
-RESOURCES = ['App/PrivacyInfo.xcprivacy']
+RESOURCES = ['App/PrivacyInfo.xcprivacy', 'App/Assets.xcassets']
 EXTRA = ['App/Info.plist', 'App/Dashcam-Bridging-Header.h', 'Core/RetentionPolicy.h']
 
 def oid(name):
@@ -33,7 +33,8 @@ objects = ''
 for path in files:
     ext = Path(path).suffix
     filetype = {'.swift': 'sourcecode.swift', '.c': 'sourcecode.c.c', '.h': 'sourcecode.c.h',
-                '.plist': 'text.plist.xml', '.xcprivacy': 'text.xml' }[ext]
+                '.plist': 'text.plist.xml', '.xcprivacy': 'text.xml',
+                '.xcassets': 'folder.assetcatalog' }[ext]
     objects += block('file/' + path, 'PBXFileReference',
                      f'lastKnownFileType = {filetype}; path = {Path(path).name}; sourceTree = "<group>"')
 for path in SOURCE_FILES + TEST_FILES + RESOURCES:
@@ -81,7 +82,7 @@ project_common = {
     'TARGETED_DEVICE_FAMILY': '1',
 }
 app_common = {
-    'ASSETCATALOG_COMPILER_APPICON_NAME': '""',
+    'ASSETCATALOG_COMPILER_APPICON_NAME': 'AppIcon',
     'CLANG_ENABLE_MODULES': 'YES', 'CODE_SIGN_STYLE': 'Automatic',
     'CURRENT_PROJECT_VERSION': '1', 'GENERATE_INFOPLIST_FILE': 'NO',
     'INFOPLIST_FILE': 'App/Info.plist',
