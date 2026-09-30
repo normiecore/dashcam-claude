@@ -11,15 +11,26 @@ struct PermissionSnapshot: Equatable {
     var cameraDenied: Bool { camera == .denied || camera == .restricted }
 }
 
-/// Where the coordinator keeps footage. The app uses its Application Support directories; tests pass
-/// temporary ones so they never touch the app's own buffer.
+/// Where the coordinator keeps footage and its log. The app uses its Application Support directories;
+/// tests and UI-test launches pass separate ones so they never touch the app's own buffer.
 struct StorageLocations {
     var buffer: URL
     var incidents: URL
+    var logFile: URL
     /// True for the app's real directories, which get backup exclusions at launch.
     var isAppDefault: Bool
 
-    static let app = StorageLocations(buffer: AppPaths.buffer, incidents: AppPaths.incidents, isAppDefault: true)
+    static let app = StorageLocations(buffer: AppPaths.buffer, incidents: AppPaths.incidents, logFile: AppPaths.logFile, isAppDefault: true)
+
+    /// A self-contained tree under `root`, laid out like the app's.
+    static func isolated(root: URL) -> StorageLocations {
+        StorageLocations(
+            buffer: root.appendingPathComponent("buffer", isDirectory: true),
+            incidents: root.appendingPathComponent("incidents", isDirectory: true),
+            logFile: root.appendingPathComponent("logs", isDirectory: true).appendingPathComponent("dashcam.log"),
+            isAppDefault: false
+        )
+    }
 }
 
 /// A message for the Record screen. Each instance has its own identity so the UI can dismiss one
@@ -520,7 +531,7 @@ final class RecordingCoordinator: ObservableObject {
     /// Copies the log file into a shareable temporary location, replacing earlier copies.
     func exportLogFile() -> URL? {
         (logger.sinksOfType(FileLogSink.self).first)?.flush()
-        let source = AppPaths.logFile
+        let source = storageLocations.logFile
         guard FileManager.default.fileExists(atPath: source.path) else { return nil }
         let temporary = FileManager.default.temporaryDirectory
         if let stale = try? FileManager.default.contentsOfDirectory(at: temporary, includingPropertiesForKeys: nil) {

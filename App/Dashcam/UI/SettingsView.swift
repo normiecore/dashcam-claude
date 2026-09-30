@@ -111,6 +111,7 @@ struct SettingsView: View {
                 NavigationLink("Developer tools") {
                     DeveloperView()
                 }
+                .accessibilityIdentifier("settings.developerTools")
             }
         } header: {
             Text("Developer")

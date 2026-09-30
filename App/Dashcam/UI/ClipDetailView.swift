@@ -74,6 +74,7 @@ struct ClipDetailView: View {
                     ShareLink(items: urls) {
                         Label("Share clip", systemImage: "square.and.arrow.up")
                     }
+                    .accessibilityIdentifier("clip.share")
                     Button {
                         saveToPhotos(incident)
                     } label: {
@@ -163,6 +164,7 @@ struct ClipDetailView: View {
                 }
                 // Same rule as the Clips list and the coordinator: only finished incidents can go.
                 .disabled(!RecordingCoordinator.canDelete(incident))
+                .accessibilityIdentifier("clip.delete")
             } footer: {
                 if !RecordingCoordinator.canDelete(incident) {
                     Text("The clip can be deleted once it has finished saving.")

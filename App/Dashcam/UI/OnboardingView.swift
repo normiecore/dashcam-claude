@@ -62,6 +62,7 @@ struct OnboardingView: View {
                 Text("Continue")
             }
             .buttonStyle(BigButtonStyle(color: .blue))
+            .accessibilityIdentifier("onboarding.continue")
             .frame(maxWidth: 600)
             .padding(.horizontal, 24)
             .padding(.vertical, 12)

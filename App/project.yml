@@ -79,6 +79,7 @@ targets:
     scheme:
       testTargets:
         - DashcamTests
+        - DashcamUITests
       gatherCoverageData: true
 
   DashcamTests:
@@ -91,3 +92,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam.tests
+
+  # Drives the app's screens with the simulated camera (Debug builds; see LaunchConfiguration.swift).
+  DashcamUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: DashcamUITests
+    dependencies:
+      - target: Dashcam
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam.uitests
+        TEST_TARGET_NAME: Dashcam

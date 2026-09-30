@@ -127,5 +127,6 @@ struct IncidentRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("clips.row")
     }
 }

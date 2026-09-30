@@ -42,11 +42,24 @@ physical-device validation pass is complete.
   coordinator tests; CI now caps each test's run time and streams the build output so a hang shows
   where it stopped.
 - `RecordingCoordinatorTests`: the real coordinator, writer, store, incident manager and export
-  driven by a fake camera (`FakeCaptureService`) through the new `CaptureControlling` seam, covering
+  driven by a fake camera (now `SimulatedCaptureService`) through the new `CaptureControlling` seam, covering
   stop flushing the final partial segment, Save Incident before, after and during a stop, two
   simultaneous taps, pause and resume, Stop during an interruption, calls that keep or stop video,
   orientation rotation, storage-critical stop and restart, runtime errors during a rotation,
   media-services reset, and failure followed by restart.
+- Simulated camera in Debug builds (`SimulatedCaptureService`, moved from the tests into the app):
+  the Debug app records synthetic video and audio in the Simulator, so the screens, incidents and
+  clips can be used there. Launch arguments `--ui-testing` (own settings and storage, wiped each
+  launch, short segments and post-roll), `--skip-onboarding`, `--simulated-camera` and
+  `--camera-denied`; Release builds ignore them.
+- `DashcamUITests` (XCUITest): first-run consent, start and stop, Save Incident, the clip library,
+  clip detail and delete, dimmed mode (REC indicator, hold to save, tap to wake), Simulate Crash
+  from the developer menu, and the camera-denied screen. Accessibility identifiers on the controls
+  they use.
+- Coordinator test that records past the 1 minute buffer: expired segments leave the index and the
+  disk, the buffer holds about its target length, no buffer file outlives its index entry, and an
+  incident saved before the rollover still exports a clip with all of its footage.
+- CI builds the Release configuration for a generic iOS device after the Simulator tests.
 - Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
   write throws while it is on.
 - One-minute motion sample ring saved as `motion.csv` alongside each incident.

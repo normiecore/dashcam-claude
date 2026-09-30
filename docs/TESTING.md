@@ -20,15 +20,25 @@ xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
   -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-The Simulator has no camera, microphone or motion sensors. Three test files cover what it can:
+The Simulator has no camera, microphone or motion sensors. Debug builds therefore carry `SimulatedCaptureService`, which produces 30 fps synthetic frames and a 44.1 kHz tone on host-clock timestamps like a capture session. Four test files cover what the Simulator can:
 
 - `SegmentWriterTests` drives the real segmented `AVAssetWriter` with synthetic video, and with synthetic video and audio together, and checks that whole-run and mid-run clips load with the right duration and aligned tracks before and after the passthrough remux.
-- `RecordingCoordinatorTests` drives the real `RecordingCoordinator` (with the real writer, store, incident manager and clip export) against `FakeCaptureService`, a fake camera that produces 30 fps synthetic frames and 44.1 kHz audio on host-clock timestamps and can simulate camera and audio interruptions, runtime errors, media-services resets, a camera that cannot restart and rotation. Each test asserts an invariant that must hold in any event order; the race tests repeat with several delays. Segments are 2 s and post-roll 5 s, so the suite runs in a few minutes.
+- `RecordingCoordinatorTests` drives the real `RecordingCoordinator` (with the real writer, store, incident manager and clip export) against the simulated camera, which can also simulate camera and audio interruptions, runtime errors, media-services resets, a camera that cannot restart and rotation. Each test asserts an invariant that must hold in any event order; the race tests repeat with several delays. Segments are 2 s, the buffer 1 minute and post-roll 5 s; one test records for about 75 s so the buffer rolls over while an incident saved early is exported.
+- `DashcamUITests` (XCUITest) taps through the app itself: first-run consent, start and stop, Save Incident, the clip library, clip detail and delete, dimmed mode (REC indicator, hold to save, tap to wake), Simulate Crash from the developer menu, and the camera-denied screen.
 - `PrivacyManifestTests` guards the manifest and usage strings.
 
-The app itself launches in the Simulator but the Record tab reports that no camera is available.
+Running the Debug app in the Simulator uses the simulated camera, so recording, incidents, clips and the developer menu all work there; the preview stays black with a note, since nothing is drawn. Launch arguments for Debug builds:
 
-CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHub's preview `xcode-27` label (Xcode 27.0, iOS 27.0 simulator), which is the toolchain the project is opened with; the whole Simulator suite takes about four minutes. A second lane on `macos-26` (Xcode 26.6, iOS 26.5 SDK) runs only when dispatched from the Actions tab, because macOS minutes bill at a multiple on this private repository. Each test has a 180 s execution allowance, so a hang fails in minutes and the streamed log shows where.
+| Argument | Effect |
+|---|---|
+| `--simulated-camera` | Synthetic camera and microphone. Always on in the Simulator unless the process hosts unit tests; on a device it replaces the real camera. |
+| `--ui-testing` | Own settings and storage (`Library/Application Support/DashcamUITesting`), wiped at every launch, with 2 s segments, a 1 minute buffer and a 5 s post-roll. The app's real footage and settings are not touched. |
+| `--skip-onboarding` | With `--ui-testing`, starts past the consent screen. |
+| `--camera-denied` | The simulated camera reports camera access as denied. |
+
+Set them in Xcode under Product > Scheme > Edit Scheme > Run > Arguments. Release builds ignore them and always use the real camera.
+
+CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHub's preview `xcode-27` label (Xcode 27.0, iOS 27.0 simulator), which is the toolchain the project is opened with, and then builds the Release configuration for a generic iOS device, which checks that the shipping code compiles without the Debug-only simulated camera. A second lane on `macos-26` (Xcode 26.6, iOS 26.5 SDK) runs only when dispatched from the Actions tab, because macOS minutes bill at a multiple on this private repository. Each test has a 180 s execution allowance, so a hang fails in minutes and the streamed log shows where.
 
 ## Physical iPhone checklist
 

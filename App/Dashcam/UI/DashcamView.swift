@@ -110,6 +110,18 @@ struct DashcamView: View {
                 // Hidden rather than removed while dimmed so the capture session graph never changes.
                 .opacity(coordinator.isDimmed ? 0 : 1)
                 .accessibilityHidden(true)
+            #if DEBUG
+            if coordinator.capture is SimulatedCaptureService {
+                Text("Simulated camera: synthetic frames are recorded, nothing is previewed.")
+                    .font(.footnote)
+                    .foregroundStyle(Color(white: 0.5))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            #endif
         }
     }
 
@@ -119,6 +131,8 @@ struct DashcamView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 12) {
                 stateIndicator
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("record.state")
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(bufferText)
@@ -359,6 +373,7 @@ struct DashcamView: View {
         .buttonStyle(BigButtonStyle(color: Color(red: 0.86, green: 0.12, blue: 0.1), minHeight: 76))
         .disabled(!canSave)
         .accessibilityHint("Keeps the buffered footage and the next \(settings.postRollSeconds) seconds.")
+        .accessibilityIdentifier("record.saveIncident")
     }
 
     private var isTransitioning: Bool {
@@ -380,6 +395,7 @@ struct DashcamView: View {
         }
         .buttonStyle(BigButtonStyle(color: color))
         .disabled(isTransitioning || (!active && coordinator.permissions.cameraDenied))
+        .accessibilityIdentifier("record.startStop")
     }
 
     private var dimButton: some View {
@@ -391,6 +407,7 @@ struct DashcamView: View {
         .buttonStyle(BigButtonStyle(color: Color(red: 0.2, green: 0.22, blue: 0.45)))
         .disabled(!coordinator.isRecording)
         .accessibilityHint("Blacks out the screen while recording continues. Tap to wake.")
+        .accessibilityIdentifier("record.dim")
     }
 }
 
@@ -436,6 +453,7 @@ struct IncidentProgressCard: View {
         .padding(14)
         .background(Color(red: 0.5, green: 0.22, blue: 0.0).opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("record.incidentCard")
     }
 }
 
@@ -470,11 +488,13 @@ struct PermissionsView: View {
                     Label("Open Settings", systemImage: "gearshape")
                 }
                 .buttonStyle(BigButtonStyle(color: .blue))
+                .accessibilityIdentifier("permissions.openSettings")
             case .notDetermined:
                 Button(action: onRequest) {
                     Label("Allow camera access", systemImage: "video.fill")
                 }
                 .buttonStyle(BigButtonStyle(color: .blue))
+                .accessibilityIdentifier("permissions.allow")
             }
         }
         .foregroundStyle(.white)
@@ -538,6 +558,7 @@ struct DimmedRecordingView: View {
         .accessibilityHint("Double-tap to wake the screen.")
         .accessibilityAction { wake() }
         .accessibilityAction(named: "Save incident") { saveIncident() }
+        .accessibilityIdentifier("dimmed.cover")
     }
 
     private var content: some View {

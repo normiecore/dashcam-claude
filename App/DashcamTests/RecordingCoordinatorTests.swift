@@ -140,6 +140,62 @@ final class RecordingCoordinatorTests: XCTestCase {
         await h.finish()
     }
 
+    // MARK: Rolling buffer
+
+    @MainActor
+    func testTheBufferRollsOverWhileRecordingAndSavedFootageOutlivesIt() async throws {
+        // The harness keeps a 1 minute buffer of 2 s segments, so this test records for about 75 s.
+        let target: TimeInterval = 60
+        let segmentLength: TimeInterval = 2
+        let h = CoordinatorHarness(); h.cleanUp(after: self)
+        try await h.startRecording()
+        try await h.waitForMediaSegments(3)
+        let initial = await h.mediaSegments()
+        let first = try XCTUnwrap(initial.first)
+        let firstBufferURL = h.coordinator.store.url(for: first)
+        let triggered = await h.coordinator.triggerIncident(source: .manual, note: "before the rollover")
+        let incident = try XCTUnwrap(triggered)
+        XCTAssertTrue(incident.mediaParts.contains { $0.segment.id == first.id }, "the incident protects the first segment")
+        try await h.waitUntil("incident exported", timeout: 45) { h.incident(incident.id)?.state == .complete }
+
+        try await h.waitUntil("the first segment ages out of the buffer", timeout: 120) {
+            await !h.mediaSegments().contains { $0.id == first.id }
+        }
+        try await h.waitForMediaSegments(3, after: Date())
+        let media = await h.mediaSegments()
+        let buffered = media.mediaDuration
+        // A check can land between a segment's indexing and the retention pass it triggers, so one
+        // extra segment is allowed above the target.
+        XCTAssertLessThanOrEqual(buffered, target + 2 * segmentLength + 0.5, "retention keeps about the buffer length")
+        XCTAssertGreaterThanOrEqual(buffered, target - segmentLength - 0.5, "retention deletes only footage that has aged out")
+        let oldest = try XCTUnwrap(media.first)
+        XCTAssertGreaterThan(oldest.endTime, Date().addingTimeInterval(-(target + 2 * segmentLength + 1)), "nothing older than the buffer is kept")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstBufferURL.path), "the expired segment's buffer file is deleted")
+        XCTAssertTrue(h.coordinator.isRecording, "retention runs while recording continues")
+
+        await h.coordinator.stop()
+        let indexed = await h.coordinator.store.segments()
+        var expected = Set<String>()
+        for segment in indexed {
+            expected.insert(h.coordinator.store.url(for: segment).resolvingSymlinksInPath().path)
+            expected.insert(h.coordinator.store.sidecarURL(for: segment).resolvingSymlinksInPath().path)
+        }
+        let onDisk = regularFiles(under: h.root.appendingPathComponent("buffer", isDirectory: true))
+        XCTAssertEqual(onDisk.subtracting(expected).sorted(), [], "no buffer file outlives its index entry")
+        XCTAssertEqual(expected.subtracting(onDisk).sorted(), [], "every indexed segment is on disk")
+
+        // The exported clip holds the incident's footage after the buffer copies have rolled out, and the
+        // incident's working links were released once the clip was written.
+        let done = try XCTUnwrap(h.incident(incident.id))
+        XCTAssertEqual(done.state, .complete)
+        XCTAssertFalse(indexed.contains { $0.id == first.id }, "the incident's oldest footage is no longer in the buffer")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: h.coordinator.incidentManager.partsDirectory(for: done.id).path), "the incident's links are released after export")
+        let clip = try XCTUnwrap(h.coordinator.clipURLs(for: done).first)
+        let duration = try await AVURLAsset(url: clip).load(.duration)
+        XCTAssertEqual(duration.seconds, done.footageDuration, accuracy: 0.6, "the clip still plays in full")
+        await h.finish()
+    }
+
     // MARK: Interruptions
 
     @MainActor
@@ -294,6 +350,16 @@ final class RecordingCoordinatorTests: XCTestCase {
     }
 }
 
+/// Paths of the regular files below `root`, symlinks resolved.
+func regularFiles(under root: URL) -> Set<String> {
+    guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey]) else { return [] }
+    var paths = Set<String>()
+    for case let url as URL in enumerator where (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true {
+        paths.insert(url.resolvingSymlinksInPath().path)
+    }
+    return paths
+}
+
 // MARK: - Harness
 
 enum HarnessError: Error {
@@ -306,7 +372,7 @@ enum HarnessError: Error {
 @MainActor
 final class CoordinatorHarness {
     let root: URL
-    let fake = FakeCaptureService()
+    let fake = SimulatedCaptureService()
     let settings: AppSettings
     let log = InMemoryLogSink(capacity: 5_000)
     let coordinator: RecordingCoordinator
@@ -324,11 +390,7 @@ final class CoordinatorHarness {
         settings.autoStartRecording = false
         settings.motionDetectionEnabled = false
         settings.minimumFreeMegabytes = 256
-        let storage = StorageLocations(
-            buffer: root.appendingPathComponent("buffer", isDirectory: true),
-            incidents: root.appendingPathComponent("incidents", isDirectory: true),
-            isAppDefault: false
-        )
+        let storage = StorageLocations.isolated(root: root)
         coordinator = RecordingCoordinator(settings: settings, logger: DashcamLogger(sinks: [log]), memoryLog: log, capture: fake, storage: storage)
     }
 
@@ -423,233 +485,6 @@ final class CoordinatorHarness {
         try await waitUntil("footage in a run started after \(earlier.count) earlier run(s)", timeout: timeout, file: file, line: line) {
             let media = await self.mediaSegments()
             return media.contains { !earlier.contains($0.id.run) }
-        }
-    }
-}
-
-// MARK: - Fake camera
-
-/// Stands in for `CameraCaptureService`. Produces 30 fps of synthetic 320x240 frames, plus 44.1 kHz
-/// audio when the "microphone" is configured, on a serial data queue with host-clock timestamps like
-/// a real capture session, and offers controls to simulate the session events the coordinator must
-/// survive. Events are delivered on the main queue, as the real service delivers them.
-final class FakeCaptureService: CaptureControlling, @unchecked Sendable {
-    weak var sink: CaptureSampleSink?
-    var eventHandler: ((CaptureEvent) -> Void)?
-    var cameraStatus: AVAuthorizationStatus = .authorized
-    var microphoneStatus: AVAuthorizationStatus = .authorized
-    var horizonLevelCaptureAngle: CGFloat = 0
-    var videoDevice: AVCaptureDevice? { nil }
-    var synchronizationClock: CMClock? { CMClockGetHostTimeClock() }
-
-    private static let sampleRate = 44_100
-    private static let samplesPerTick = 1_470 // one thirtieth of a second
-
-    private let lock = NSLock()
-    private let dataQueue = DispatchQueue(label: "test.fake-capture.data", qos: .userInitiated)
-    // Guarded by `lock`.
-    private var running = false
-    private var interrupted = false
-    private var videoFlowing = true
-    private var audioFlowing = true
-    private var configuredAudio = false
-    private var shutDown = false
-    private var pendingConfigureError: Error?
-    private var configures = 0
-    private var stops = 0
-    private var resets = 0
-    // Owned by `dataQueue`.
-    private var timer: DispatchSourceTimer?
-    private var frameIndex = 0
-    private var audioStart: CMTime?
-    private var audioSamplesSent: Int64 = 0
-    private let video: SyntheticFrameSource
-    private let tone: SyntheticToneSource
-
-    init() {
-        // Both sources only fail if CoreVideo/CoreMedia cannot allocate, which would fail every test anyway.
-        video = try! SyntheticFrameSource(width: 320, height: 240)
-        tone = try! SyntheticToneSource(sampleRate: FakeCaptureService.sampleRate)
-    }
-
-    var isRunning: Bool { lock.withLock { running } }
-    var isInterrupted: Bool { lock.withLock { interrupted } }
-    var configureCount: Int { lock.withLock { configures } }
-    var stopCount: Int { lock.withLock { stops } }
-    var resetCount: Int { lock.withLock { resets } }
-
-    // MARK: CaptureControlling
-
-    func currentCameraAuthorization() -> AVAuthorizationStatus { cameraStatus }
-    func currentMicrophoneAuthorization() -> AVAuthorizationStatus { microphoneStatus }
-    func requestCameraPermission() async -> Bool { cameraStatus == .authorized }
-    func requestMicrophonePermission() async -> Bool { microphoneStatus == .authorized }
-
-    func configureAndStart(quality: VideoQualityTier, audioEnabled: Bool, stabilization: Bool) async throws -> CaptureConfigurationSummary {
-        let microphone = microphoneStatus == .authorized
-        let outcome: Result<Bool, Error> = lock.withLock {
-            configures += 1
-            if let error = pendingConfigureError {
-                pendingConfigureError = nil
-                return .failure(error)
-            }
-            configuredAudio = audioEnabled && microphone
-            running = !shutDown
-            return .success(configuredAudio)
-        }
-        let withAudio = try outcome.get()
-        startTicking()
-        return CaptureConfigurationSummary(deviceName: "Fake camera", width: 320, height: 240, frameRate: 30, codec: "pending", stabilization: "off", audioEnabled: withAudio, usingPreset: false)
-    }
-
-    func stop() async {
-        lock.withLock {
-            stops += 1
-            running = false
-        }
-    }
-
-    func reset() async {
-        lock.withLock {
-            resets += 1
-            running = false
-            configuredAudio = false
-        }
-    }
-
-    func setFrameRate(_ fps: Int) {}
-
-    func onDataQueue(_ block: @escaping () -> Void) {
-        dataQueue.async(execute: block)
-    }
-
-    func recommendedVideoSettings(quality: VideoQualityTier, segmentInterval: TimeInterval) -> (settings: [String: Any], codec: AVVideoCodecType)? {
-        let compression: [String: Any] = [
-            AVVideoAverageBitRateKey: 400_000,
-            AVVideoMaxKeyFrameIntervalDurationKey: segmentInterval,
-            AVVideoExpectedSourceFrameRateKey: 30,
-            AVVideoAllowFrameReorderingKey: false,
-        ]
-        let settings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: 320,
-            AVVideoHeightKey: 240,
-            AVVideoCompressionPropertiesKey: compression,
-        ]
-        return (settings: settings, codec: AVVideoCodecType.h264)
-    }
-
-    func recommendedAudioSettings() -> [String: Any]? {
-        guard lock.withLock({ configuredAudio }) else { return nil }
-        return [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: FakeCaptureService.sampleRate,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderBitRateKey: 64_000,
-        ]
-    }
-
-    func attachPreview(_ layer: AVCaptureVideoPreviewLayer, onConnectionChanged: @escaping () -> Void) {}
-
-    // MARK: Simulation controls
-
-    /// Another app takes the camera: frames stop and the session reports interrupted.
-    func beginCameraInterruption(_ reason: AVCaptureSession.InterruptionReason = .videoDeviceInUseByAnotherClient) {
-        lock.withLock {
-            interrupted = true
-            videoFlowing = false
-            audioFlowing = false
-        }
-        post(.interrupted(reason))
-    }
-
-    /// A call or alarm takes the audio device. Whether video continues is undocumented, so both are simulated.
-    func beginAudioInterruption(videoContinues: Bool) {
-        lock.withLock {
-            interrupted = true
-            audioFlowing = false
-            videoFlowing = videoContinues
-        }
-        post(.interrupted(.audioDeviceInUseByAnotherClient))
-    }
-
-    func endInterruption() {
-        lock.withLock {
-            interrupted = false
-            videoFlowing = true
-            audioFlowing = true
-        }
-        post(.interruptionEnded)
-    }
-
-    /// The session stops with a runtime error. `failNextConfigure` makes the next restart attempt throw.
-    func failSession(mediaServicesReset: Bool, failNextConfigure: Error? = nil) {
-        lock.withLock {
-            running = false
-            pendingConfigureError = failNextConfigure
-        }
-        let code = mediaServicesReset ? AVError.mediaServicesWereReset.rawValue : AVError.unknown.rawValue
-        let error = NSError(domain: AVFoundationErrorDomain, code: code, userInfo: [NSLocalizedDescriptionKey: "Simulated runtime error"])
-        post(.runtimeError(error, mediaServicesWereReset: mediaServicesReset))
-    }
-
-    /// The phone is turned: the horizon-level capture angle changes.
-    func rotate(to angle: CGFloat) {
-        horizonLevelCaptureAngle = angle
-        post(.rotationAngleChanged(angle))
-    }
-
-    /// Stops producing samples for good; later configure calls report running but deliver nothing.
-    func shutdown() {
-        lock.withLock {
-            shutDown = true
-            running = false
-        }
-        dataQueue.sync {
-            timer?.cancel()
-            timer = nil
-        }
-    }
-
-    // MARK: Sample production (dataQueue)
-
-    private func post(_ event: CaptureEvent) {
-        DispatchQueue.main.async { [weak self] in self?.eventHandler?(event) }
-    }
-
-    private func startTicking() {
-        dataQueue.async { [weak self] in
-            guard let self, self.timer == nil else { return }
-            let source = DispatchSource.makeTimerSource(queue: self.dataQueue)
-            source.schedule(deadline: .now(), repeating: .nanoseconds(33_333_333), leeway: .milliseconds(2))
-            source.setEventHandler { [weak self] in self?.tick() }
-            source.resume()
-            self.timer = source
-        }
-    }
-
-    private func tick() {
-        let state = lock.withLock { (video: running && videoFlowing, audio: running && audioFlowing && configuredAudio) }
-        guard let target = sink else { return }
-        let now = CMClockGetTime(CMClockGetHostTimeClock())
-        if state.video, let frame = try? video.makeSampleBuffer(presentationTime: now, duration: CMTime(value: 1, timescale: 30), frameIndex: frameIndex) {
-            frameIndex += 1
-            target.captureDidOutputVideo(frame)
-        }
-        if state.audio {
-            // Contiguous audio timestamps from the moment audio (re)started, like a microphone.
-            let start = audioStart ?? now
-            if audioStart == nil {
-                audioStart = now
-                audioSamplesSent = 0
-            }
-            let pts = CMTimeAdd(start, CMTime(value: audioSamplesSent, timescale: CMTimeScale(FakeCaptureService.sampleRate)))
-            if let chunk = try? tone.makeSampleBuffer(presentationTime: pts, frameCount: FakeCaptureService.samplesPerTick) {
-                audioSamplesSent += Int64(FakeCaptureService.samplesPerTick)
-                target.captureDidOutputAudio(chunk)
-            }
-        } else {
-            audioStart = nil
         }
     }
 }

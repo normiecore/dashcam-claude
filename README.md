@@ -16,7 +16,7 @@ Status: V0.1 in progress. The core logic is tested on Linux and macOS, the app t
 
 1. Install Xcode 27 (Xcode 26.6 also builds it) and XcodeGen: `brew install xcodegen`.
 2. Generate the project: `cd App && DASHCAM_TEAM_ID=YOURTEAMID xcodegen generate`. Find the team id in Xcode under Settings > Accounts, or leave it out and choose the team in Signing & Capabilities.
-3. Open `App/Dashcam.xcodeproj`, select your iPhone (Developer Mode on) and run. The Simulator has no camera; use it for the tests only.
+3. Open `App/Dashcam.xcodeproj`, select your iPhone (Developer Mode on) and run. In the Simulator, which has no camera, Debug builds record from a simulated camera instead, so the screens, incidents and clips can be tried there (see `docs/TESTING.md`).
 4. Run the tests: `swift test` at the repository root for the core, and Product > Test in Xcode (or the command in `docs/TESTING.md`) for the app.
 
 License: TBD

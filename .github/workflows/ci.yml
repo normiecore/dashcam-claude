@@ -65,3 +65,11 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+      - name: Build Release for device
+        # Debug builds carry the simulated camera and the UI-test launch options. This checks that the
+        # shipping configuration, and the device-only code paths, compile without them.
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'

@@ -6,11 +6,11 @@ Status as of 2026-09-29. Versions follow semantic versioning; 0.1.0 is cut when 
 
 ### M0 Foundations (done)
 
-`DashcamCore` builds and tests on Linux and Apple platforms: segment model, retention planner, sidecar-persisted segment store with crash reconcile, incident manager, rolling buffer coordinator, recorder state machine, motion heuristic with trace replay, fMP4 box tools with timestamp rebasing, clip assembler, logger. 54 Swift Testing tests pass, including a simulated two-hour drive. `dashcam-sim` simulates drives with incidents and storage pressure in seconds.
+`DashcamCore` builds and tests on Linux and Apple platforms: segment model, retention planner, sidecar-persisted segment store with crash reconcile, incident manager, rolling buffer coordinator, recorder state machine, motion heuristic with trace replay, fMP4 box tools with timestamp rebasing, clip assembler, logger. 60 Swift Testing tests pass, including a simulated two-hour drive. `dashcam-sim` simulates drives with incidents and storage pressure in seconds.
 
 ### M1 Vertical slice (code complete, compiled by CI, not yet run on a device)
 
-Rear-camera preview, start and stop, segmented recording into the rolling buffer, automatic deletion, the Save Incident button, pre-roll and post-roll preservation, clip export, clips library with playback, sharing and Save to Photos. The XcodeGen project and the app target compile in the Simulator lane of CI; nothing has run on hardware.
+Rear-camera preview, start and stop, segmented recording into the rolling buffer, automatic deletion, the Save Incident button, pre-roll and post-roll preservation, clip export, clips library with playback, sharing and Save to Photos. The XcodeGen project and the app target compile in CI, and the Simulator suite runs the coordinator and the screens against a simulated camera; nothing has run on hardware.
 
 ### M2 V0.1 hardening (mostly in code, needs device runs)
 
@@ -33,7 +33,7 @@ GPS route metadata and speed or timestamp overlay (Core Location, When-In-Use on
 | Tier | How | What it covers |
 |---|---|---|
 | Linux or Mac, no Xcode | `swift test`, `swift run dashcam-sim drive` | Retention, store reconcile, incident linking and recovery, retroactive triggers, fMP4 rebasing, motion heuristic on traces, state machine, logging, multi-hour simulations |
-| iOS Simulator | `xcodebuild test` (CI macOS lanes, Xcode 26.6 and Xcode 27) | App target compiles against both SDKs; real `AVAssetWriter` segmented output with synthetic video and audio; concatenation, rebasing and passthrough remux load in AVFoundation; the recording coordinator's lifecycle, incident, interruption, recovery, storage and failure paths against a fake camera; privacy manifest and usage strings present |
+| iOS Simulator | `xcodebuild test` (CI macOS lanes, Xcode 26.6 and Xcode 27) | App target compiles against both SDKs; real `AVAssetWriter` segmented output with synthetic video and audio; concatenation, rebasing and passthrough remux load in AVFoundation; the recording coordinator's lifecycle, incident, interruption, recovery, storage, buffer rollover and failure paths against a simulated camera; the screens driven by XCUITest (consent, record, Save Incident, clips, delete, dimmed mode, Simulate Crash, camera denied); privacy manifest and usage strings present; the Release configuration compiles for a device |
 | Physical iPhone | Manual checklist in TESTING.md | Camera capture, audio, HEVC hardware encoding, preview rotation, interruptions, backgrounding, thermal pressure, storage pressure, battery, motion sensors, Photos saving, SafetyKit (entitled builds only) |
 
 ## Open product decisions

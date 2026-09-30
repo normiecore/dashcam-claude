@@ -32,6 +32,7 @@ struct DeveloperView: View {
                         .font(.title3.weight(.bold))
                 }
                 .buttonStyle(BigButtonStyle(color: .red))
+                .accessibilityIdentifier("developer.simulateCrash")
                 .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
             } header: {
                 Text("Incident simulation")
