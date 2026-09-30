@@ -39,6 +39,13 @@ struct RecorderStateMachineTests {
         #expect(RecorderStateMachine.reduce(.failed("x"), .reset) == .idle)
     }
 
+    @Test("Rotating the run keeps recording without an interruption")
+    func rotation() {
+        #expect(RecorderStateMachine.reduce(.recording(run), .rotated(run2)) == .recording(run2))
+        #expect(RecorderStateMachine.reduce(.interrupted(run, reason: "x"), .rotated(run2)) == nil)
+        #expect(RecorderStateMachine.reduce(.starting, .rotated(run2)) == nil)
+    }
+
     @Test("Invalid transitions are rejected")
     func invalid() {
         #expect(RecorderStateMachine.reduce(.idle, .stopped) == nil)

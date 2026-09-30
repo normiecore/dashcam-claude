@@ -29,6 +29,21 @@ physical-device validation pass is complete.
 - Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
   write throws while it is on.
 - One-minute motion sample ring saved as `motion.csv` alongside each incident.
+- Second adversarial review of the iOS layer (four lenses, each finding independently verified),
+  fixes applied: storage-critical stop no longer deadlocks the ingest pipeline; concurrent run
+  teardowns are shared so the background task is not released before the last segment is on disk;
+  interruption-ended events that arrive mid-transition are honoured by a post-transition
+  reconciliation; Stop tapped during a pause/resume is honoured; the watchdog no longer pauses video
+  during audio-only interruptions and now also detects a writer that stops producing segments;
+  `SegmentWriter` detects asynchronous `AVAssetWriter` failures and never finishes a failed writer;
+  writer failures are rate limited; a failed session closes collecting incidents; the run is rotated
+  on orientation change, audio interruption and audio setting changes; exports rebase fragment
+  timestamps (fixes the fallback clip starting at the run offset); Photos saving retries through a
+  remux; the preview layer attaches on the session queue and follows a published device; a failed
+  capture rebuild can no longer leave a stale configuration; Core Motion publishes UI counters in
+  batches; banners carry identities; Save Incident while stopped closes the incident immediately;
+  delete is blocked during export; the consent screen cannot cover a live recording and auto-start
+  waits for consent; the microphone prompt follows the audio setting.
 
 ### Decisions
 - Segmented AVAssetWriter (fMP4/CMAF) instead of AVCaptureMovieFileOutput: iOS cannot switch
@@ -43,6 +58,9 @@ physical-device validation pass is complete.
   it, and events arrive after Emergency SOS finishes, so the adapter protects footage retroactively.
 - Thermal handling reduces frame rate (24 fps at serious, 15 fps at critical) rather than stopping
   the camera at critical as Apple suggests; to be validated in the soak test.
+- A phone call or alarm rotates the run to a video-only writer instead of feeding a writer whose
+  audio input has gone silent (undocumented territory); an incident spanning the call gets two
+  clip parts. Orientation changes and audio setting changes rotate the run for the same reason.
 - Deployment target iOS 18.0 for reach; developed against the iOS 27 SDK.
 
 ### Verified in CI

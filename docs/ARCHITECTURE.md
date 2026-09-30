@@ -99,19 +99,24 @@ Nothing goes in tmp/ or Caches/. Files use the default protection class (complet
 
 ## Threading
 
-`RecordingCoordinator`, the detectors and the UI run on the main actor. The capture service mutates the session only on its serial session queue. Both data outputs deliver on one serial data queue, where the router forwards buffers; writer swaps and `finish` are scheduled on the same queue so a writer is never finished mid-append (a lock guards only the reference and the watchdog's counters). Each `SegmentWriter` persists segments on its own serial I/O queue. From there, segments pass through the ordered ingest stream into the core actors: `RollingBufferManager` calls `SegmentStore` and `IncidentManager` in sequence. Core Motion delivers on a one-at-a-time operation queue, with detector state under a lock and events hopping to the main actor. Capture notifications and the system-pressure observation are forwarded to the main actor.
+`RecordingCoordinator`, the detectors and the UI run on the main actor. Operations that finish or start a writer (start, stop, pause, resume, recover, run rotation) are transitions and only one runs at a time. A request that arrives during a transition is recorded rather than dropped (stop, a writer failure, a rotation) and `reconcile()` acts on it, and on the session's real state (`isInterrupted`, `isRunning`, whether frames are flowing, foreground or background), the moment the transition ends; the watchdog repeats the same reconciliation every 5 s. Finishing a writer is one shared operation: concurrent callers (camera interruption and did-enter-background both arrive on backgrounding) wait for the same teardown, so nobody releases the background task while the last segment is still being flushed. A `finishWriting` that never calls back is abandoned after 15 s with a fault in the log so transitions cannot freeze. The capture service mutates the session only on its serial session queue. Both data outputs deliver on one serial data queue, where the router forwards buffers; writer swaps and `finish` are scheduled on the same queue so a writer is never finished mid-append (a lock guards only the reference and the watchdog's counters). Each `SegmentWriter` persists segments on its own serial I/O queue. From there, segments pass through the ordered ingest stream into the core actors: `RollingBufferManager` calls `SegmentStore` and `IncidentManager` in sequence. Core Motion delivers on a one-at-a-time operation queue, with detector state under a lock and events hopping to the main actor. Capture notifications and the system-pressure observation are forwarded to the main actor.
 
 ## Failure handling
 
 | Event | Response |
 |---|---|
 | Screen lock or backgrounding | A background task is armed at will-resign-active. At did-enter-background the run is finished (the last partial segment is delivered) and ingestion drained, then the task ends. Did-become-active starts a new run. |
-| Audio taken by a call or alarm | Video continues without audio; audio resumes when the interruption ends. |
-| Any other interruption | Finish the run and wait; interruption-ended or did-become-active resumes with a new run. |
-| Interruption-ended never arrives | The watchdog resumes once `session.isInterrupted` is false for 5 s, and pauses if the session reports interrupted while recording. |
-| Runtime error, including media services reset | Finish the run, tear down (reset) or stop the session, wait 1 s, resume. After three failed attempts, fail with a "restart the phone" message. |
+| Audio taken by a call or alarm | Video continues: the run is rotated to a video-only writer, and rotated again with audio when the interruption ends. The watchdog ignores `isInterrupted` while frames keep flowing. |
+| Any other interruption | Finish the run and wait; interruption-ended, did-become-active or the reconciliation after the pause resumes with a new run. |
+| Interruption-ended never arrives | The watchdog resumes once `session.isInterrupted` is false for 5 s, and pauses if the session reports interrupted while recording and frames have stopped. |
+| Runtime error, including media services reset | Finish the run, tear down (reset) or stop the session, wait 1 s, resume, all inside one transition. After three attempts without a media segment reaching disk in between, fail with a "restart the phone" message. |
 | No video frames for 8 s | The watchdog (5 s tick) runs the same recovery. |
-| Writer failure | Finish the run and start a new one. |
+| Frames flow but no segment reaches disk for 3 intervals (at least 15 s) | The watchdog rotates the writer as a writer failure. |
+| Writer failure (append rejected, writer failed asynchronously, segment file could not be written) | Finish the run and start a new one; more than three in two minutes fails the session. `finish` checks `AVAssetWriter.status` first so a failed writer is never finished (that raises an exception). |
+| Phone rotated into its mount after Start | The writer's transform is fixed per run, so after the orientation has been stable for 2 s the run is rotated with the new angle. |
+| Audio switched on or off in Settings while recording | The run is rotated with the right tracks, rebuilding the capture graph if the microphone was not in it. |
+| Storage critical while recording | Recording stops from a separate task; stopping inline from the ingest loop would deadlock the drain barrier. |
+| Save Incident while not recording | The incident is closed at once with the buffered footage and exported; it cannot wait for a post-roll that will never come. |
 | System pressure or thermal state serious / critical | 24 fps / 15 fps. At pressure shutdown AVFoundation interrupts the session, handled as an interruption. |
 | Storage low / critical | Warning / refuse to start or stop recording. Protected footage is never deleted. |
 | Retention deletion fails | Logged; retention continues. |

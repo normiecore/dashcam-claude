@@ -33,6 +33,9 @@ public enum RecorderEvent: Equatable, Sendable {
     case interruptionBegan(String)
     case interruptionEnded
     case resumed(RunID)
+    /// The writer was replaced mid-session (writer failure, orientation or audio change). Recording continues
+    /// in a new run without passing through an interruption.
+    case rotated(RunID)
     case stopRequested
     case stopped
     case failed(String)
@@ -57,6 +60,8 @@ public enum RecorderStateMachine {
         case (.interrupted, .interruptionEnded):
             return .starting
         case (.interrupted, .resumed(let run)), (.starting, .resumed(let run)):
+            return .recording(run)
+        case (.recording, .rotated(let run)):
             return .recording(run)
         case (.recording, .stopRequested), (.interrupted, .stopRequested), (.starting, .stopRequested):
             return .stopping

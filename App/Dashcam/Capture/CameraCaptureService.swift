@@ -15,6 +15,8 @@ enum CaptureEvent {
     case interruptionEnded
     case runtimeError(Error, mediaServicesWereReset: Bool)
     case systemPressure(AVCaptureDevice.SystemPressureState.Level)
+    /// The horizon-level capture angle changed (the phone was rotated into or out of its mount).
+    case rotationAngleChanged(CGFloat)
     case didStartRunning
     case didStopRunning
 }
@@ -56,6 +58,8 @@ final class CameraCaptureService: NSObject {
     /// Delivered on the main queue.
     var eventHandler: ((CaptureEvent) -> Void)?
 
+    /// Owned by `sessionQueue`. Callers on other threads may read it only after an awaited
+    /// `configureAndStart`/`reset` has returned (which sequences the read after the write).
     private(set) var videoDevice: AVCaptureDevice?
     private var videoDeviceInput: AVCaptureDeviceInput?
     private var audioDeviceInput: AVCaptureDeviceInput?
@@ -63,10 +67,14 @@ final class CameraCaptureService: NSObject {
     private let audioOutput = AVCaptureAudioDataOutput()
     private var notificationObservers: [NSObjectProtocol] = []
     private var pressureObservation: NSKeyValueObservation?
+    private var rotationObservation: NSKeyValueObservation?
     private(set) var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private(set) var configuration: CaptureConfigurationSummary?
     private var isConfigured = false
     private var configuredQuality: VideoQualityTier?
+    private var configuredStabilization: Bool?
+    /// What the caller asked for (the cache key) versus what the graph has (`configuredAudio`).
+    private var requestedAudio = false
     private var configuredAudio = false
 
     init(logger: DashcamLogger) {
@@ -81,6 +89,15 @@ final class CameraCaptureService: NSObject {
     /// Runs `block` on the sample-delivery queue, serialized with `captureOutput` callbacks.
     func onDataQueue(_ block: @escaping () -> Void) {
         dataQueue.async(execute: block)
+    }
+
+    /// Attaches a preview layer to the session on the session queue, so the attachment never races a
+    /// `beginConfiguration`/`commitConfiguration` block. `completion` runs on the main queue afterwards.
+    func attachPreview(_ layer: AVCaptureVideoPreviewLayer, completion: @escaping () -> Void) {
+        sessionQueue.async {
+            if layer.session !== self.session { layer.session = self.session }
+            DispatchQueue.main.async(execute: completion)
+        }
     }
 
     // MARK: Permissions
@@ -140,13 +157,7 @@ final class CameraCaptureService: NSObject {
                 for input in self.session.inputs { self.session.removeInput(input) }
                 for output in self.session.outputs { self.session.removeOutput(output) }
                 self.session.commitConfiguration()
-                self.pressureObservation = nil
-                self.rotationCoordinator = nil
-                self.videoDevice = nil
-                self.videoDeviceInput = nil
-                self.audioDeviceInput = nil
-                self.isConfigured = false
-                self.configuration = nil
+                self.invalidateConfiguration()
                 continuation.resume()
             }
         }
@@ -207,15 +218,33 @@ final class CameraCaptureService: NSObject {
 
     // MARK: Configuration (sessionQueue)
 
+    /// Forgets the configured graph. Called at the start of every rebuild so a rebuild that throws
+    /// halfway can never leave a stale summary describing inputs that no longer exist.
+    private func invalidateConfiguration() {
+        pressureObservation = nil
+        rotationObservation = nil
+        rotationCoordinator = nil
+        videoDevice = nil
+        videoDeviceInput = nil
+        audioDeviceInput = nil
+        configuredAudio = false
+        isConfigured = false
+        configuration = nil
+        configuredQuality = nil
+        configuredStabilization = nil
+    }
+
     private func configureIfNeeded(quality: VideoQualityTier, audioEnabled: Bool, stabilization: Bool) throws -> CaptureConfigurationSummary {
-        if isConfigured, configuredQuality == quality, configuredAudio == audioEnabled, let configuration {
+        if isConfigured, configuredQuality == quality, requestedAudio == audioEnabled, configuredStabilization == stabilization, let configuration {
             return configuration
         }
         guard CameraCaptureService.cameraAuthorization() == .authorized else { throw CaptureError.cameraAccessDenied }
 
-        // Rebuild from scratch so quality/audio changes are consistent.
+        // Rebuild from scratch so quality/audio/stabilization changes are consistent.
         session.beginConfiguration()
         defer { session.commitConfiguration() }
+        invalidateConfiguration()
+        requestedAudio = audioEnabled
         for input in session.inputs { session.removeInput(input) }
         for output in session.outputs { session.removeOutput(output) }
 
@@ -331,6 +360,7 @@ final class CameraCaptureService: NSObject {
         )
         configuration = summary
         configuredQuality = quality
+        configuredStabilization = stabilization
         isConfigured = true
         logger.notice(.capture, "Configured \(summary.deviceName) \(summary.width)x\(summary.height)@\(summary.frameRate) stabilization=\(stabilizationName) audio=\(configuredAudio) preset=\(usingPreset)")
         return summary
@@ -419,6 +449,13 @@ final class CameraCaptureService: NSObject {
             let level = state.level
             self.logger.notice(.capture, "System pressure \(CameraCaptureService.describe(level)) factors=\(state.factors.rawValue)")
             DispatchQueue.main.async { self.eventHandler?(.systemPressure(level)) }
+        }
+
+        // The writer's transform is fixed at run start; the coordinator rotates the run when the mount
+        // orientation changes so footage recorded after the phone is seated stays upright.
+        rotationObservation = rotationCoordinator?.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.new]) { [weak self] coordinator, _ in
+            let angle = coordinator.videoRotationAngleForHorizonLevelCapture
+            DispatchQueue.main.async { self?.eventHandler?(.rotationAngleChanged(angle)) }
         }
     }
 

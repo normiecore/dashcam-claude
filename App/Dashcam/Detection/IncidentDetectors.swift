@@ -31,6 +31,8 @@ final class MotionIncidentDetector: IncidentDetector {
     nonisolated(unsafe) private var detector: MotionImpactDetector
     /// Last minute of samples at 100 Hz, saved next to incidents for threshold calibration. Guarded by `lock`.
     nonisolated(unsafe) private var ring = MotionSampleRing(capacity: 6_000)
+    /// Samples received since the UI counters were last published. Guarded by `lock`.
+    nonisolated(unsafe) private var pendingSamples = 0
     private let lock = NSLock()
     private var isRunning = false
     private(set) var lastMagnitude: Double = 0
@@ -76,6 +78,10 @@ final class MotionIncidentDetector: IncidentDetector {
             self.lock.lock()
             self.ring.append(sample)
             let event = self.detector.process(sample)
+            self.pendingSamples += 1
+            let publish = self.pendingSamples >= 25
+            let batch = self.pendingSamples
+            if publish { self.pendingSamples = 0 }
             self.lock.unlock()
             let magnitude = sample.accelerationMagnitude
             if let event {
@@ -85,9 +91,13 @@ final class MotionIncidentDetector: IncidentDetector {
                     self.onIncident?(DetectedIncident(source: .motionHeuristic, occurredAt: nil, note: note))
                 }
             }
-            Task { @MainActor in
-                self.sampleCount += 1
-                if self.sampleCount % 25 == 0 { self.lastMagnitude = magnitude }
+            // Publish the UI counters a few times a second, not 100 times: each Task is a main-actor hop
+            // competing with SwiftUI and the ingest pipeline for the whole drive.
+            if publish {
+                Task { @MainActor in
+                    self.sampleCount += batch
+                    self.lastMagnitude = magnitude
+                }
             }
         }
         logger.info(.motion, "Motion detector started")

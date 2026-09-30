@@ -28,6 +28,10 @@ final class SegmentWriter: NSObject {
         /// Display transform for the video track (rotation for the mount orientation at run start).
         var transform: CGAffineTransform = .identity
         var clock: WallClock = SystemWallClock()
+        /// Clock the capture PTS values are on (`AVCaptureSession.synchronizationClock`). Apple only
+        /// promises that the sync clock is *usually* the host clock, so PTS values are converted before
+        /// they are mapped to wall-clock time. nil means "assume host clock".
+        var sourceClock: CMClock?
     }
 
     enum State: Equatable {
@@ -51,6 +55,7 @@ final class SegmentWriter: NSObject {
     private var runStartDate: Date?
     private var nextSequence = 1
     private var lastSegmentEnd: Date?
+    private var loggedTimeline = false
     private(set) var droppedVideoFrames = 0
     private(set) var droppedAudioBuffers = 0
     private(set) var appendedVideoFrames = 0
@@ -112,7 +117,7 @@ final class SegmentWriter: NSObject {
             }
             writer.startSession(atSourceTime: pts)
             sessionStartPTS = pts
-            runStartDate = SegmentWriter.wallClockDate(forHostTime: pts, clock: configuration.clock)
+            runStartDate = SegmentWriter.wallClockDate(forPTS: pts, sourceClock: configuration.sourceClock, clock: configuration.clock)
             lastSegmentEnd = runStartDate
             state = .writing
             logger.notice(.recorder, "Run \(configuration.runID) started at PTS \(pts.seconds)")
@@ -134,6 +139,13 @@ final class SegmentWriter: NSObject {
 
     private func append(_ sampleBuffer: CMSampleBuffer, to input: AVAssetWriterInput, isVideo: Bool) {
         guard input.isReadyForMoreMediaData else {
+            // An AVAssetWriter can fail on its own (encoder error, media services reset, disk full) without
+            // any append returning false; from then on the input never becomes ready again. Treat that as
+            // a failure so the coordinator rotates to a new run instead of silently dropping every frame.
+            if writer.status == .failed || writer.status == .cancelled {
+                fail(writer.error ?? CaptureError.configurationFailed("writer status \(writer.status.rawValue) while appending"))
+                return
+            }
             if isVideo { droppedVideoFrames += 1 } else { droppedAudioBuffers += 1 }
             if (isVideo ? droppedVideoFrames : droppedAudioBuffers) % 30 == 1 {
                 logger.warning(.recorder, "Writer not ready; dropped \(isVideo ? "video" : "audio") (\(isVideo ? droppedVideoFrames : droppedAudioBuffers) total)")
@@ -157,6 +169,13 @@ final class SegmentWriter: NSObject {
             ioQueue.async(execute: completion)
         case .writing:
             state = .finishing
+            // markAsFinished/finishWriting on a writer that already failed raises an exception.
+            guard writer.status == .writing else {
+                logger.error(.recorder, "finish: writer status \(writer.status.rawValue) (\(String(describing: writer.error))); nothing more to flush")
+                state = .failed((writer.error ?? CaptureError.configurationFailed("writer status \(writer.status.rawValue) at finish")).localizedDescription)
+                ioQueue.async(execute: completion)
+                return
+            }
             videoInput.markAsFinished()
             audioInput?.markAsFinished()
             // `state` stays `.finishing`; it is only ever mutated on the caller's queue, and the
@@ -185,8 +204,14 @@ final class SegmentWriter: NSObject {
 
     // MARK: Time mapping
 
-    /// Capture PTS values are on the host clock; map one to wall-clock time so retention and incident
-    /// windows can use `Date`. Falls back to "now" if the offset looks unreasonable.
+    /// Maps a capture PTS to wall-clock time so retention and incident windows can use `Date`. The PTS is
+    /// converted from the session's synchronization clock to the host clock first. Falls back to "now" if
+    /// the offset looks unreasonable (more than 5 s of pipeline latency, or a clock we cannot relate).
+    static func wallClockDate(forPTS pts: CMTime, sourceClock: CMClock?, clock: WallClock) -> Date {
+        let hostPTS = sourceClock.map { CMSyncConvertTime(pts, from: $0, to: CMClockGetHostTimeClock()) } ?? pts
+        return wallClockDate(forHostTime: hostPTS, clock: clock)
+    }
+
     static func wallClockDate(forHostTime pts: CMTime, clock: WallClock) -> Date {
         let now = clock.now()
         let hostNow = CMClockGetTime(CMClockGetHostTimeClock())
@@ -223,10 +248,21 @@ extension SegmentWriter: AVAssetWriterDelegate {
             let sequence = nextSequence
             nextSequence += 1
             let path = Segment.relativePath(run: run, sequence: sequence, fileExtension: "m4s")
+            // Apple does not document which timeline `earliestPresentationTimeStamp` is on. Handle both:
+            // source (capture) time, which is at or after the session start PTS, and movie time, which
+            // starts at zero. Anything else falls back to chaining from the previous segment's end.
             var start = lastSegmentEnd ?? startDate
-            if let earliestPTS, let sessionStartPTS, earliestPTS.isValid {
-                let offset = CMTimeSubtract(earliestPTS, sessionStartPTS).seconds
-                if offset.isFinite, offset >= 0 { start = startDate.addingTimeInterval(offset) }
+            if let earliestPTS, earliestPTS.isValid {
+                if let sessionStartPTS, earliestPTS >= sessionStartPTS {
+                    let offset = CMTimeSubtract(earliestPTS, sessionStartPTS).seconds
+                    if offset.isFinite, offset < 86_400 { start = startDate.addingTimeInterval(offset) }
+                } else if earliestPTS.seconds >= 0, earliestPTS.seconds < 86_400 {
+                    start = startDate.addingTimeInterval(earliestPTS.seconds)
+                }
+                if !loggedTimeline {
+                    loggedTimeline = true
+                    logger.notice(.recorder, "First segment PTS \(earliestPTS.seconds) vs session start \(sessionStartPTS?.seconds ?? -1): timeline is \(sessionStartPTS.map { earliestPTS >= $0 } == true ? "source" : "movie")")
+                }
             }
             var duration = configuration.segmentInterval
             if let reportedDuration, reportedDuration.isValid, reportedDuration.seconds > 0 {
@@ -246,7 +282,11 @@ extension SegmentWriter: AVAssetWriterDelegate {
             try data.write(to: url, options: .atomic)
             onSegment?(segment)
         } catch {
+            // A segment that cannot be written is footage lost; the coordinator should rotate to a new run
+            // rather than keep feeding a writer whose output is being discarded. `state` belongs to the
+            // capture queue, so only the callback is used here.
             logger.error(.recorder, "Failed to persist segment \(segment.relativePath): \(error)")
+            onFailure?(error)
         }
     }
 }
