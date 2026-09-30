@@ -707,11 +707,14 @@ final class RecordingCoordinator: ObservableObject {
     /// callers share one teardown, so nobody returns while a writer is still flushing, and a wedged
     /// `finishWriting` cannot freeze every later transition (15 s cap, logged as a fault).
     private func endRun() async {
-        // Join any teardown in flight, then still run our own: a writer armed after that teardown began
-        // (a restart racing a failure teardown) must be finished too. With nothing armed this is a
-        // no-op swap that resumes at once.
-        while let pending = runTeardown { await pending.value }
+        // Each call chains a teardown behind the one in flight: it waits for that one, then finishes
+        // whatever writer is armed by then (a restart racing a failure teardown arms a new one). With
+        // nothing armed the swap is a no-op that resumes at once. Chaining, rather than looping on
+        // `runTeardown`, matters: awaiting an already finished task does not suspend, so a waiter that
+        // woke before the owner cleared `runTeardown` would spin on the main actor forever.
+        let previous = runTeardown
         let task = Task { @MainActor [capture, router, logger] in
+            await previous?.value
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 let once = ResumeOnce(continuation)
                 capture.onDataQueue {
@@ -730,7 +733,7 @@ final class RecordingCoordinator: ObservableObject {
         }
         runTeardown = task
         await task.value
-        runTeardown = nil
+        if runTeardown == task { runTeardown = nil }
     }
 
     /// Replaces the writer without leaving the recording state: writer failure, orientation change,

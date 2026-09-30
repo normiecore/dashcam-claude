@@ -27,7 +27,7 @@ jobs:
     name: App (iOS Simulator, xcodebuild test)
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -39,7 +39,8 @@ jobs:
           set -o pipefail
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -200
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
 
   app-simulator-xcode27:
     # Xcode 27 and the iOS 27 SDK, which is what the project is opened with. GitHub's xcode-27 label
@@ -47,7 +48,7 @@ jobs:
     name: App (Xcode 27, iOS 27 Simulator)
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
@@ -61,4 +62,5 @@ jobs:
           set -o pipefail
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tail -200
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'

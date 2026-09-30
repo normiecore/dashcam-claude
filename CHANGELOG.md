@@ -27,6 +27,12 @@ physical-device validation pass is complete.
   seconds and checks the retention and incident invariants; `replay` runs a motion trace through
   the impact detector.
 - CI: Linux `swift test` lane and macOS Simulator lanes on Xcode 26.6 and Xcode 27 (iOS 27 SDK).
+- Fixed a main-actor hang introduced in the third review round: two callers ending a run at the
+  same moment (locking the phone, or Save Incident during Stop) could leave one of them re-awaiting
+  an already finished teardown in a loop that never yields, freezing the app. Run teardowns are
+  now chained, each caller waiting for the previous one without looping. Found by the new
+  coordinator tests; CI now caps each test's run time and streams the build output so a hang shows
+  where it stopped.
 - `RecordingCoordinatorTests`: the real coordinator, writer, store, incident manager and export
   driven by a fake camera (`FakeCaptureService`) through the new `CaptureControlling` seam, covering
   stop flushing the final partial segment, Save Incident before, after and during a stop, two
