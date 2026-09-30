@@ -20,9 +20,15 @@ xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
   -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-The Simulator has no camera, microphone or motion sensors. `SegmentWriterTests` still exercises the real segmented `AVAssetWriter` path with synthetic frames and verifies that whole-run and mid-run clips load with the right duration; `PrivacyManifestTests` guards the manifest and usage strings. The app itself launches in the Simulator but the Record tab reports that no camera is available.
+The Simulator has no camera, microphone or motion sensors. Three test files cover what it can:
 
-CI runs the same command on a `macos-26` runner (Xcode 26.6) for pull requests (`.github/workflows/ci.yml`). GitHub also offers a preview `xcode-27` runner label with Xcode 27.0 and iOS 27 simulators if a second lane is wanted.
+- `SegmentWriterTests` drives the real segmented `AVAssetWriter` with synthetic video, and with synthetic video and audio together, and checks that whole-run and mid-run clips load with the right duration and aligned tracks before and after the passthrough remux.
+- `RecordingCoordinatorTests` drives the real `RecordingCoordinator` (with the real writer, store, incident manager and clip export) against `FakeCaptureService`, a fake camera that produces 30 fps synthetic frames and 44.1 kHz audio on host-clock timestamps and can simulate camera and audio interruptions, runtime errors, media-services resets, a camera that cannot restart and rotation. Each test asserts an invariant that must hold in any event order; the race tests repeat with several delays. Segments are 2 s and post-roll 5 s, so the suite runs in a few minutes.
+- `PrivacyManifestTests` guards the manifest and usage strings.
+
+The app itself launches in the Simulator but the Record tab reports that no camera is available.
+
+CI runs the same command for pull requests (`.github/workflows/ci.yml`) on two macOS lanes: `macos-26` with Xcode 26.6 and the iOS 26.5 SDK, and GitHub's preview `xcode-27` label with Xcode 27.0 and an iOS 27.0 simulator, which is the toolchain the project is opened with. The repository is private, so macOS minutes bill at a multiple; drop one lane from pull requests if minutes run short.
 
 ## Physical iPhone checklist
 

@@ -26,7 +26,13 @@ physical-device validation pass is complete.
   simulates multi-hour drives with incidents and storage pressure against the real core in
   seconds and checks the retention and incident invariants; `replay` runs a motion trace through
   the impact detector.
-- CI: Linux `swift test` lane and an on-demand macOS Simulator lane.
+- CI: Linux `swift test` lane and macOS Simulator lanes on Xcode 26.6 and Xcode 27 (iOS 27 SDK).
+- `RecordingCoordinatorTests`: the real coordinator, writer, store, incident manager and export
+  driven by a fake camera (`FakeCaptureService`) through the new `CaptureControlling` seam, covering
+  stop flushing the final partial segment, Save Incident before, after and during a stop, two
+  simultaneous taps, pause and resume, Stop during an interruption, calls that keep or stop video,
+  orientation rotation, storage-critical stop and restart, runtime errors during a rotation,
+  media-services reset, and failure followed by restart.
 - Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
   write throws while it is on.
 - One-minute motion sample ring saved as `motion.csv` alongside each incident.

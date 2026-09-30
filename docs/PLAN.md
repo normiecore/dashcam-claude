@@ -33,7 +33,7 @@ GPS route metadata and speed or timestamp overlay (Core Location, When-In-Use on
 | Tier | How | What it covers |
 |---|---|---|
 | Linux or Mac, no Xcode | `swift test`, `swift run dashcam-sim drive` | Retention, store reconcile, incident linking and recovery, retroactive triggers, fMP4 rebasing, motion heuristic on traces, state machine, logging, multi-hour simulations |
-| iOS Simulator | `xcodebuild test` (CI macOS lane) | App target compiles; real `AVAssetWriter` segmented output with synthetic frames; concatenation, rebasing and passthrough remux load in AVFoundation; privacy manifest and usage strings present; SwiftUI screens render |
+| iOS Simulator | `xcodebuild test` (CI macOS lanes, Xcode 26.6 and Xcode 27) | App target compiles against both SDKs; real `AVAssetWriter` segmented output with synthetic video and audio; concatenation, rebasing and passthrough remux load in AVFoundation; the recording coordinator's lifecycle, incident, interruption, recovery, storage and failure paths against a fake camera; privacy manifest and usage strings present |
 | Physical iPhone | Manual checklist in TESTING.md | Camera capture, audio, HEVC hardware encoding, preview rotation, interruptions, backgrounding, thermal pressure, storage pressure, battery, motion sensors, Photos saving, SafetyKit (entitled builds only) |
 
 ## Open product decisions
