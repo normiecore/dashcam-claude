@@ -22,10 +22,11 @@ jobs:
         run: swift test --parallel 2>&1 | tail -40
 
   app-simulator:
-    # macOS minutes are the expensive lane (the repository is private, so they bill at a multiple);
-    # runs on pull requests and manual dispatch only.
+    # Xcode 26.6 and the iOS 26.5 SDK. macOS minutes bill at a multiple on this private repository,
+    # so pull requests run only the Xcode 27 lane below; run this one from the Actions tab when a
+    # change could behave differently on the older SDK.
     name: App (iOS Simulator, xcodebuild test)
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-26
     timeout-minutes: 25
     steps:

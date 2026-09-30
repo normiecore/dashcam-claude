@@ -28,7 +28,7 @@ The Simulator has no camera, microphone or motion sensors. Three test files cove
 
 The app itself launches in the Simulator but the Record tab reports that no camera is available.
 
-CI runs the same command for pull requests (`.github/workflows/ci.yml`) on two macOS lanes: `macos-26` with Xcode 26.6 and the iOS 26.5 SDK, and GitHub's preview `xcode-27` label with Xcode 27.0 and an iOS 27.0 simulator, which is the toolchain the project is opened with. The repository is private, so macOS minutes bill at a multiple; drop one lane from pull requests if minutes run short.
+CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHub's preview `xcode-27` label (Xcode 27.0, iOS 27.0 simulator), which is the toolchain the project is opened with; the whole Simulator suite takes about four minutes. A second lane on `macos-26` (Xcode 26.6, iOS 26.5 SDK) runs only when dispatched from the Actions tab, because macOS minutes bill at a multiple on this private repository. Each test has a 180 s execution allowance, so a hang fails in minutes and the streamed log shows where.
 
 ## Physical iPhone checklist
 

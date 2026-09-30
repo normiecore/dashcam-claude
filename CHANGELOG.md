@@ -26,7 +26,8 @@ physical-device validation pass is complete.
   simulates multi-hour drives with incidents and storage pressure against the real core in
   seconds and checks the retention and incident invariants; `replay` runs a motion trace through
   the impact detector.
-- CI: Linux `swift test` lane and macOS Simulator lanes on Xcode 26.6 and Xcode 27 (iOS 27 SDK).
+- CI: Linux `swift test` lane and a macOS Simulator lane on Xcode 27 (iOS 27 SDK) for pull requests;
+  an Xcode 26.6 lane runs on manual dispatch.
 - Fixed segment timestamps on the real capture clock: the writer decided which timeline a segment
   report used with a ">= session start" test, but reported timestamps are quantized to the track
   timescale, so the first segment of every run read as movie time and was stamped the device's
@@ -88,6 +89,8 @@ physical-device validation pass is complete.
 - Deployment target iOS 18.0 for reach; developed against the iOS 27 SDK.
 
 ### Verified in CI
+- Both Simulator lanes (Xcode 26.6 / iOS 26.5 and Xcode 27 / iOS 27.0) pass the full suite,
+  including the 14 coordinator tests against the fake camera.
 - The app target builds with Xcode 26.6 (iOS 26.5 SDK, iOS 18 deployment target) and the Simulator
   tests pass: the segmented writer produces an initialization segment plus media segments, a
   mid-run clip loads with the right duration after timestamp rebasing, and the passthrough remux
