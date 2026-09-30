@@ -248,6 +248,7 @@ final class RecordingCoordinator: ObservableObject {
         await bootstrapIfNeeded()
         do {
             let incident = try await incidentManager.trigger(source: source, note: note, occurredAt: occurredAt)
+            saveMotionTrace(for: incident)
             await refreshIncidents()
             if incident.state == .collecting {
                 statusMessage = "Saving incident: \(Int(incident.footageDuration))s so far, recording \(Int(settings.incidentPolicy.postRoll))s more"
@@ -257,6 +258,20 @@ final class RecordingCoordinator: ObservableObject {
             lastError = "Could not save incident: \(error.localizedDescription)"
             logger.error(.incident, "Trigger failed: \(error)")
             return nil
+        }
+    }
+
+    /// Writes the last minute of motion samples next to the incident so thresholds can be tuned from
+    /// real drives. Best effort: never affects footage handling.
+    private func saveMotionTrace(for incident: Incident) {
+        let samples = motionDetector.recentSamples()
+        guard !samples.isEmpty else { return }
+        let url = incidentManager.directory(for: incident.id).appendingPathComponent("motion.csv")
+        do {
+            try MotionTrace.csv(from: samples).write(to: url, atomically: true, encoding: .utf8)
+            logger.info(.motion, "Saved \(samples.count) motion samples with incident \(incident.id)")
+        } catch {
+            logger.warning(.motion, "Could not save motion trace: \(error)")
         }
     }
 

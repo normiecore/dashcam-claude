@@ -29,6 +29,8 @@ final class MotionIncidentDetector: IncidentDetector {
     private let logger: DashcamLogger
     /// Touched from the Core Motion operation queue; every access is guarded by `lock`.
     nonisolated(unsafe) private var detector: MotionImpactDetector
+    /// Last minute of samples at 100 Hz, saved next to incidents for threshold calibration. Guarded by `lock`.
+    nonisolated(unsafe) private var ring = MotionSampleRing(capacity: 6_000)
     private let lock = NSLock()
     private var isRunning = false
     private(set) var lastMagnitude: Double = 0
@@ -58,7 +60,7 @@ final class MotionIncidentDetector: IncidentDetector {
         guard !isRunning, manager.isDeviceMotionAvailable else { return }
         isRunning = true
         manager.deviceMotionUpdateInterval = 1.0 / 100.0
-        lock.lock(); detector.reset(); lock.unlock()
+        lock.lock(); detector.reset(); ring.removeAll(); lock.unlock()
         manager.startDeviceMotionUpdates(to: queue) { [weak self] motion, error in
             guard let self else { return }
             if let error {
@@ -72,6 +74,7 @@ final class MotionIncidentDetector: IncidentDetector {
                 rotationRate: SIMD3(motion.rotationRate.x, motion.rotationRate.y, motion.rotationRate.z)
             )
             self.lock.lock()
+            self.ring.append(sample)
             let event = self.detector.process(sample)
             self.lock.unlock()
             let magnitude = sample.accelerationMagnitude
@@ -95,6 +98,12 @@ final class MotionIncidentDetector: IncidentDetector {
         isRunning = false
         manager.stopDeviceMotionUpdates()
         logger.info(.motion, "Motion detector stopped")
+    }
+
+    /// The most recent samples (up to one minute), oldest first. Empty when the detector is not running.
+    func recentSamples() -> [MotionSample] {
+        lock.lock(); defer { lock.unlock() }
+        return ring.snapshot()
     }
 
     /// Developer tool: run a recorded CSV trace through the current configuration without touching sensors.

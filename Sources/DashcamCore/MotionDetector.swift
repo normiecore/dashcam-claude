@@ -213,3 +213,42 @@ struct SeededGenerator: RandomNumberGenerator {
         return z ^ (z >> 31)
     }
 }
+
+/// Fixed-capacity ring of recent motion samples. The detector keeps the last minute so an incident
+/// can be saved with the sensor trace that preceded it, which is what threshold calibration needs.
+public struct MotionSampleRing: Sendable {
+    public let capacity: Int
+    private var storage: [MotionSample]
+    private var head = 0
+    private var count = 0
+
+    public init(capacity: Int) {
+        self.capacity = max(1, capacity)
+        storage = []
+        storage.reserveCapacity(self.capacity)
+    }
+
+    public var isEmpty: Bool { count == 0 }
+
+    public mutating func append(_ sample: MotionSample) {
+        if storage.count < capacity {
+            storage.append(sample)
+            count = storage.count
+        } else {
+            storage[head] = sample
+            head = (head + 1) % capacity
+        }
+    }
+
+    /// Samples in chronological order.
+    public func snapshot() -> [MotionSample] {
+        if storage.count < capacity { return storage }
+        return Array(storage[head...] + storage[..<head])
+    }
+
+    public mutating func removeAll() {
+        storage.removeAll(keepingCapacity: true)
+        head = 0
+        count = 0
+    }
+}

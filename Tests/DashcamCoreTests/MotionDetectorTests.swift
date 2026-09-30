@@ -106,3 +106,28 @@ struct MotionDetectorTests {
         #expect(event == nil)
     }
 }
+
+@Suite("Motion sample ring")
+struct MotionSampleRingTests {
+    @Test("Keeps the newest samples in order and wraps")
+    func wraps() {
+        var ring = MotionSampleRing(capacity: 3)
+        #expect(ring.isEmpty)
+        for i in 0..<5 {
+            ring.append(MotionSample(timestamp: Double(i), userAcceleration: .zero))
+        }
+        #expect(ring.snapshot().map(\.timestamp) == [2, 3, 4])
+        ring.removeAll()
+        #expect(ring.isEmpty)
+        ring.append(MotionSample(timestamp: 9, userAcceleration: .zero))
+        #expect(ring.snapshot().map(\.timestamp) == [9])
+    }
+
+    @Test("Snapshot round-trips through CSV")
+    func csv() throws {
+        var ring = MotionSampleRing(capacity: 10)
+        for sample in MotionTrace.synthetic(duration: 0.05) { ring.append(sample) }
+        let parsed = try MotionTrace.parse(csv: MotionTrace.csv(from: ring.snapshot()))
+        #expect(parsed.count == ring.snapshot().count)
+    }
+}
