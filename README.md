@@ -16,6 +16,8 @@ Recording requires the app to remain open and the iPhone unlocked. Automatic App
 
 ## Hosted verification
 
+The [latest verification run](https://github.com/normiecore/dashcam-claude/actions/runs/36671496781) also passes a Release archive against the iPhoneOS SDK, including arm64 binary and packaged-resource checks. It is unsigned and cannot yet be installed. See the [account setup steps](Docs/HostedMac.md#next-action-from-ipad-or-iphone) for the remaining signing dependency.
+
 The private [GitHub repository](https://github.com/normiecore/dashcam-claude) has a [draft pull request](https://github.com/normiecore/dashcam-claude/pull/2) for the hosted macOS gate. The [passing Actions run](https://github.com/normiecore/dashcam-claude/actions/runs/36592919853) tested code commit `f3d7b8e68c50ba909a8c8337431ec5f1ea3ba018` with Xcode 26.6. Pull requests and manual workflow dispatch run the Linux policy checks and macOS simulator builds/tests. See [Hosted Mac verification](Docs/HostedMac.md) for evidence and limitations.
 
 GitHub Actions provides an ephemeral build/test runner, not an interactive Mac desktop. The simulator build disables code signing and needs no Apple account credentials. Installing on a physical iPhone later requires an Apple development team and signing setup (or a TestFlight distribution setup); never paste signing credentials into chat.

@@ -10,7 +10,9 @@ For local Mac and physical-device steps, see the [README](../README.md) and [dev
 
 ## Device archive gate
 
-After simulator verification, CI runs `bash Tools/verify-device-archive.sh` to compile Release against the iPhoneOS SDK and produce an **unsigned** arm64 archive. The script checks the packaged app icon, privacy manifest, permission strings and debug symbols. The archive is included in the evidence artifact. This catches device-SDK and packaging problems; it cannot be installed or uploaded to TestFlight until signing and export are configured. This new gate is awaiting its first hosted result.
+After simulator verification, CI runs `bash Tools/verify-device-archive.sh` to compile Release against the iPhoneOS SDK and produce an **unsigned** arm64 archive. The script checks the packaged app icon, privacy manifest, permission strings and debug symbols. The archive is included in the evidence artifact. This catches device-SDK and packaging problems; it cannot be installed or uploaded to TestFlight until signing and export are configured.
+
+The [30 September run](https://github.com/normiecore/dashcam-claude/actions/runs/36671496781) passed Debug/Release simulator builds, all 16 tests and the device archive checks at commit `511ac398d1e6fc04ae20959afc8f3cbe37165ee4`. [Download its evidence and unsigned archive](https://github.com/normiecore/dashcam-claude/actions/runs/36671496781/artifacts/11077823897). The initial archive run found an argument-order error in the validation script's `lipo` invocation; that tooling error was fixed and the complete workflow rerun successfully.
 
 ## Next action from iPad or iPhone
 

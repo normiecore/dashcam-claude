@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-dev.1 — packaging follow-up, 2026-09-30
+
+- Added an opaque app icon asset and a deterministic, dependency-free generator.
+- Added a hosted Release iPhoneOS archive gate checking arm64 output, icon compilation, privacy manifest, permission strings and debug symbols.
+- Documented the iPad/iPhone account steps for later signed TestFlight distribution. No signing credentials are stored in the repository.
+- Local project and portable retention checks pass. Hosted Debug/Release simulator builds, all 16 XCTest cases and the unsigned arm64 device archive checks pass in run `36671496781`. Fixed the archive checker’s `lipo` argument order after its first real execution. Device installation and physical acceptance still require Apple signing.
+
 ## 0.1.0-dev.1 — 2026-09-29
 
 Implemented source:

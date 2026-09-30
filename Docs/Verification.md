@@ -1,5 +1,7 @@
 # Verification checkpoint — 29 September 2026
 
+**30 September follow-up:** [Hosted run 36671496781](https://github.com/normiecore/dashcam-claude/actions/runs/36671496781) passes both simulator build configurations, all 16 XCTest cases and a Release archive against the real iPhoneOS SDK. The unsigned archive contains an arm64 binary, compiled AppIcon, permission descriptions, privacy manifest and dSYM. Tested commit: `511ac398d1e6fc04ae20959afc8f3cbe37165ee4`. The first archive attempt exposed a verification-script argument-order error, corrected before this passing rerun. This is packaging evidence, not signing, installation or hardware validation.
+
 Version: **0.1.0-dev.1**. Status: implementation candidate, **iOS simulator builds pass; not device-qualified**.
 
 ## Actually executed in this environment
