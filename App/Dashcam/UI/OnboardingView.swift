@@ -4,6 +4,7 @@ import DashcamCore
 /// First-run consent screen, presented full screen by RootView until the user taps Continue.
 struct OnboardingView: View {
     @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var coordinator: RecordingCoordinator
 
     var body: some View {
         ScrollView {
@@ -55,6 +56,8 @@ struct OnboardingView: View {
         .safeAreaInset(edge: .bottom) {
             Button {
                 settings.hasCompletedOnboarding = true
+                // Auto-start is deferred until consent; begin now if it was requested.
+                Task { await coordinator.onboardingCompleted() }
             } label: {
                 Text("Continue")
             }

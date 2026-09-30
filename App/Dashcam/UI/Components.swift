@@ -206,6 +206,7 @@ struct BannerView: View {
     let systemImage: String
     let tint: Color
     let onDismiss: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Button(action: onDismiss) {
@@ -213,7 +214,7 @@ struct BannerView: View {
                 Image(systemName: systemImage)
                 Text(text)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(3)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
@@ -251,8 +252,9 @@ struct BigButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .font(.title3.weight(.bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(isEnabled ? foreground : foreground.opacity(0.45))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)

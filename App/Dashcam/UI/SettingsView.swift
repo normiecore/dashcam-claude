@@ -66,7 +66,10 @@ struct SettingsView: View {
                         Text(DisplayText.sensitivity(level)).tag(level)
                     }
                 }
-                LabeledContent("Status", value: coordinator.motionDetector.statusDescription)
+                // The detector is not observable; refresh the row once a second while it is shown.
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    LabeledContent("Status", value: coordinator.motionDetector.statusDescription)
+                }
             }
             LabeledContent("Apple Crash Detection", value: coordinator.safetyKit.statusDescription)
         } header: {
@@ -120,10 +123,13 @@ struct SettingsView: View {
             Button("Show welcome screen again") {
                 settings.hasCompletedOnboarding = false
             }
+            .disabled(coordinator.state.isActive)
         } header: {
             Text("About")
         } footer: {
-            Text("Footage never leaves this iPhone unless you share it or save it to Photos.")
+            Text(coordinator.state.isActive
+                ? "Stop recording to show the welcome screen again. Footage never leaves this iPhone unless you share it or save it to Photos."
+                : "Footage never leaves this iPhone unless you share it or save it to Photos.")
         }
     }
 

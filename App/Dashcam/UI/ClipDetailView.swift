@@ -1,4 +1,6 @@
+import AVFoundation
 import AVKit
+import Combine
 import SwiftUI
 import DashcamCore
 
@@ -8,7 +10,9 @@ struct ClipDetailView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     @Environment(\.dismiss) private var dismiss
     @State private var players: [URL: AVPlayer] = [:]
+    @State private var playbackObservers: [AnyCancellable] = []
     @State private var photosMessage: String? = nil
+    @State private var photosAccessDenied = false
     @State private var isSavingToPhotos = false
     @State private var isConfirmingDelete = false
 
@@ -33,7 +37,12 @@ struct ClipDetailView: View {
 
     private func content(for incident: Incident) -> some View {
         let urls = coordinator.clipURLs(for: incident)
-        return List {
+        return list(for: incident, urls: urls)
+            .task(id: urls) { preparePlayers(for: urls) }
+    }
+
+    private func list(for incident: Incident, urls: [URL]) -> some View {
+        List {
             switch incident.state {
             case .complete:
                 Section {
@@ -43,9 +52,16 @@ struct ClipDetailView: View {
                                 Text("Part \(index + 1) of \(urls.count)")
                                     .font(.subheadline.weight(.semibold))
                             }
-                            VideoPlayer(player: player(for: url))
-                                .aspectRatio(16 / 9, contentMode: .fit)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            if let player = players[url] {
+                                VideoPlayer(player: player)
+                                    .aspectRatio(16 / 9, contentMode: .fit)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .onDisappear { player.pause() }
+                            } else {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                                    .aspectRatio(16 / 9, contentMode: .fit)
+                            }
                         }
                         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                     }
@@ -70,6 +86,13 @@ struct ClipDetailView: View {
                         Text(photosMessage)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                    if photosAccessDenied {
+                        Button {
+                            SystemSettings.open()
+                        } label: {
+                            Label("Open Settings", systemImage: "gearshape")
+                        }
                     }
                 } footer: {
                     Text("The clip stays in Dashcam after sharing or saving.")
@@ -134,6 +157,12 @@ struct ClipDetailView: View {
                 } label: {
                     Label("Delete clip", systemImage: "trash")
                 }
+                // Deleting mid-export would race the assembler, which would recreate the incident.
+                .disabled(incident.state == .readyToAssemble || incident.state == .assembling)
+            } footer: {
+                if incident.state == .readyToAssemble || incident.state == .assembling {
+                    Text("The clip can be deleted once the export finishes.")
+                }
             }
         }
         .confirmationDialog("Delete this clip?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
@@ -160,19 +189,47 @@ struct ClipDetailView: View {
         }
     }
 
-    private func player(for url: URL) -> AVPlayer {
-        if let existing = players[url] { return existing }
-        let player = AVPlayer(url: url)
-        DispatchQueue.main.async { players[url] = player }
-        return player
+    /// Players are created once per set of clip URLs, outside `body`. When one part starts playing the
+    /// others pause, so multi-part incidents never play over each other.
+    private func preparePlayers(for urls: [URL]) {
+        for player in players.values { player.pause() }
+        playbackObservers.removeAll()
+        guard !urls.isEmpty else { players = [:]; return }
+        if !coordinator.state.isActive {
+            // Clip review should be audible with the Ring/Silent switch on and come out of the speaker.
+            // Never touched while a session is active: the capture session owns the audio session then.
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
+        let created = Dictionary(uniqueKeysWithValues: urls.map { ($0, AVPlayer(url: $0)) })
+        players = created
+        for (url, player) in created {
+            let observer = player.publisher(for: \.timeControlStatus)
+                .receive(on: DispatchQueue.main)
+                .sink { status in
+                    guard status == .playing else { return }
+                    for (other, otherPlayer) in created where other != url {
+                        otherPlayer.pause()
+                    }
+                }
+            playbackObservers.append(observer)
+        }
     }
 
     private func saveToPhotos(_ incident: Incident) {
         isSavingToPhotos = true
         photosMessage = nil
+        photosAccessDenied = false
         Task {
-            let ok = await coordinator.saveToPhotos(incident)
-            photosMessage = ok ? "Saved to Photos." : (coordinator.lastError ?? "Could not save to Photos.")
+            do {
+                let saved = try await coordinator.saveToPhotos(incident)
+                photosMessage = saved > 0 ? "Saved to Photos." : "Already saved to Photos."
+            } catch let error as ClipExportError {
+                if case .photosAccessDenied = error { photosAccessDenied = true }
+                photosMessage = error.localizedDescription
+            } catch {
+                photosMessage = "Could not save to Photos: \(error.localizedDescription)"
+            }
             isSavingToPhotos = false
         }
     }

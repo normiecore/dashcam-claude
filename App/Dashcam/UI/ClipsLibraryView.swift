@@ -11,25 +11,7 @@ struct ClipsLibraryView: View {
         NavigationStack {
             List {
                 ForEach(coordinator.incidents) { incident in
-                    NavigationLink(value: incident.id) {
-                        IncidentRow(incident: incident)
-                    }
-                    // Not role: .destructive, which would animate the row away before the user confirms.
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            pendingDelete = incident
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        .tint(.red)
-                    }
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            pendingDelete = incident
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
+                    row(for: incident)
                 }
             }
             .overlay {
@@ -61,6 +43,39 @@ struct ClipsLibraryView: View {
             } message: { incident in
                 Text("The footage from \(incident.triggerTime.formatted(date: .abbreviated, time: .shortened)) will be permanently deleted from this iPhone.")
             }
+        }
+    }
+
+    /// Deleting during export would race the assembler, which recreates the incident directory; the
+    /// coordinator refuses it too, but the affordance is hidden so the user is not invited to try.
+    private func canDelete(_ incident: Incident) -> Bool {
+        incident.state == .complete || incident.state == .failed
+    }
+
+    @ViewBuilder private func row(for incident: Incident) -> some View {
+        let link = NavigationLink(value: incident.id) {
+            IncidentRow(incident: incident)
+        }
+        if canDelete(incident) {
+            link
+                // Not role: .destructive, which would animate the row away before the user confirms.
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        pendingDelete = incident
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .tint(.red)
+                }
+                .contextMenu {
+                    Button(role: .destructive) {
+                        pendingDelete = incident
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+        } else {
+            link
         }
     }
 

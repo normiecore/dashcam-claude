@@ -11,9 +11,10 @@ struct DashcamView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// The coordinator owns these messages (read-only to the UI), so dismissal is tracked locally.
-    @State private var dismissedStatus: String? = nil
-    @State private var dismissedError: String? = nil
+    /// The coordinator owns these messages (read-only to the UI), so dismissal is tracked locally, by
+    /// banner identity: two incidents in a row produce the same text and both must be shown.
+    @State private var dismissedStatus: UUID? = nil
+    @State private var dismissedError: UUID? = nil
 
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
@@ -41,7 +42,7 @@ struct DashcamView: View {
 
     private var portraitLayout: some View {
         VStack(spacing: 12) {
-            informationStack
+            scrollableInformation
             Spacer(minLength: 0)
             centerMessage
             Spacer(minLength: 0)
@@ -55,7 +56,7 @@ struct DashcamView: View {
     private var landscapeLayout: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 10) {
-                informationStack
+                scrollableInformation
                 Spacer(minLength: 0)
                 centerMessage
                 Spacer(minLength: 0)
@@ -68,6 +69,15 @@ struct DashcamView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    /// The HUD, banners and incident card scroll when they do not fit (accessibility text sizes, landscape
+    /// on a small phone) so the controls below always stay on screen.
+    private var scrollableInformation: some View {
+        ViewThatFits(in: .vertical) {
+            informationStack
+            ScrollView(showsIndicators: false) { informationStack }
+        }
     }
 
     private var informationStack: some View {
@@ -88,7 +98,7 @@ struct DashcamView: View {
 
     @ViewBuilder private var preview: some View {
         if coordinator.permissions.cameraGranted {
-            CameraPreviewView(capture: coordinator.capture)
+            CameraPreviewView(capture: coordinator.capture, device: coordinator.previewDevice)
                 .ignoresSafeArea()
                 // Hidden rather than removed while dimmed so the capture session graph never changes.
                 .opacity(coordinator.isDimmed ? 0 : 1)
@@ -117,6 +127,8 @@ struct DashcamView: View {
         .foregroundStyle(.white)
         .padding(12)
         .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // Glanceable instrument, not reading matter: cap the largest accessibility sizes here only.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
     }
 
     @ViewBuilder private var stateIndicator: some View {
@@ -210,6 +222,9 @@ struct DashcamView: View {
         if coordinator.isRecordingUnplugged {
             HUDChip(systemImage: "bolt.slash.fill", text: "Not charging", tint: .orange)
         }
+        if coordinator.isRecording, !settings.keepScreenAwake {
+            HUDChip(systemImage: "lock.iphone", text: "Auto-Lock will stop recording", tint: .orange)
+        }
     }
 
     private func storageTint(_ level: StorageLevel) -> Color {
@@ -238,21 +253,21 @@ struct DashcamView: View {
     private var showsMicOff: Bool {
         coordinator.audioInterrupted
             || !settings.audioEnabled
-            || (coordinator.isRecording && coordinator.configuration?.audioEnabled == false)
+            || (coordinator.isRecording && !coordinator.runHasAudio)
     }
 
     // MARK: Banners
 
     @ViewBuilder private var banners: some View {
-        if let error = coordinator.lastError, error != dismissedError {
-            BannerView(text: error, systemImage: "exclamationmark.triangle.fill", tint: .red) {
-                dismissedError = error
+        if let error = coordinator.lastError, error.id != dismissedError {
+            BannerView(text: error.text, systemImage: "exclamationmark.triangle.fill", tint: .red) {
+                dismissedError = error.id
             }
             .transition(.opacity)
         }
-        if let status = coordinator.statusMessage, status != dismissedStatus {
-            BannerView(text: status, systemImage: "info.circle.fill", tint: Color(red: 0.05, green: 0.3, blue: 0.7)) {
-                dismissedStatus = status
+        if let status = coordinator.statusMessage, status.id != dismissedStatus {
+            BannerView(text: status.text, systemImage: "info.circle.fill", tint: Color(red: 0.05, green: 0.3, blue: 0.7)) {
+                dismissedStatus = status.id
             }
             .transition(.opacity)
         }
@@ -325,8 +340,11 @@ struct DashcamView: View {
 
     private var saveButton: some View {
         Button {
-            Haptics.success()
-            Task { await coordinator.triggerIncident(source: .manual, note: "Save Incident button") }
+            // The haptic is the driver's confirmation, so it follows the outcome rather than the tap.
+            Task {
+                let incident = await coordinator.triggerIncident(source: .manual, note: "Save Incident button")
+                if incident != nil { Haptics.success() } else { Haptics.warning() }
+            }
         } label: {
             Label("SAVE INCIDENT", systemImage: "exclamationmark.shield.fill")
                 .font(.title2.weight(.heavy))
@@ -517,16 +535,26 @@ struct DimmedRecordingView: View {
 
     private var content: some View {
         VStack(spacing: 10) {
-            // The recording indication stays visible at all times in dimmed mode (App Review 2.5.14).
+            // The recording indication stays visible at all times in dimmed mode (App Review 2.5.14),
+            // and it is truthful: a paused or restarting session shows a pause mark, not REC.
             HStack(spacing: 8) {
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 12, height: 12)
-                    .accessibilityHidden(true)
-                Text("REC")
-                    .font(.headline.weight(.heavy))
-                    .foregroundStyle(.red)
-                if settings.audioEnabled && !coordinator.audioInterrupted {
+                if coordinator.isRecording {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 12, height: 12)
+                        .accessibilityHidden(true)
+                    Text("REC")
+                        .font(.headline.weight(.heavy))
+                        .foregroundStyle(.red)
+                } else {
+                    Image(systemName: "pause.circle.fill")
+                        .foregroundStyle(.yellow)
+                        .accessibilityHidden(true)
+                    Text("PAUSED")
+                        .font(.headline.weight(.heavy))
+                        .foregroundStyle(.yellow)
+                }
+                if coordinator.isRecording && coordinator.runHasAudio && !coordinator.audioInterrupted {
                     Text("AUDIO")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(Color(white: 0.6))
@@ -585,8 +613,10 @@ struct DimmedRecordingView: View {
     }
 
     private func saveIncident() {
-        Haptics.success()
-        Task { await coordinator.triggerIncident(source: .manual, note: "Dimmed screen long-press") }
+        Task {
+            let incident = await coordinator.triggerIncident(source: .manual, note: "Dimmed screen long-press")
+            if incident != nil { Haptics.success() } else { Haptics.warning() }
+        }
     }
 }
 

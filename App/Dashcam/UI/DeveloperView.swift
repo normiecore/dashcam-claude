@@ -6,7 +6,6 @@ import DashcamCore
 struct DeveloperView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     @EnvironmentObject var settings: AppSettings
-    @State private var storageFloorMB = 0
     @State private var replayResult: String? = nil
     @State private var replayEvents: [MotionEvent] = []
 
@@ -44,13 +43,11 @@ struct DeveloperView: View {
                 Button("Simulate camera interruption (3 s)") { coordinator.developerSimulateInterruption() }
                 Button("Simulate media services reset") { coordinator.developerSimulateMediaServicesReset() }
                 Button("Simulate writer failure") { coordinator.developerSimulateWriterFailure() }
-                Picker("Storage floor override", selection: $storageFloorMB) {
+                // Bound to the coordinator's published override so the picker survives navigating away.
+                Picker("Storage floor override", selection: storageFloorBinding) {
                     ForEach(floorOptions) { option in
                         Text(option.label).tag(option.megabytes)
                     }
-                }
-                .onChange(of: storageFloorMB) { _, newValue in
-                    Task { await coordinator.developerSetStorageFloor(megabytes: newValue == 0 ? nil : newValue) }
                 }
             } header: {
                 Text("Fault injection")
@@ -120,6 +117,15 @@ struct DeveloperView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private var storageFloorBinding: Binding<Int> {
+        Binding(
+            get: { coordinator.storageFloorOverrideMegabytes ?? 0 },
+            set: { newValue in
+                Task { await coordinator.developerSetStorageFloor(megabytes: newValue == 0 ? nil : newValue) }
+            }
+        )
+    }
+
     private var batteryText: String {
         let level = coordinator.batteryLevel >= 0 ? " \(Int(coordinator.batteryLevel * 100))%" : ""
         switch coordinator.batteryState {
@@ -156,6 +162,9 @@ struct LogViewerView: View {
     @State private var minimumLevel: LogLevel = .info
     @State private var query = ""
     @State private var entries: [LogEntry] = []
+    /// `entries` after the level and search filters; recomputed on refresh and when a filter changes,
+    /// not on every coordinator publish (up to 3000 rows).
+    @State private var rows: [LogEntry] = []
     @State private var logFileURL: URL? = nil
 
     var body: some View {
@@ -171,10 +180,17 @@ struct LogViewerView: View {
                     ShareLink(item: logFileURL) {
                         Label("Export log file", systemImage: "square.and.arrow.up")
                     }
+                } else {
+                    // The copy is made only when asked for; it is a synchronous flush plus a file copy.
+                    Button {
+                        logFileURL = coordinator.exportLogFile()
+                    } label: {
+                        Label("Prepare log file for export", systemImage: "doc.badge.arrow.up")
+                    }
                 }
             }
-            Section("\(filtered.count) entries") {
-                ForEach(Array(filtered.enumerated()), id: \.offset) { _, entry in
+            Section("\(rows.count) entries") {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, entry in
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(entry.level.label) \(entry.category.rawValue)")
                             .font(.caption2.weight(.bold))
@@ -195,17 +211,20 @@ struct LogViewerView: View {
             Button("Refresh") { refresh() }
         }
         .onAppear { refresh() }
+        .onChange(of: query) { _, _ in applyFilters() }
+        .onChange(of: minimumLevel) { _, _ in applyFilters() }
     }
 
-    private var filtered: [LogEntry] {
-        entries.filter { entry in
+    private func applyFilters() {
+        rows = entries.filter { entry in
             entry.level >= minimumLevel && (query.isEmpty || entry.message.localizedCaseInsensitiveContains(query) || entry.category.rawValue.localizedCaseInsensitiveContains(query))
         }
     }
 
     private func refresh() {
         entries = coordinator.recentLogEntries.reversed()
-        logFileURL = coordinator.exportLogFile()
+        applyFilters()
+        logFileURL = nil
     }
 
     private func color(for level: LogLevel) -> Color {
