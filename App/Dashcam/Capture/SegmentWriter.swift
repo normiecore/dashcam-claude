@@ -73,7 +73,10 @@ final class SegmentWriter: NSObject {
             throw CaptureError.configurationFailed("mp4 content type unavailable")
         }
         writer = AVAssetWriter(contentType: contentType)
-        writer.outputFileTypeProfile = .mpeg4CMAFCompliant
+        // Apple HLS fragmented-MP4 profile, not CMAF: the CMAF profile allows exactly one track per
+        // writer ("More than one track is not allowed for file type profile MPEG4CMAFCompliant",
+        // AVFoundation -11875), and a dash cam run carries video and audio in one file.
+        writer.outputFileTypeProfile = .mpeg4AppleHLS
         writer.preferredOutputSegmentInterval = CMTime(seconds: configuration.segmentInterval, preferredTimescale: 600)
 
         videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: configuration.videoSettings)

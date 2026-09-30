@@ -61,6 +61,7 @@ final class SegmentWriterTests: XCTestCase {
         let media = segments.filter { $0.kind == .media }
         XCTAssertEqual(inits.count, 1, "exactly one initialization segment per run")
         XCTAssertGreaterThanOrEqual(media.count, 4, "10 s at a 2 s interval should yield at least 4 media segments")
+        let initSegment = try XCTUnwrap(inits.first, "no initialization segment; the writer did not start")
         XCTAssertEqual(media.map(\.id.sequence), Array(1...media.count), "sequence numbers are contiguous")
         for segment in segments {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(segment.relativePath).path), "\(segment.relativePath) on disk")
@@ -71,7 +72,7 @@ final class SegmentWriterTests: XCTestCase {
         let totalDuration = media.reduce(0) { $0 + $1.duration }
         XCTAssertEqual(totalDuration, Double(seconds), accuracy: 1.0)
 
-        let initURL = root.appendingPathComponent(inits[0].relativePath)
+        let initURL = root.appendingPathComponent(initSegment.relativePath)
         let mediaURLs = media.map { root.appendingPathComponent($0.relativePath) }
 
         // Whole run: init + every media segment.
@@ -158,7 +159,8 @@ final class SegmentWriterTests: XCTestCase {
         let media = segments.filter { $0.kind == .media }
         XCTAssertEqual(inits.count, 1)
         XCTAssertGreaterThanOrEqual(media.count, 3)
-        let initURL = root.appendingPathComponent(inits[0].relativePath)
+        let initSegment = try XCTUnwrap(inits.first, "no initialization segment; the writer did not start")
+        let initURL = root.appendingPathComponent(initSegment.relativePath)
         let mediaURLs = media.map { root.appendingPathComponent($0.relativePath) }
 
         // Two tracks in the initialization segment, so the rebase plan must carry two deltas.
@@ -181,8 +183,8 @@ final class SegmentWriterTests: XCTestCase {
         XCTAssertEqual(videoTracks.count, 1)
         let audioRange = try await XCTUnwrap(audioTracks.first).load(.timeRange)
         let videoRange = try await XCTUnwrap(videoTracks.first).load(.timeRange)
-        // AAC carries encoder priming (about 2 048 samples, 46 ms at 44.1 kHz) which the CMAF edit list
-        // trims, so allow one segment's worth of slack for the start and a tenth of a second at the end.
+        // AAC carries encoder priming (about 2 048 samples, 46 ms at 44.1 kHz) which the muxer signals
+        // for the player to trim, so allow a little slack at both ends.
         XCTAssertLessThan(abs(audioRange.start.seconds - videoRange.start.seconds), 0.15, "tracks start together")
         XCTAssertLessThan(abs(audioRange.end.seconds - videoRange.end.seconds), 0.15, "tracks end together")
 

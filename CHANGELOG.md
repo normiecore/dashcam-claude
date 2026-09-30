@@ -14,7 +14,8 @@ physical-device validation pass is complete.
   heuristic with CSV trace replay, fMP4 box tools with fragment timestamp rebasing, clip assembler,
   fan-out logger. 54 Swift Testing tests including a simulated two-hour drive.
 - iOS app (XcodeGen spec, iOS 18+): AVCaptureSession capture service with explicit 1080p30 format,
-  AVAssetWriter segmented CMAF writer (4 s segments, HEVC, atomic per-segment files), recording
+  AVAssetWriter segmented fragmented-MP4 writer (Apple HLS profile, 4 s segments, HEVC, atomic
+  per-segment files), recording
   coordinator (lifecycle, interruptions, media-services recovery, thermal throttling, frame
   watchdog, ordered ingestion, incident assembly), manual/motion/SafetyKit(flag-gated)/developer
   incident sources, clip export (rebased concatenation plus passthrough remux) and Photos saving,
@@ -47,8 +48,11 @@ physical-device validation pass is complete.
   waits for consent; the microphone prompt follows the audio setting.
 
 ### Decisions
-- Segmented AVAssetWriter (fMP4/CMAF) instead of AVCaptureMovieFileOutput: iOS cannot switch
-  movie files without stopping, and file outputs stop on backgrounding.
+- Segmented AVAssetWriter (fragmented MP4) instead of AVCaptureMovieFileOutput: iOS cannot switch
+  movie files without stopping, and file outputs stop on backgrounding. The Apple HLS file type
+  profile is used rather than CMAF: AVFoundation allows only one track per writer under the CMAF
+  profile, which a Simulator test with synthetic audio and video caught (error -11875) before any
+  device run.
 - Recording is foreground-only. iOS prohibits camera use in the background and locking the screen
   backgrounds the app, so the app keeps the screen awake and offers a dimmed mode instead.
 - Incident protection is done by hard-linking buffer segments into the incident directory the
