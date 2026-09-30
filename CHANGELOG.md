@@ -27,6 +27,13 @@ physical-device validation pass is complete.
   seconds and checks the retention and incident invariants; `replay` runs a motion trace through
   the impact detector.
 - CI: Linux `swift test` lane and macOS Simulator lanes on Xcode 26.6 and Xcode 27 (iOS 27 SDK).
+- Fixed segment timestamps on the real capture clock: the writer decided which timeline a segment
+  report used with a ">= session start" test, but reported timestamps are quantized to the track
+  timescale, so the first segment of every run read as movie time and was stamped the device's
+  uptime into the future. Such a segment never aged out of the buffer and fell outside every
+  incident window. The timeline is now chosen once per run by which reading places the first
+  segment where it must start. Found by the coordinator tests (the earlier writer tests used
+  timestamps starting at zero, where both readings agree).
 - Fixed a main-actor hang introduced in the third review round: two callers ending a run at the
   same moment (locking the phone, or Save Incident during Stop) could leave one of them re-awaiting
   an already finished teardown in a loop that never yields, freezing the app. Run teardowns are

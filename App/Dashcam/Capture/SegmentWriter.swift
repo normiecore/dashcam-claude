@@ -55,7 +55,9 @@ final class SegmentWriter: NSObject {
     private var runStartDate: Date?
     private var nextSequence = 1
     private var lastSegmentEnd: Date?
-    private var loggedTimeline = false
+    /// Which timeline segment reports use, decided on the first media segment (ioQueue only).
+    private enum ReportTimeline { case source, movie }
+    private var reportTimeline: ReportTimeline?
     private(set) var droppedVideoFrames = 0
     private(set) var droppedAudioBuffers = 0
     private(set) var appendedVideoFrames = 0
@@ -251,20 +253,27 @@ extension SegmentWriter: AVAssetWriterDelegate {
             let sequence = nextSequence
             nextSequence += 1
             let path = Segment.relativePath(run: run, sequence: sequence, fileExtension: "m4s")
-            // Apple does not document which timeline `earliestPresentationTimeStamp` is on. Handle both:
-            // source (capture) time, which is at or after the session start PTS, and movie time, which
-            // starts at zero. Anything else falls back to chaining from the previous segment's end.
+            // Apple does not document which timeline `earliestPresentationTimeStamp` is on: source
+            // (capture) time, near the session start PTS, or movie time, near zero. Decide once per run,
+            // on the first media segment, by taking the reading that puts it closest to where it must
+            // start. A plain ">= session start" test is wrong: reported timestamps are quantized to the
+            // track timescale, so the first one sits a fraction of a millisecond before the session start
+            // and would be read as movie time, stamping the segment the device's uptime into the future
+            // (out of every incident window, and never aged out of the buffer).
             var start = lastSegmentEnd ?? startDate
             if let earliestPTS, earliestPTS.isValid {
-                if let sessionStartPTS, earliestPTS >= sessionStartPTS {
-                    let offset = CMTimeSubtract(earliestPTS, sessionStartPTS).seconds
-                    if offset.isFinite, offset < 86_400 { start = startDate.addingTimeInterval(offset) }
-                } else if earliestPTS.seconds >= 0, earliestPTS.seconds < 86_400 {
-                    start = startDate.addingTimeInterval(earliestPTS.seconds)
+                let sourceOffset = sessionStartPTS.map { CMTimeSubtract(earliestPTS, $0).seconds }
+                let movieOffset = earliestPTS.seconds
+                if reportTimeline == nil {
+                    let expected = (lastSegmentEnd ?? startDate).timeIntervalSince(startDate)
+                    let sourceDistance = sourceOffset.map { abs($0 - expected) } ?? .infinity
+                    reportTimeline = sourceDistance <= abs(movieOffset - expected) ? .source : .movie
+                    logger.notice(.recorder, "First segment PTS \(earliestPTS.seconds) vs session start \(sessionStartPTS?.seconds ?? -1): timeline is \(reportTimeline == .source ? "source" : "movie")")
                 }
-                if !loggedTimeline {
-                    loggedTimeline = true
-                    logger.notice(.recorder, "First segment PTS \(earliestPTS.seconds) vs session start \(sessionStartPTS?.seconds ?? -1): timeline is \(sessionStartPTS.map { earliestPTS >= $0 } == true ? "source" : "movie")")
+                let offset = reportTimeline == .source ? (sourceOffset ?? .nan) : movieOffset
+                // A fraction of a frame before zero is quantization; anything wilder keeps the chained start.
+                if offset.isFinite, offset > -0.5, offset < 86_400 {
+                    start = startDate.addingTimeInterval(max(0, offset))
                 }
             }
             var duration = configuration.segmentInterval

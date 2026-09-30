@@ -29,6 +29,13 @@ final class RecordingCoordinatorTests: XCTestCase {
         XCTAssertFalse(h.fake.isRunning)
 
         let media = await h.mediaSegments()
+        let now = Date()
+        for segment in media {
+            // Regression: the first segment's report timestamp was misread as movie time and the segment
+            // stamped the device's uptime into the future.
+            XCTAssertLessThanOrEqual(segment.endTime, now.addingTimeInterval(0.5), "\(segment.relativePath) is stamped in the future: \(segment.startTime)")
+            XCTAssertGreaterThan(segment.startTime, now.addingTimeInterval(-120), "\(segment.relativePath) is stamped too far in the past: \(segment.startTime)")
+        }
         let last = try XCTUnwrap(media.last)
         XCTAssertEqual(last.endTime.timeIntervalSince1970, stopRequestedAt.timeIntervalSince1970, accuracy: 0.6,
                        "stop() must flush and index the partial segment recorded up to the tap")
