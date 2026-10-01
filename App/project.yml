@@ -48,6 +48,8 @@ targets:
       path: Dashcam/Info.plist
       properties:
         CFBundleDisplayName: Dashcam
+        # actool also records this under CFBundleIcons; App Store Connect requires it (ITMS-90713).
+        CFBundleIconName: AppIcon
         # Filled in at build time from MARKETING_VERSION and CURRENT_PROJECT_VERSION below, so CI can
         # give every TestFlight upload a new build number.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
