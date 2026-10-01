@@ -48,8 +48,10 @@ targets:
       path: Dashcam/Info.plist
       properties:
         CFBundleDisplayName: Dashcam
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        # Filled in at build time from MARKETING_VERSION and CURRENT_PROJECT_VERSION below, so CI can
+        # give every TestFlight upload a new build number.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSRequiresIPhoneOS: true
         UILaunchScreen: {}
         UIApplicationSceneManifest:
@@ -74,6 +76,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam
         PRODUCT_NAME: Dashcam
+        # XcodeGen's iOS preset sets "1,2" at the target level, which overrides the project-wide "1"
+        # and would build an iPad app that fails App Store Connect's iPad orientation rules.
+        TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
     scheme:

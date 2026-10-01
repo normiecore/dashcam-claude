@@ -67,11 +67,26 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -collect-test-diagnostics never \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
-      - name: Build Release for device
+      - name: Archive Release for device (unsigned)
         # Debug builds carry the simulated camera and the UI-test launch options. This checks that the
-        # shipping configuration, and the device-only code paths, compile without them.
+        # shipping configuration and the device-only code paths compile without them, and that the
+        # bundle has what an App Store Connect upload needs (icon, iPhone only, launch screen).
         run: |
           set -o pipefail
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -configuration Release \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Dashcam.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO archive 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+          scripts/check-app-bundle.sh "$RUNNER_TEMP/Dashcam.xcarchive/Products/Applications/Dashcam.app"
+          sips -g hasAlpha App/Dashcam/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | grep -q 'hasAlpha: no' \
+            || { echo "::error::The app icon has an alpha channel (ITMS-90717)"; exit 1; }
+      - name: Package unsigned IPA
+        # For re-signing tools (free Apple Account sideloading); see docs/TESTING.md.
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/Dashcam.xcarchive/Products/Applications/Dashcam.app" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/Dashcam-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/Dashcam-unsigned.ipa
+          archive: false
+          retention-days: 14

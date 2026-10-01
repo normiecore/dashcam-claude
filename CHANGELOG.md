@@ -61,6 +61,19 @@ physical-device validation pass is complete.
   the exported clip starts with that footage, the buffer holds about its target length, and no
   buffer file outlives its index entry.
 - CI builds the Release configuration for a generic iOS device after the Simulator tests.
+- Install without a Mac. `.github/workflows/testflight.yml` archives a Release build, signs it with
+  Apple's cloud-managed distribution certificate through an App Store Connect team API key and
+  uploads it for internal TestFlight testing; it starts when the `testflight` label is added to the
+  pull request, and a Linux preflight job checks the four secrets first. CI also archives an unsigned
+  Release build, checks it with `scripts/check-app-bundle.sh` and attaches `Dashcam-unsigned.ipa`
+  for free-account sideloading from a PC. docs/TESTING.md has both routes step by step for an owner
+  with only an iPhone and a browser, and the checklist no longer assumes a Mac.
+- App icon (asset catalog, 1024 px, no alpha), required for any App Store Connect upload.
+- The app target is iPhone only. XcodeGen's iOS preset had set the target's device family to iPhone
+  and iPad, overriding the project setting, which would have failed App Store Connect's iPad
+  orientation rules.
+- CFBundleVersion and CFBundleShortVersionString now come from CURRENT_PROJECT_VERSION and
+  MARKETING_VERSION, so each upload can carry a new build number (they were fixed literals).
 - Capture turns iOS 18 automatic frame rate off before pinning frame durations, since a frame-duration
   write throws while it is on.
 - One-minute motion sample ring saved as `motion.csv` alongside each incident.

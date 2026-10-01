@@ -12,7 +12,7 @@ Any Swift 6 toolchain works. In the Linux environment this project was built in,
 
 ## App on the iOS Simulator
 
-Requires a Mac with Xcode 26.6 or later (Xcode 27 recommended) and XcodeGen (`brew install xcodegen`). The `.xcodeproj` is generated and not committed.
+CI runs this suite on every pull request, so no Mac is needed to see results. Locally it requires a Mac with Xcode 26.6 or later (Xcode 27 recommended) and XcodeGen (`brew install xcodegen`). The `.xcodeproj` is generated and not committed.
 
 ```
 cd App && DASHCAM_TEAM_ID=YOURTEAMID xcodegen generate && cd ..
@@ -38,26 +38,66 @@ Running the Debug app in the Simulator uses the simulated camera, so recording, 
 
 Set them in Xcode under Product > Scheme > Edit Scheme > Run > Arguments. Release builds ignore them and always use the real camera.
 
-CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHub's preview `xcode-27` label (Xcode 27.0, iOS 27.0 simulator), which is the toolchain the project is opened with, and then builds the Release configuration for a generic iOS device, which checks that the shipping code compiles without the Debug-only simulated camera. A second lane on `macos-26` (Xcode 26.6, iOS 26.5 SDK) runs only when dispatched from the Actions tab, because macOS minutes bill at a multiple on this private repository. Each test has a 180 s execution allowance, so a hang fails in minutes and the streamed log shows where.
+CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHub's preview `xcode-27` label (Xcode 27.0, iOS 27.0 simulator), which is the toolchain the project is opened with, and then archives the Release configuration for a generic iOS device. That checks that the shipping code compiles without the Debug-only simulated camera, runs `scripts/check-app-bundle.sh` (app icon, iPhone only, launch screen, privacy manifest, version substitution) so a TestFlight upload does not bounce, and attaches `Dashcam-unsigned.ipa` to the run. A second lane on `macos-26` (Xcode 26.6, iOS 26.5 SDK) runs only when dispatched from the Actions tab (which needs the workflow on the default branch), because macOS minutes bill at a multiple on this private repository. Each test has a 180 s execution allowance, so a hang fails in minutes and the streamed log shows where.
+
+## Getting the app onto an iPhone without a Mac
+
+The build, signing and upload run on GitHub's macOS runners, so everything on your side happens on the iPhone and in a browser. Two routes:
+
+- **TestFlight (recommended).** Needs the paid Apple Developer Program (99 USD a year). Install from the TestFlight app, builds last 90 days, no Developer Mode or trust steps, and TestFlight passes crash reports and screenshot feedback back to App Store Connect. If Matrix Engineered already has a paid Apple developer team, ask its Account Holder to add you as an Admin instead of enrolling yourself.
+- **Free Apple Account with a Windows or Linux PC.** Costs nothing but needs a PC and a USB cable, the app stops launching after 7 days until you re-install it, and since July 2026 Apple has been rejecting many free-account installs with "The provisioning profile is banned" (0xe8008024) whichever tool is used. Use it only if you have a PC and do not want to pay yet.
+
+### Route A: TestFlight
+
+One-time setup. In Safari, use Request Desktop Website if an Apple or GitHub page is cramped.
+
+1. Enrol: install the Apple Developer app on the iPhone, sign in with your Apple Account (two-factor authentication on), tap Account > Enroll Today and enrol as an individual. An organisation needs a D-U-N-S number and takes days longer. Wait for the confirmation email.
+2. Open appstoreconnect.apple.com > Business and accept any pending agreements. Until you do, apps cannot be added and uploads fail.
+3. Open developer.apple.com/account > Membership details and copy the Team ID (10 characters).
+4. developer.apple.com/account > Certificates, Identifiers & Profiles > Identifiers > + > App IDs > App. Choose Explicit, enter `com.matrixengineered.dashcam`, description Dashcam, tick no capabilities, then Register.
+5. App Store Connect > Apps > + > New App: platform iOS; a name that is not already taken on the store (plain "Dashcam" almost certainly is; the name under the home screen icon stays Dashcam); a primary language; the bundle ID from step 4; any SKU, for example DASHCAM001; Full Access. Create.
+6. App Store Connect > Users and Access > Integrations > App Store Connect API. If there is a Request Access button, request access and wait for Apple's approval. Then Team Keys > +: name it GitHub Actions, set Access to **Admin** (signing in the cloud needs Admin, and the role cannot be changed later), Generate. Download the `.p8` file now, because Apple only lets you download it once, and note the Key ID and the Issuer ID shown on the page. This key can do anything in App Store Connect: keep it only in GitHub secrets, and revoke it on this page if it ever leaks.
+7. In the Files app, open the downloaded `AuthKey_<KEYID>.p8`. If it will not preview, rename it to end in `.txt`. Copy all of its text, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines.
+8. github.com/normiecore/dashcam-claude > Settings > Secrets and variables > Actions > New repository secret. Add four secrets: `ASC_KEY_ID` (Key ID), `ASC_ISSUER_ID` (Issuer ID), `ASC_KEY_P8` (the copied key text) and `APPLE_TEAM_ID` (Team ID).
+9. App Store Connect > your app > TestFlight > + next to Internal Testing. Name the group, tick Enable automatic distribution and add yourself.
+10. Install TestFlight from the App Store on the iPhone.
+
+Each build:
+
+1. Add the `testflight` label to the pull request (on the PR page, Labels). That starts `.github/workflows/testflight.yml`: a quick secrets check, then archive, cloud signing and upload on a macOS runner, about 15 to 20 minutes. To build again, remove and re-add the label, or press Re-run on the run's page. Once the workflow file is on the default branch it can also be started from Actions > TestFlight > Run workflow.
+2. Wait for Apple's email that the build has finished processing.
+3. Open TestFlight on the iPhone and install Dashcam. Each build expires after 90 days; a newer upload replaces it.
+
+If a run fails, its page shows the error and a `testflight-logs` artifact holds Apple's export logs. Send me the run link.
+
+### Route B: free Apple Account and a PC
+
+1. Every CI run on the pull request uploads `Dashcam-unsigned.ipa` as an artifact: open the run from the PR's Checks tab, scroll to Artifacts and download it to the PC.
+2. On Windows, remove the Microsoft Store "Apple Devices" and iTunes apps if installed, then install iTunes from apple.com, which the signing tools need for their USB drivers. On Linux, install `usbmuxd` and `libimobiledevice`.
+3. Install a signing tool from its official GitHub releases page only: Impactor (github.com/claration/Impactor) or iloader (github.com/nab138/iloader). Avoid on-device installers and signing services from other sites.
+4. Use a separate Apple Account for signing, not your main one: the tool signs in to Apple as you, and an account that has sideloaded before is the one most likely to be refused.
+5. Connect the iPhone by USB, unlock it and tap Trust. In the tool, sign in with the signing account, pick `Dashcam-unsigned.ipa` and install.
+6. On the iPhone: Settings > Privacy & Security > Developer Mode > on, restart, then tap Enable. If the toggle is missing, start the install once from the tool and look again. Then Settings > General > VPN & Device Management, tap the signing account and Trust.
+7. Re-install before day 7 with the same tool, account and bundle ID, or the app's footage and settings end up in a new, empty container.
+
+If the install fails with 0xe8008024 or 0xe8008018, try one brand-new signing account; if that fails too, use Route A.
 
 ## Physical iPhone checklist
 
-Prerequisites: an iPhone on iOS 18 or later with Developer Mode on (Settings > Privacy & Security > Developer Mode, then restart), and a signing team. A free Apple account works for on-device installs (3 devices, profiles expire after 7 days); TestFlight and restricted entitlements need the paid program.
+Prerequisites: the app installed by Route A or B, on iOS 18 or later. Developer tools are hidden in TestFlight and other Release builds: turn on Settings > Developer > Developer menu, then open Developer tools.
 
-Do not mirror the iPhone with Device Hub's View Screen during any capture step. Apple documents that apps lose the camera and microphone while Device Hub interacts with the device, so the app would record black frames and silence without reporting an error. Watch the phone's own screen instead.
-
-1. Generate the project with your team id, open `App/Dashcam.xcodeproj`, select your iPhone as the run destination, and run. If signing complains, pick your team under Signing & Capabilities for the Dashcam target.
+1. Open Dashcam from the home screen.
 2. First launch: read the welcome screen, tap Continue, tap Start recording, allow camera and (if audio is on) microphone. Confirm the preview is upright in portrait and in landscape, and the HUD shows REC, the buffer counting up to 5:00, the free space chip and the format (expect 1080p 30fps HEVC).
-3. Driveway test (10 minutes, engine off, phone mounted): let the buffer fill, watch Settings > Storage show the buffer stabilise around 170 MB, then tap Save Incident. The orange card should count down 60 s and the Clips tab badge should show 1. Open the clip: playback should start at the beginning of the pre-roll, not with a blank lead-in, and the duration should be about 6 minutes. Share it via AirDrop to a Mac and confirm QuickTime plays it. Save to Photos and confirm it appears.
+3. Driveway test (10 minutes, engine off, phone mounted): let the buffer fill, watch Settings > Storage show the buffer stabilise around 170 MB, then tap Save Incident. The orange card should count down 60 s and the Clips tab badge should show 1. Open the clip: playback should start at the beginning of the pre-roll, not with a blank lead-in, and the duration should be about 6 minutes. Tap Save to Photos and play it in the Photos app; also share it to Files (Save to Files) and play it from there.
 4. Lock the screen while recording, wait 20 s, unlock. Expect "Paused: camera unavailable in background" then automatic resume with a new run; the buffer keeps its earlier footage. Save an incident that spans the gap and confirm two clip files appear.
 5. Incoming phone call (ask someone to call): with the banner style, video should continue and the mic chip should appear; accept the call, then hang up and return. Expect the log to show the run rotated to video only at the start of the call and rotated back with audio at the end, and a clip saved across the call to have separate parts. Also lock the phone during a call and unlock while it is still ongoing; recording should resume without audio and get audio back when the call ends.
-5a. Orientation: tap Start while holding the phone in portrait, then seat it in a landscape mount. Within a few seconds the log should show "orientation changed" and a new run; a clip saved afterwards must play upright in QuickTime.
+5a. Orientation: tap Start while holding the phone in portrait, then seat it in a landscape mount. Within a few seconds the log should show "orientation changed" and a new run; a clip saved afterwards must play upright in the app and in Photos.
 5b. Toggle Record audio off and on in Settings while recording. Each toggle should start a new run (log) and the AUDIO badge in the dimmed screen should follow the actual track.
 5c. Tap Stop, then Save Incident. The incident must complete with the buffered footage within seconds, not sit at "Recording 60 s more". Also tap Save Incident within a second of tapping Stop: the clip must include the footage right up to the tap (the writer's last segment), which the log shows as the incident attaching one more segment after "Recording stopped".
 5d. During a phone call, note in the developer live stats whether video frames keep counting up. If they stop, the app should show "Paused: camera interrupted" within about 5 s and resume when the call ends; if they continue, the run should be video-only and audio should return after the call. Report which of the two happened.
 6. Open the Camera app from the Lock Screen or Control Center while Dashcam is frontmost, then return. Expect a pause and a resume.
-7. Settings > Developer > Reset Media Services while recording. Expect "Recovering camera" and a resume within a few seconds.
-8. Raise the thermal state with Xcode's Device Conditions. In Xcode 26 this is Window > Devices and Simulators, select the iPhone, Device Conditions. Xcode 27 moved device management into the Device Hub app and Apple's Device Hub pages do not mention thermal conditions, so look in the iPhone's inspector there and note whether the control still exists. Choose Thermal State: Serious, then Critical. Expect the frame rate to drop to 24 then 15 fps in the developer live stats and the heat chip to appear; stop the condition and confirm 30 fps returns.
+7. Developer tools > Simulate media services reset while recording. Expect "Recovering camera" and a resume within a few seconds.
+8. Heat: without a Mac the thermal state cannot be forced, so watch for it during the soak (step 11), for example on a warm day in the sun. When the heat chip appears, the developer live stats should show the frame rate dropping to 24 and then 15 fps, and 30 fps returning once the phone cools. With a Mac, Xcode's Device Conditions (Thermal State: Serious, then Critical) forces it.
 9. Low storage: in Developer tools set Storage floor override to 64 GB or higher than your free space. Expect the buffer to trim and recording to stop with the "almost out of storage" message. Set it back to Off.
 10. Force quit the app mid-recording (with an incident collecting if possible), relaunch. Expect the incident to appear as ready or exporting, then complete, and the buffer to still hold its earlier footage minus at most one segment.
 11. Soak: mount the phone on the windshield on a car charger, record for at least 60 minutes with Dim screen on. Note the thermal state, frame rate, battery level and any pauses from the developer live stats and log. Export the log afterwards.
@@ -66,21 +106,19 @@ Do not mirror the iPhone with Device Hub's View Screen during any capture step. 
 
 ## Collecting logs
 
-In the app: Settings > Developer > View recent log, then Export log file (share sheet). The file holds the last 2 MB with one rotation.
+In the app: Developer tools > View recent log > Prepare log file for export, then Export log file and send it with Mail, Messages or Save to Files. The file holds the last 2 MB with one rotation, and it is the complete record: only notice level and above from the system log persists on the device.
 
-Only notice level and above from the os_log stream persists on the device by default, so the in-app log file is the complete record. On a Mac with the iPhone connected, Console.app filters by subsystem `com.matrixengineered.dashcam`. For a range of time:
+Crash reports: Settings > Privacy & Security > Analytics & Improvements > Analytics Data, entries starting with Dashcam; open one and use the share button. In a TestFlight build you can also take a screenshot while Dashcam is open and send it as TestFlight feedback with a note, and crashes that testers share reach App Store Connect under TestFlight > Crashes.
+
+For a system-level failure, hold Volume Up and Volume Down together until the phone vibrates to capture a sysdiagnose; it appears in the same Analytics Data list after a few minutes.
+
+### With a Mac
+
+Not needed for any of the above, but if one is available: run from Xcode with a free account (Developer Mode on), force thermal states with Device Conditions, and do not mirror the iPhone with Device Hub's View Screen during capture (apps lose the camera and microphone while Device Hub interacts with the device). Console.app filters by subsystem `com.matrixengineered.dashcam`, and:
 
 ```
 sudo log collect --device --start "2026-09-29 10:00:00" --output dashcam.logarchive
-```
-
-To pull the log file, or the buffer and incident directories, off the device without the Xcode UI:
-
-```
-xcrun devicectl list devices
 xcrun devicectl device copy from --device <id> \
   --source "Library/Application Support/Dashcam/logs/dashcam.log" --destination ./dashcam.log \
   --domain-type appDataContainer --domain-identifier com.matrixengineered.dashcam
 ```
-
-For a system-level failure, hold Volume Up and Volume Down together until the phone vibrates to capture a sysdiagnose, then find it under Settings > Privacy & Security > Analytics & Improvements > Analytics Data. Crash reports for the app appear in the same place, in Xcode's Organizer, and in Xcode 27 under the device's diagnostics tab in Device Hub.

@@ -18,7 +18,7 @@ Storage floor and critical-storage stop; permission handling and Settings deep l
 
 ### M3 Device validation (needs the owner)
 
-The checklist in TESTING.md: 10 minute driveway test, Save Incident, clip playback, lock and unlock, phone call, Camera app takeover, Reset Media Services, thermal via Device Conditions, low storage, force quit and relaunch recovery, a 60 minute mounted soak on a charger, and a drive with impact detection on to count false positives. Success is the brief's definition: continuous recording for an extended drive, only the rolling window retained, and the manual or test trigger reliably preserving footage before and after the event.
+The owner has no Mac, so the build reaches the phone through TestFlight, uploaded by GitHub Actions (`.github/workflows/testflight.yml`), or through a free-account sideload of the CI's unsigned IPA from a PC; TESTING.md has both. The checklist in TESTING.md: 10 minute driveway test, Save Incident, clip playback, lock and unlock, phone call, Camera app takeover, simulated media services reset, heat observed during the soak (forcing thermal states needs a Mac), low storage, force quit and relaunch recovery, a 60 minute mounted soak on a charger, and a drive with impact detection on to count false positives. Success is the brief's definition: continuous recording for an extended drive, only the rolling window retained, and the manual or test trigger reliably preserving footage before and after the event.
 
 ### M4 Automatic detection
 
@@ -38,4 +38,4 @@ GPS route metadata and speed or timestamp overlay (Core Location, When-In-Use on
 
 ## Open product decisions
 
-Pre-roll defaults to the whole buffer (5 minutes) and post-roll to 60 s. Overlapping triggers extend the same incident. Audio is on by default. Incident clips are included in iCloud backup while the buffer is excluded. Recording continues at 15 fps at thermal critical rather than stopping. The bundle identifier prefix is `com.matrixengineered`. Whether to apply for the SafetyKit entitlement and whether to use the paid Apple Developer Program are the owner's calls.
+Pre-roll defaults to the whole buffer (5 minutes) and post-roll to 60 s. Overlapping triggers extend the same incident. Audio is on by default. Incident clips are included in iCloud backup while the buffer is excluded. Recording continues at 15 fps at thermal critical rather than stopping. The bundle identifier prefix is `com.matrixengineered`. Whether to apply for the SafetyKit entitlement and whether to join the paid Apple Developer Program are the owner's calls. Without a Mac, the paid program is the only reliable way onto the phone (TestFlight); the free route needs a PC and is currently hit by Apple's banned-profile errors. The App Store name must be unique, so it will probably not be plain "Dashcam"; the name on the home screen stays Dashcam.

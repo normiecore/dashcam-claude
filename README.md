@@ -2,7 +2,7 @@
 
 An iPhone dash cam that records continuously into a rolling buffer (five minutes by default), keeps footage on the phone, and preserves the minutes before and after an incident when you tap Save Incident or, optionally, when a strong impact is detected.
 
-Status: V0.1 in progress. The core logic is tested on Linux and macOS, the app target compiles in CI, and the first physical-device validation pass has not happened yet. See `CHANGELOG.md`.
+Status: V0.1 in progress. The core logic is tested on Linux, the app's unit and UI tests run in the iOS Simulator in CI, and the first physical-device validation pass has not happened yet. See `CHANGELOG.md`.
 
 ## Layout
 
@@ -11,6 +11,10 @@ Status: V0.1 in progress. The core logic is tested on Linux and macOS, the app t
 - `App/`: the iOS app. `App/project.yml` is the XcodeGen spec; the `.xcodeproj` is generated.
 - `docs/PLATFORM_REVIEW.md`: the brief reviewed against current Apple documentation, with what iOS does not permit.
 - `docs/ARCHITECTURE.md`, `docs/PLAN.md`, `docs/TESTING.md`.
+
+## Without a Mac
+
+GitHub Actions builds, tests and signs the app. To get it onto an iPhone, follow "Getting the app onto an iPhone without a Mac" in `docs/TESTING.md`: TestFlight through the Apple Developer Program, uploaded by `.github/workflows/testflight.yml`, or, with a free Apple Account and a Windows or Linux PC, the unsigned IPA that every CI run attaches.
 
 ## Quick start on a Mac
 
