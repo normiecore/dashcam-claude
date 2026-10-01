@@ -94,4 +94,28 @@ struct SegmentStoreTests {
         let overridden = try await env.store.availableCapacity()
         #expect(overridden == 42)
     }
+
+    @Test("A slow free-space query does not hold up the store, and concurrent callers share it")
+    func slowCapacityQuery() async throws {
+        let env = try BufferTestEnvironment()
+        try await env.load()
+        env.fs.availableCapacityOverride = 7
+        env.fs.capacityDelay = 1.5
+        let store = env.store
+        let started = Date()
+        async let first = store.availableCapacity()
+        async let second = store.availableCapacity()
+        // Let both queries reach the store, then ask it for unrelated work.
+        try await Task.sleep(for: .milliseconds(200))
+        let run = RunID.make(at: env.clock.now())
+        try await store.prepareRun(run)
+        let count = await store.count
+        let unrelatedWork = Date().timeIntervalSince(started)
+        #expect(unrelatedWork < 1.0, "the store answered other calls while the query ran (took \(unrelatedWork) s)")
+        #expect(count == 0)
+        let results = try await [first, second]
+        #expect(results == [7, 7])
+        #expect(env.fs.capacityQueries == 1, "concurrent callers share one query")
+        #expect(FileManager.default.fileExists(atPath: store.rootURL.appendingPathComponent(run.rawValue).path))
+    }
 }

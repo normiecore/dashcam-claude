@@ -281,7 +281,9 @@ final class RecordingCoordinatorTests: XCTestCase {
         try await h.startRecording()
         let runsBefore = await h.runs()
         h.fake.rotate(to: 90)
-        try await h.waitForFootageInANewRun(besides: runsBefore, timeout: 15)
+        // Generous: the property is that footage continues in a new run, not how fast a loaded CI
+        // machine's file system lets the store start it.
+        try await h.waitForFootageInANewRun(besides: runsBefore, timeout: 40)
         XCTAssertTrue(h.coordinator.isRecording)
         await h.finish()
     }
@@ -313,11 +315,16 @@ final class RecordingCoordinatorTests: XCTestCase {
             h.coordinator.developerSimulateWriterFailure()
             if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
             h.fake.failSession(mediaServicesReset: false)
-            // The old stall check would only notice after 10 to 15 s; the recorded intent acts at once.
-            try await h.waitUntil("recovered (delay \(delay) ms)", timeout: 9) {
+            try await h.waitUntil("recovered (delay \(delay) ms)", timeout: 40) {
                 h.coordinator.isRecording && h.fake.isRunning
             }
-            try await h.waitForMediaSegments(1, after: before.addingTimeInterval(0.5), timeout: 12)
+            try await h.waitForMediaSegments(1, after: before.addingTimeInterval(0.5), timeout: 30)
+        }
+        // The recorded intent recovers as soon as the rotation ends. If the error had been dropped, only
+        // the watchdog's backstop would have noticed the dead session; it must not have been needed.
+        // (Checked through the log rather than a deadline, so a slow file system does not fail the test.)
+        for backstop in ["Session stopped running while recording", "No video frames while recording"] {
+            XCTAssertFalse(h.logContains(backstop), "the watchdog had to recover: \(backstop)\n\(h.recentLog())")
         }
         XCTAssertTrue(h.coordinator.isRecording)
         await h.finish()
@@ -462,6 +469,10 @@ final class CoordinatorHarness {
             seen.append(segment.id.run)
         }
         return seen
+    }
+
+    func logContains(_ text: String) -> Bool {
+        log.entries().contains { $0.message.contains(text) }
     }
 
     func recentLog(_ count: Int = 40) -> String {

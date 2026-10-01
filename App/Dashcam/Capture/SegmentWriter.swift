@@ -288,6 +288,7 @@ extension SegmentWriter: AVAssetWriterDelegate {
         }
 
         let url = configuration.bufferRoot.appendingPathComponent(segment.relativePath)
+        let writeStarted = Date()
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             // Atomic: Foundation writes to a temporary file and renames, so a kill mid-write leaves nothing partial.
@@ -298,6 +299,10 @@ extension SegmentWriter: AVAssetWriterDelegate {
             // idempotently when it indexes the segment.
             let sidecar = url.deletingPathExtension().appendingPathExtension(SegmentStore.sidecarExtension)
             try SegmentStore.makeEncoder().encode(segment).write(to: sidecar, options: .atomic)
+            let elapsed = Date().timeIntervalSince(writeStarted)
+            if elapsed > SegmentStore.slowOperationThreshold {
+                logger.warning(.storage, "Writing \(segment.relativePath) (\(data.count / 1024) KiB) took \(String(format: "%.1f", elapsed)) s")
+            }
             onSegment?(segment)
         } catch {
             // A segment that cannot be written is footage lost; the coordinator should rotate to a new run

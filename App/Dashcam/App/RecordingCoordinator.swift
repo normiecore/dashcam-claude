@@ -1216,7 +1216,14 @@ final class RecordingCoordinator: ObservableObject {
     func refreshStats() async {
         bufferedSeconds = await buffer.bufferedDuration()
         bufferSegmentCount = await store.count
-        let available = (try? await store.availableCapacity()) ?? 0
+        // While recording, retention measured free space for the segment just indexed; reuse that rather
+        // than run a second, possibly slow, query for every segment.
+        let available: Int64
+        if isRecording, let measured = await buffer.lastStorageStatus?.availableBytes {
+            available = measured
+        } else {
+            available = (try? await store.availableCapacity()) ?? 0
+        }
         let bufferBytes = await store.totalBytes
         let incidentBytes = AppPaths.directorySize(storageLocations.incidents)
         storage = StorageStatus.evaluate(availableBytes: available, bufferBytes: bufferBytes, incidentBytes: incidentBytes, policy: effectiveRetentionPolicy)

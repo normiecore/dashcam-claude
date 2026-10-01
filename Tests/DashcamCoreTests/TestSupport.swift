@@ -90,6 +90,8 @@ final class FaultyFileSystem: SegmentFileSystem, @unchecked Sendable {
     private var _failLinks = false
     private var _availableCapacityOverride: Int64?
     private var _failRemovals = false
+    private var _capacityDelay: TimeInterval = 0
+    private var _capacityQueries = 0
 
     var failLinks: Bool {
         get { lock.lock(); defer { lock.unlock() }; return _failLinks }
@@ -100,6 +102,14 @@ final class FaultyFileSystem: SegmentFileSystem, @unchecked Sendable {
         get { lock.lock(); defer { lock.unlock() }; return _failRemovals }
         set { lock.lock(); defer { lock.unlock() }; _failRemovals = newValue }
     }
+
+    /// Makes each free-space query block its thread this long, like a slow purgeable-space computation.
+    var capacityDelay: TimeInterval {
+        get { lock.lock(); defer { lock.unlock() }; return _capacityDelay }
+        set { lock.lock(); defer { lock.unlock() }; _capacityDelay = newValue }
+    }
+
+    var capacityQueries: Int { lock.lock(); defer { lock.unlock() }; return _capacityQueries }
 
     var availableCapacityOverride: Int64? {
         get { lock.lock(); defer { lock.unlock() }; return _availableCapacityOverride }
@@ -123,6 +133,11 @@ final class FaultyFileSystem: SegmentFileSystem, @unchecked Sendable {
     func write(_ data: Data, to url: URL) throws { try inner.write(data, to: url) }
     func read(from url: URL) throws -> Data { try inner.read(from: url) }
     func availableCapacity(forVolumeContaining url: URL) throws -> Int64 {
+        let delay: TimeInterval = lock.withLock {
+            _capacityQueries += 1
+            return _capacityDelay
+        }
+        if delay > 0 { Thread.sleep(forTimeInterval: delay) }
         if let override = availableCapacityOverride { return override }
         return try inner.availableCapacity(forVolumeContaining: url)
     }

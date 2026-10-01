@@ -75,6 +75,14 @@ physical-device validation pass is complete.
   ID, name and payment requirements, Account Holder-only steps on an existing team, creating the
   `testflight` label, accepting the first TestFlight invitation, and what a missed 7-day re-sign
   does to footage).
+- The free-space query no longer blocks the segment store. On Apple platforms it can take seconds
+  while the system computes purgeable space, and it ran on the store actor twice per segment, so a
+  run start (which prepares its directory through the store) could wait behind it. It now runs on a
+  dispatch queue, concurrent callers share one query, and the coordinator reuses retention's reading
+  while recording. Slow file operations (free-space query, run directory, indexing, segment writes
+  over 0.5 s) are logged as storage warnings. Found by two coordinator tests that timed out on a
+  loaded CI machine; they now check their property (footage continues in a new run; recovery comes
+  from the recorded intent, not the watchdog) instead of a tight deadline.
 - App icon (asset catalog, 1024 px, no alpha), required for any App Store Connect upload.
 - The app target is iPhone only. XcodeGen's iOS preset had set the target's device family to iPhone
   and iPad, overriding the project setting, which would have failed App Store Connect's iPad

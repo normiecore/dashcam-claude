@@ -51,10 +51,12 @@ public actor RollingBufferManager {
 
     @discardableResult
     public func enforceRetention() async throws -> RetentionPlan {
+        // Free space first: the query can take a while, and the plan should use the index and the
+        // incident protections as they are once it returns, not as they were before it started.
+        let available: Int64? = try? await store.availableCapacity()
         let segments = await store.segments()
         let protected = await incidents.protectedSegmentIDs()
         let shared = await incidents.sharedStorageSegmentIDs()
-        let available: Int64? = try? await store.availableCapacity()
         let plan = RollingBufferPlanner.plan(
             segments: segments,
             protected: protected,
