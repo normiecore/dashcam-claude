@@ -48,7 +48,9 @@ final class SegmentWriter: NSObject {
     private let writer: AVAssetWriter
     private let videoInput: AVAssetWriterInput
     private let audioInput: AVAssetWriterInput?
-    private let ioQueue = DispatchQueue(label: "com.matrixengineered.dashcam.segment.io", qos: .utility)
+    // userInitiated, not utility: until a segment is on disk it exists only in memory and is lost if
+    // the app is killed, and a busy phone (navigation, music, heat) starves utility work first.
+    private let ioQueue = DispatchQueue(label: "com.matrixengineered.dashcam.segment.io", qos: .userInitiated)
     private let logger: DashcamLogger
 
     private var sessionStartPTS: CMTime?
@@ -236,7 +238,12 @@ extension SegmentWriter: AVAssetWriterDelegate {
         let videoReport = segmentReport?.trackReports.first { $0.mediaType == .video }
         let earliest = videoReport?.earliestPresentationTimeStamp
         let reportedDuration = videoReport?.duration
+        let delivered = Date()
         ioQueue.async {
+            let waited = Date().timeIntervalSince(delivered)
+            if waited > SegmentStore.slowOperationThreshold {
+                self.logger.warning(.storage, "A segment of run \(self.configuration.runID) waited \(String(format: "%.1f", waited)) s for the I/O queue")
+            }
             self.persist(segmentData, type: segmentType, earliestPTS: earliest, reportedDuration: reportedDuration)
         }
     }

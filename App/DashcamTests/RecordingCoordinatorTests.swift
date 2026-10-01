@@ -378,6 +378,15 @@ func regularFiles(under root: URL) -> Set<String> {
 
 // MARK: - Harness
 
+/// Prints run lifecycle notices and every warning to the test output, so a CI log shows where time
+/// went in passing tests too (the in-memory log is only dumped when a test fails).
+struct ConsoleLogSink: LogSink {
+    func write(_ entry: LogEntry) {
+        guard entry.level >= .warning || (entry.level >= .notice && entry.category == .recorder) else { return }
+        print(entry.formatted)
+    }
+}
+
 enum HarnessError: Error {
     case timeout(String)
     case unexpectedState(String)
@@ -407,7 +416,7 @@ final class CoordinatorHarness {
         settings.motionDetectionEnabled = false
         settings.minimumFreeMegabytes = 256
         let storage = StorageLocations.isolated(root: root)
-        coordinator = RecordingCoordinator(settings: settings, logger: DashcamLogger(sinks: [log]), memoryLog: log, capture: fake, storage: storage)
+        coordinator = RecordingCoordinator(settings: settings, logger: DashcamLogger(sinks: [log, ConsoleLogSink()]), memoryLog: log, capture: fake, storage: storage)
     }
 
     /// Stops the fake camera and removes the files even when a test fails part way.

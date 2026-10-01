@@ -82,7 +82,10 @@ physical-device validation pass is complete.
   while recording. Slow file operations (free-space query, run directory, indexing, segment writes
   over 0.5 s) are logged as storage warnings. Found by two coordinator tests that timed out on a
   loaded CI machine; they now check their property (footage continues in a new run; recovery comes
-  from the recorded intent, not the watchdog) instead of a tight deadline.
+  from the recorded intent, not the watchdog) instead of a tight deadline. Segments are now written
+  at userInitiated rather than utility priority (until it is on disk a segment exists only in memory),
+  a segment that waits over 0.5 s for the I/O queue is logged, and the coordinator tests print run
+  notices and warnings so passing CI runs show where time goes.
 - App icon (asset catalog, 1024 px, no alpha), required for any App Store Connect upload.
 - The app target is iPhone only. XcodeGen's iOS preset had set the target's device family to iPhone
   and iPad, overriding the project setting, which would have failed App Store Connect's iPad
