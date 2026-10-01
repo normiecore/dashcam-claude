@@ -13,10 +13,12 @@ value() { plutil -extract "$1" raw -o - "$plist" 2>/dev/null; }
 
 [ -f "$plist" ] || { echo "::error::No Info.plist at $plist"; exit 1; }
 
-# actool records the icon under CFBundleIcons on iOS (the top-level key is the macOS form).
+# actool records the icon under CFBundleIcons on iOS, and only when it compiled the AppIcon set, so
+# this proves the icon is in the bundle (the top-level CFBundleIconName is the macOS form).
 icon_name="$(value CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconName)"
-[ -n "$icon_name" ] || icon_name="$(value CFBundleIconName)"
-[ "$icon_name" = "AppIcon" ] || fail "CFBundleIconName is not AppIcon: the asset catalog icon is missing (ITMS-90713)"
+[ "$icon_name" = "AppIcon" ] || fail "No AppIcon in CFBundleIcons: the asset catalog icon was not compiled (ITMS-90022, ITMS-90713)"
+icon_files="$(plutil -extract CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconFiles json -o - "$plist" 2>/dev/null | tr -d ' \n')"
+case "$icon_files" in ''|'[]') fail "CFBundleIcons lists no icon files";; esac
 [ -f "$app/Assets.car" ] || fail "No Assets.car in the bundle: the asset catalog was not compiled"
 family="$(plutil -extract UIDeviceFamily json -o - "$plist" 2>/dev/null | tr -d ' \n')"
 [ "$family" = "[1]" ] || fail "UIDeviceFamily is $family, expected [1] (iPhone only)"

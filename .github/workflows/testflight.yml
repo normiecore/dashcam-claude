@@ -10,11 +10,6 @@ on:
   pull_request:
     types: [labeled]
 
-# Never cancel an upload half way.
-concurrency:
-  group: testflight
-  cancel-in-progress: false
-
 jobs:
   preflight:
     # A Linux job, so a missing secret fails in seconds without starting a billed macOS runner.
@@ -47,15 +42,22 @@ jobs:
     needs: preflight
     runs-on: xcode-27
     timeout-minutes: 45
+    # On the job, not the workflow, so runs started by other labels (all skipped) never join the group
+    # and replace a waiting upload. An upload in progress is never cancelled.
+    concurrency:
+      group: testflight
+      cancel-in-progress: false
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      # run_number repeats when a run is re-run; the attempt keeps every upload's build number unique.
-      BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
+      - name: Build number
+        # From the clock (UTC date.time), so it always goes up, even when an older run is re-run;
+        # App Store Connect rejects a build number lower than one already uploaded for the version.
+        run: echo "BUILD_NUMBER=$(date -u +%Y%m%d).$((10#$(date -u +%H%M)))" >> "$GITHUB_ENV"
       - name: Toolchain
         # Uploads must come from a released Xcode. The image also carries Xcode 27.1 and 27.2 betas.
         run: |
@@ -108,7 +110,7 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8" \
             -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             2>&1 | tee "$RUNNER_TEMP/export.log"
-          echo "Uploaded build $BUILD_NUMBER. It appears in TestFlight once App Store Connect finishes processing (Apple sends an email)."
+          echo "Uploaded build $BUILD_NUMBER. It appears in TestFlight once App Store Connect finishes processing, usually 5 to 30 minutes."
       - name: Collect export logs
         if: failure()
         run: |

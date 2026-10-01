@@ -68,6 +68,13 @@ physical-device validation pass is complete.
   Release build, checks it with `scripts/check-app-bundle.sh` and attaches `Dashcam-unsigned.ipa`
   for free-account sideloading from a PC. docs/TESTING.md has both routes step by step for an owner
   with only an iPhone and a browser, and the checklist no longer assumes a Mac.
+  A review of the workflow and the instructions (Opus agents, each finding verified) led to: a
+  build number from the clock, so re-running an older run cannot upload a lower number; the
+  concurrency group on the upload job, so unrelated label events cannot replace a waiting upload;
+  an icon check that reads only what actool writes; and corrected owner steps (Enroll Now and the
+  ID, name and payment requirements, Account Holder-only steps on an existing team, creating the
+  `testflight` label, accepting the first TestFlight invitation, and what a missed 7-day re-sign
+  does to footage).
 - App icon (asset catalog, 1024 px, no alpha), required for any App Store Connect upload.
 - The app target is iPhone only. XcodeGen's iOS preset had set the target's device family to iPhone
   and iPad, overriding the project setting, which would have failed App Store Connect's iPad

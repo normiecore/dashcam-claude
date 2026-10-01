@@ -44,29 +44,33 @@ CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHu
 
 The build, signing and upload run on GitHub's macOS runners, so everything on your side happens on the iPhone and in a browser. Two routes:
 
-- **TestFlight (recommended).** Needs the paid Apple Developer Program (99 USD a year). Install from the TestFlight app, builds last 90 days, no Developer Mode or trust steps, and TestFlight passes crash reports and screenshot feedback back to App Store Connect. If Matrix Engineered already has a paid Apple developer team, ask its Account Holder to add you as an Admin instead of enrolling yourself.
+- **TestFlight (recommended).** Needs the paid Apple Developer Program (99 USD a year). Install from the TestFlight app, builds last 90 days, no Developer Mode or trust steps, and TestFlight passes crash reports and screenshot feedback back to App Store Connect. If Matrix Engineered already has a paid Apple developer team, ask its Account Holder to add you as an Admin instead of enrolling yourself; see the note after step 1.
 - **Free Apple Account with a Windows or Linux PC.** Costs nothing but needs a PC and a USB cable, the app stops launching after 7 days until you re-install it, and since July 2026 Apple has been rejecting many free-account installs with "The provisioning profile is banned" (0xe8008024) whichever tool is used. Use it only if you have a PC and do not want to pay yet.
 
 ### Route A: TestFlight
 
 One-time setup. In Safari, use Request Desktop Website if an Apple or GitHub page is cramped.
 
-1. Enrol: install the Apple Developer app on the iPhone, sign in with your Apple Account (two-factor authentication on), tap Account > Enroll Today and enrol as an individual. An organisation needs a D-U-N-S number and takes days longer. Wait for the confirmation email.
+1. Enrol: install the Apple Developer app on the iPhone. Account tab > sign in with your Apple Account (two-factor authentication on) > Agree if asked > Enroll Now > Continue, and choose Individual. Do the whole enrolment on this one iPhone, signed in to iCloud and protected by a passcode. You enter your legal name, which is shown as the seller on the App Store, and photograph a government ID when asked (a passport works in most regions). Payment is an auto-renewing subscription on your Apple Account's card; gift card balance is not accepted. Enrolling as an organisation needs a D-U-N-S number and takes days longer. Wait for the confirmation email.
+
+   Using an existing Matrix Engineered team instead: skip step 1. Only that team's Account Holder can accept agreements (step 2) and press Request Access for the App Store Connect API (step 6), so ask them to do both. As an Admin you can do the rest yourself. If the team has never added an app, the New App dialog in step 5 also asks for a Company Name, which appears on the App Store and cannot be changed later.
 2. Open appstoreconnect.apple.com > Business and accept any pending agreements. Until you do, apps cannot be added and uploads fail.
 3. Open developer.apple.com/account > Membership details and copy the Team ID (10 characters).
 4. developer.apple.com/account > Certificates, Identifiers & Profiles > Identifiers > + > App IDs > App. Choose Explicit, enter `com.matrixengineered.dashcam`, description Dashcam, tick no capabilities, then Register.
 5. App Store Connect > Apps > + > New App: platform iOS; a name that is not already taken on the store (plain "Dashcam" almost certainly is; the name under the home screen icon stays Dashcam); a primary language; the bundle ID from step 4; any SKU, for example DASHCAM001; Full Access. Create.
-6. App Store Connect > Users and Access > Integrations > App Store Connect API. If there is a Request Access button, request access and wait for Apple's approval. Then Team Keys > +: name it GitHub Actions, set Access to **Admin** (signing in the cloud needs Admin, and the role cannot be changed later), Generate. Download the `.p8` file now, because Apple only lets you download it once, and note the Key ID and the Issuer ID shown on the page. This key can do anything in App Store Connect: keep it only in GitHub secrets, and revoke it on this page if it ever leaks.
+6. App Store Connect > Users and Access > Integrations > App Store Connect API. If there is a Request Access button, request access and wait for Apple's approval. Then Team Keys > Generate API Key (or + if a key already exists): name it GitHub Actions, set Access to **Admin** (signing in the cloud needs Admin, and the role cannot be changed later), Generate. Download the `.p8` file now, because Apple only lets you download it once, and note the Key ID and the Issuer ID shown on the page. This key can do anything in App Store Connect: keep it only in GitHub secrets, and revoke it on this page if it ever leaks.
 7. In the Files app, open the downloaded `AuthKey_<KEYID>.p8`. If it will not preview, rename it to end in `.txt`. Copy all of its text, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines.
 8. github.com/normiecore/dashcam-claude > Settings > Secrets and variables > Actions > New repository secret. Add four secrets: `ASC_KEY_ID` (Key ID), `ASC_ISSUER_ID` (Issuer ID), `ASC_KEY_P8` (the copied key text) and `APPLE_TEAM_ID` (Team ID).
 9. App Store Connect > your app > TestFlight > + next to Internal Testing. Name the group, tick Enable automatic distribution and add yourself.
 10. Install TestFlight from the App Store on the iPhone.
+11. Create the label that starts a build: github.com/normiecore/dashcam-claude/labels > New label, name it `testflight` exactly (lower case), Create label. The label menu on a pull request can only pick existing labels. (Or tell me the secrets are in and I will create it and start the first build.)
 
 Each build:
 
-1. Add the `testflight` label to the pull request (on the PR page, Labels). That starts `.github/workflows/testflight.yml`: a quick secrets check, then archive, cloud signing and upload on a macOS runner, about 15 to 20 minutes. To build again, remove and re-add the label, or press Re-run on the run's page. Once the workflow file is on the default branch it can also be started from Actions > TestFlight > Run workflow.
-2. Wait for Apple's email that the build has finished processing.
-3. Open TestFlight on the iPhone and install Dashcam. Each build expires after 90 days; a newer upload replaces it.
+1. Add the `testflight` label to the pull request (on the PR page, Labels). That starts `.github/workflows/testflight.yml`: a quick secrets check, then archive, cloud signing and upload on a macOS runner, about 15 to 20 minutes. To build again, remove and re-add the label, or press Re-run on the run's page; every upload gets a new build number from the clock. Once the workflow file is on the default branch it can also be started from Actions > TestFlight > Run workflow.
+2. Wait for processing, usually 5 to 30 minutes after the run finishes. To check, open App Store Connect (the website or the App Store Connect app) > your app > TestFlight; the build shows as Testing once it has reached your group.
+3. First build only: Apple emails "You're invited to test" to your App Store Connect address. Open it on the iPhone, tap View in TestFlight, then Accept.
+4. Open TestFlight on the iPhone and install Dashcam. Each build expires after 90 days; a newer upload replaces it.
 
 If a run fails, its page shows the error and a `testflight-logs` artifact holds Apple's export logs. Send me the run link.
 
@@ -78,7 +82,7 @@ If a run fails, its page shows the error and a `testflight-logs` artifact holds 
 4. Use a separate Apple Account for signing, not your main one: the tool signs in to Apple as you, and an account that has sideloaded before is the one most likely to be refused.
 5. Connect the iPhone by USB, unlock it and tap Trust. In the tool, sign in with the signing account, pick `Dashcam-unsigned.ipa` and install.
 6. On the iPhone: Settings > Privacy & Security > Developer Mode > on, restart, then tap Enable. If the toggle is missing, start the install once from the tool and look again. Then Settings > General > VPN & Device Management, tap the signing account and Trust.
-7. Re-install before day 7 with the same tool, account and bundle ID, or the app's footage and settings end up in a new, empty container.
+7. Re-install at least every 7 days with the same tool and the same signing account. If you miss the deadline the app only stops opening; re-installing the same way over it brings it back with its footage and settings. Do not delete the app first: deleting it erases its footage and settings, and installing with a different account or tool puts a second, empty copy beside it.
 
 If the install fails with 0xe8008024 or 0xe8008018, try one brand-new signing account; if that fails too, use Route A.
 
