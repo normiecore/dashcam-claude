@@ -1,0 +1,73 @@
+name: Android 0.1 verification
+on:
+  push:
+    branches: ['astra/android-v0.1']
+    paths: ['Android/**', '.github/workflows/android.yml']
+  pull_request:
+    paths: ['Android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Retention and recovery tests
+        run: bash Android/core-tests/run.sh
+      - name: Compile Debug, Release and device tests; run lint
+        working-directory: Android
+        run: gradle --no-daemon :app:assembleDebug :app:assembleRelease :app:assembleAndroidTest :app:lintDebug
+      - name: Upload installable debug APK and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashcam-android-0.1-${{ github.sha }}
+          path: |
+            Android/app/build/outputs/apk/debug/*.apk
+            Android/app/build/outputs/apk/androidTest/debug/*.apk
+            Android/app/build/reports/
+          if-no-files-found: error
+          retention-days: 30
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android emulator storage/provider tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: cd Android && gradle --no-daemon :app:connectedDebugAndroidTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-reports
+          path: Android/app/build/reports/androidTests/

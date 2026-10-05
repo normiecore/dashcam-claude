@@ -4,12 +4,20 @@ Last updated: **2026-10-05, Australia/Perth**.
 
 ## Current position
 
-**Work is paused at the user's request.** Preserve the working iPhone implementation.
-The user is considering Android next and asked for this persistent handover before
-pausing. No Android implementation has started. Do not resume iPhone signing or
-start an Android port solely because an older plan says to continue autonomously.
-When the user resumes, establish whether they want the Android prototype or the
-iPhone/TestFlight path; the most recent discussion leaned toward Android.
+**Android work resumed at the user's request:** “Let’s start on the android and
+I’ll come back to apple later. Let’s get to working 0.1.” Preserve the working
+iPhone implementation; iPhone signing/TestFlight remains deferred.
+
+Android implementation lives in `Android/` on dedicated branch `astra/android-v0.1`,
+based on remote iOS checkpoint `4ac15f234bb23d4d382b357f38c9b316e21703dc`.
+Native Java Camera2/MediaRecorder prototype: preview, foreground recording,
+ten-second MP4 segments, five-minute rolling window, manual incident +30s tail,
+durable manifest/recovery, playback and per-clip sharing. See `Android/README.md`.
+
+Android retention/storage tests pass locally; hosted compilation and emulator
+verification are being established. No Seeker physical tests performed. Segmentation
+currently stops/restarts MediaRecorder and can introduce gaps. Stable Android signing
+is not configured; export footage before uninstalling a prototype build.
 
 The goal remains a reliable phone dashcam: segmented recording, about five minutes
 of rolling footage, manual incident preservation plus a 30-second tail, playback,
@@ -20,7 +28,8 @@ do not promise automatic collision detection or background access without eviden
 ## Where the work lives
 
 - Private repository: https://github.com/normiecore/dashcam-claude
-- Implementation branch: `astra/hosted-macos-v0.1`.
+- iPhone implementation branch: `astra/hosted-macos-v0.1` (preserved).
+- Active Android branch: `astra/android-v0.1`.
 - Open draft PR: https://github.com/normiecore/dashcam-claude/pull/2
 - At this checkpoint, the implementation is **not merged into remote `main`**.
   A fresh session must open this branch or PR to see the app and this handover.

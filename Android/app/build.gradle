@@ -1,0 +1,22 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.daz.dashcam'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.daz.dashcam'
+        minSdk 28
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-dev.1'
+        testInstrumentationRunner 'com.daz.dashcam.SmokeInstrumentation'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    lint { abortOnError true }
+}

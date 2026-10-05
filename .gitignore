@@ -13,3 +13,7 @@ build/
 *.app/
 __pycache__/
 *.pyc
+Android/.gradle/
+Android/local.properties
+*.jks
+*.keystore

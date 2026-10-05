@@ -1,5 +1,14 @@
 # Changelog
 
+## Android 0.1 prototype — 2026-10-05
+
+- User chose Android first, deferring iPhone signing/TestFlight.
+- Added isolated native Android preview/foreground recording, ten-second MP4 segments,
+  rolling retention, durable manual incident protection, recovery, playback and sharing.
+- Added storage/retention tests and hosted build/emulator verification workflow.
+- MediaRecorder boundaries may have gaps; physical Seeker acceptance remains required.
+- Preserved iPhone source and its implementation branch.
+
 ## Session handover — 2026-10-05
 
 - Paused implementation/signing at the user's request; preserved the iPhone candidate.
