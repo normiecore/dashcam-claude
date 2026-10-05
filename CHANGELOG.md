@@ -120,7 +120,9 @@ physical-device validation pass is complete.
   the Xcode 27 CI lane records the Simulator's screen while they run. Each pull request run
   publishes both to the `simulator-preview` branch, viewable on GitHub from a phone, and attaches
   them as the `simulator-preview` artifact. The lane now builds for testing once and runs the unit
-  tests and the UI tests separately, so the recording covers only the UI tests.
+  tests and the UI tests separately, so the recording covers only the UI tests. The UI tests still
+  run when a unit test fails, and a run whose UI tests fail still publishes its preview, marked as
+  failed, with only the tests' own screenshots (not Xcode's failure attachments).
 
 ### Decisions
 - Segmented AVAssetWriter (fragmented MP4) instead of AVCaptureMovieFileOutput: iOS cannot switch
