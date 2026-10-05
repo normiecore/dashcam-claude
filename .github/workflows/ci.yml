@@ -76,6 +76,7 @@ jobs:
           echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
           xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
+        id: build
         run: |
           set -o pipefail
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -destination "id=$SIM_UDID" \
@@ -87,6 +88,9 @@ jobs:
             -skip-testing:DashcamUITests $TEST_FLAGS \
             CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
       - name: UI tests on Simulator, recorded
+        # Runs even when a unit test failed, as the single `xcodebuild test` did; the job still fails.
+        id: ui-tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/preview"
@@ -111,6 +115,7 @@ jobs:
         continue-on-error: true
         env:
           PREVIEW_SOURCE: "From ${{ github.event.pull_request.html_url || github.ref_name }} at ${{ github.event.pull_request.head.sha || github.sha }}."
+          UI_TESTS_OUTCOME: ${{ steps.ui-tests.outcome }}
         run: scripts/simulator-preview.sh "$RUNNER_TEMP/UITests.xcresult" "$RUNNER_TEMP/preview"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -120,8 +125,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Publish the preview to the simulator-preview branch
-        # Viewable on GitHub from a phone: github.com/<repo>/tree/simulator-preview. Replaced on every run.
-        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+        # Viewable on GitHub from a phone: github.com/<repo>/tree/simulator-preview. Replaced on every run
+        # that produced a preview, including one whose UI tests failed (its README says so).
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

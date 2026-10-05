@@ -42,7 +42,7 @@ if [ -s "$out/ui-tests.mov" ]; then
   fi
 fi
 
-python3 - "$attachments" "$out" "$video" "${PREVIEW_SOURCE:-}" <<'PY'
+python3 - "$attachments" "$out" "$video" "${PREVIEW_SOURCE:-}" "${UI_TESTS_OUTCOME:-}" <<'PY'
 import json
 import pathlib
 import re
@@ -50,14 +50,18 @@ import shutil
 import sys
 
 src, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-video, source = sys.argv[3], sys.argv[4]
+video, source, outcome = sys.argv[3], sys.argv[4], sys.argv[5]
 
+images = (".png", ".jpg", ".jpeg", ".heic")
 try:
     manifest = json.loads((src / "manifest.json").read_text())
-    entries = [a for test in manifest for a in test.get("attachments", [])]
+    # Only the tests' own snapshots: Xcode adds its own screenshots, recordings and UI hierarchies
+    # to a failing test, and those are marked isAssociatedWithFailure.
+    entries = [a for test in manifest for a in test.get("attachments", [])
+               if not a.get("isAssociatedWithFailure", False)
+               and pathlib.Path(a.get("exportedFileName", "")).suffix.lower() in images]
 except (OSError, ValueError, AttributeError, TypeError) as error:
     print(f"::warning::Unexpected attachments manifest ({error}); using the exported file names.")
-    images = (".png", ".jpg", ".jpeg", ".heic")
     entries = [{"exportedFileName": p.name} for p in sorted(src.iterdir()) if p.suffix.lower() in images]
 
 shots = []
@@ -75,6 +79,9 @@ shots.sort()
 lines = ["# Dashcam in the iOS Simulator", ""]
 if source:
     lines += [source, ""]
+if outcome and outcome != "success":
+    lines += [f"**The UI tests did not pass on this run ({outcome}).** A failing test stops at the",
+              "failure, so its later screens are missing.", ""]
 lines += [
     "Screenshots taken by the UI tests in the iOS Simulator with the simulated camera. The Simulator",
     "has no camera, so the preview area stays empty; on an iPhone it shows the rear camera.",
