@@ -1,7 +1,7 @@
 name: Android 0.1 verification
 on:
   push:
-    branches: ['astra/android-v0.1']
+    branches: ['astra/android-v0.1', 'astra/android-ui-polish']
     paths: ['Android/**', '.github/workflows/android.yml']
   pull_request:
     paths: ['Android/**', '.github/workflows/android.yml']
@@ -90,7 +90,16 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: cd Android && gradle --no-daemon :app:connectedDebugAndroidTest
+          script: |
+            cd Android
+            test_result=0
+            gradle --no-daemon :app:connectedDebugAndroidTest || test_result=$?
+            mkdir -p app/build/reports/androidTests/ui-screenshots
+            for image in 01-ready 02-library-empty 03-recording 04-library-saved 05-landscape; do
+              target="app/build/reports/androidTests/ui-screenshots/$image.png"
+              adb exec-out run-as com.daz.dashcam cat "cache/ui-screenshots/$image.png" > "$target" || rm -f "$target"
+            done
+            exit "$test_result"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

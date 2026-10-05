@@ -41,13 +41,14 @@ public final class RecordingService extends Service {
     private volatile boolean stopping;
     private volatile boolean destroyed;
     private volatile String status = "Ready";
-    private boolean microphone;
+    private volatile boolean microphone;
+    private volatile long recordingElapsedStart;
     private boolean recorderStarted;
     private boolean openingCamera;
     private int sessionGeneration;
     private int displayDegrees;
-    private int sensorOrientation;
-    private Size videoSize = new Size(1280, 720);
+    private volatile int sensorOrientation;
+    private volatile Size videoSize = new Size(1280, 720);
     private final long epochWall = System.currentTimeMillis();
     private final long epochElapsed = SystemClock.elapsedRealtime();
     private PowerManager.OnThermalStatusChangedListener thermalListener;
@@ -96,6 +97,13 @@ public final class RecordingService extends Service {
     public RecordingStore getStore() { return store; }
     public boolean isRecording() { return recording || stopping; }
     public String getStatus() { return status; }
+    public boolean isMicrophoneEnabled() { return microphone; }
+    public Size getVideoSize() { return videoSize; }
+    public int getSensorOrientation() { return sensorOrientation; }
+    public long getElapsedRecordingMs() {
+        long start = recordingElapsedStart;
+        return isRecording() && start > 0 ? SystemClock.elapsedRealtime() - start : 0;
+    }
     public long timelineNow() { return epochWall + SystemClock.elapsedRealtime() - epochElapsed; }
 
     /** The activity retains ownership of the texture; release happens after this worker detaches it. */
@@ -178,6 +186,7 @@ public final class RecordingService extends Service {
             return;
         }
         microphone = audio;
+        recordingElapsedStart = 0;
         recording = true;
         renewWakeLock();
         worker.post(checkStorage);
@@ -308,6 +317,7 @@ public final class RecordingService extends Service {
                         configured.setRepeatingRequest(request.build(), null, worker);
                         if (configuringRecorder != null && !recorderStarted) {
                             configuringRecorder.start();
+                            if (recordingElapsedStart == 0) recordingElapsedStart = SystemClock.elapsedRealtime();
                             recorderStarted = true;
                             status = microphone ? "Recording · microphone on" : "Recording · microphone off";
                             worker.postDelayed(rotate, RetentionPolicy.SEGMENT_MS);

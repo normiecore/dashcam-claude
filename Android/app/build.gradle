@@ -7,8 +7,8 @@ android {
         applicationId 'com.daz.dashcam'
         minSdk 28
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0-dev.1'
+        versionCode 2
+        versionName '0.1.0-dev.2'
         testInstrumentationRunner 'com.daz.dashcam.SmokeInstrumentation'
     }
     compileOptions {

@@ -4,6 +4,14 @@ Last updated: **2026-10-05, Australia/Perth**.
 
 ## Current position
 
+**UI refinement in progress (Android `0.1.0-dev.2`):** replacing the prototype
+screen and nested library dialogs with a native dark/mint interface, context-aware
+Start/Save primary action, persistent navigation, thumbnail footage rows, playback,
+settings and explicit pending/partial-tail states. Recording and retention pipeline
+is preserved; the service only gains read-only UI metadata. Hosted verification
+and visual screenshot review are pending for this revision. The verified build
+below remains the previous dev.1 binary until that verification completes.
+
 **Android work resumed at the user's request:** “Let’s start on the android and
 I’ll come back to apple later. Let’s get to working 0.1.” Preserve the working
 iPhone implementation; iPhone signing/TestFlight remains deferred.
@@ -61,9 +69,11 @@ do not promise automatic collision detection or background access without eviden
 
 - Private repository: https://github.com/normiecore/dashcam-claude
 - iPhone implementation branch: `astra/hosted-macos-v0.1` (preserved).
-- Active Android branch: `astra/android-v0.1`.
-- Android draft PR: https://github.com/normiecore/dashcam-claude/pull/3
-  (based on the preserved iPhone branch).
+- Active Android UI refinement branch: `astra/android-ui-polish`.
+- Android foundation PR: https://github.com/normiecore/dashcam-claude/pull/3
+  was merged into `astra/hosted-macos-v0.1` at
+  `b3eaaa555487bd3d5afd3370255a503d7c0af1d5`; old Android feature branch removed.
+  UI refinement is based on that merged checkpoint, with a new review PR pending.
 - iPhone draft PR: https://github.com/normiecore/dashcam-claude/pull/2
 - At this checkpoint, the implementation is **not merged into remote `main`**.
   A fresh session must open this branch or PR to see the app and this handover.

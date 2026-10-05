@@ -1,5 +1,16 @@
 # Changelog
 
+## Android 0.1.0-dev.2 UI refinement — 2026-10-05
+
+- Added a consistent native dark/mint theme, adaptive launcher icon, large recording
+  controls, clear idle/recording states and persistent Recorder/Footage navigation.
+- Replaced nested library menus with Saved/Recent/Recovery browsing, thumbnails,
+  direct playback/share, live incident-tail status and explanatory empty states.
+- Added audio/privacy/storage settings, saved audio preference, camera onboarding,
+  permission-dialog state restoration and confirmation before stopping an incident tail.
+- Added hosted UI screenshots and recording/navigation/recreation/layout checks.
+  Build, emulator and visual verification pending at this checkpoint.
+
 ## Android 0.1 prototype — 2026-10-05
 
 - Separated the installable app artifact from the AndroidTest APK after download

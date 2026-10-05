@@ -2,7 +2,8 @@
 
 First Android prototype alongside the existing iPhone app. Initial physical target:
 Solana Seeker; its Android version still needs confirmation. Minimum Android 9
-(API 28), compile/target API 35. Version `0.1.0-dev.1`.
+(API 28), compile/target API 35. Current source version `0.1.0-dev.2`;
+its UI refinement is awaiting hosted verification. The verified binary below is dev.1.
 
 Verified build: `98c6eaaf1a2013bfd210f64f468e97434d1ca670`.
 [Download APK artifact](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709)
@@ -24,6 +25,9 @@ APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
 - Overlapping incidents share protected footage; future tail segments are pinned automatically.
 - Durable manifest, conservative interrupted/orphan recovery, low-space stop at a 256 MiB reserve.
 - Library, per-clip playback and sharing of incident MP4 segments.
+- Native dark/mint Recorder and Footage screens with accessible touch targets,
+  Saved/Recent/Recovery filters, video thumbnails and explicit tail protection status.
+- Audio, local-storage and privacy settings; warning before stopping a pending tail.
 - Recording notification with Save/Stop; non-sticky service, no reboot auto-start.
 
 The MediaRecorder prototype stops/restarts between segments and may lose footage at
