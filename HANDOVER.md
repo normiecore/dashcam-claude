@@ -4,12 +4,52 @@ Last updated: **2026-10-05, Australia/Perth**.
 
 ## Current position
 
-**Work is paused at the user's request.** Preserve the working iPhone implementation.
-The user is considering Android next and asked for this persistent handover before
-pausing. No Android implementation has started. Do not resume iPhone signing or
-start an Android port solely because an older plan says to continue autonomously.
-When the user resumes, establish whether they want the Android prototype or the
-iPhone/TestFlight path; the most recent discussion leaned toward Android.
+**Android work resumed at the user's request:** “Let’s start on the android and
+I’ll come back to apple later. Let’s get to working 0.1.” Preserve the working
+iPhone implementation; iPhone signing/TestFlight remains deferred.
+
+Android implementation lives in `Android/` on dedicated branch `astra/android-v0.1`,
+based on remote iOS checkpoint `4ac15f234bb23d4d382b357f38c9b316e21703dc`.
+Native Java Camera2/MediaRecorder prototype: preview, foreground recording,
+ten-second MP4 segments, five-minute rolling window, manual incident +30s tail,
+durable manifest/recovery, playback and per-clip sharing. See `Android/README.md`.
+
+Android retention/storage tests pass **200,647 assertions**, locally and on hosted
+JDK 17. Hosted Debug/Release compilation, Android test compilation and lint pass.
+Five Android 15 emulator tests pass, including native directory fsync, read-only
+sharing provider, activity launch, permission-denied start and synthetic camera
+segment/incident/30-second-tail recording with MP4 sample validation and durable pins.
+Latest verified Android implementation/build commit:
+`98c6eaaf1a2013bfd210f64f468e97434d1ca670`.
+[Passing hosted run](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031)
+and [debug APK plus lint reports](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709).
+APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
+Local downloadable APK: `/workspace/dashcam-android-0.1.apk` (workspace may not persist).
+App size is 70,329 bytes (68.7 KiB); the 30,050-byte AndroidTest APK is only tests.
+A clean local installer ZIP, `/workspace/dashcam-android-0.1-install.zip`, contains
+the verified app and brief installation instructions. CI packaging now separates
+the app artifact from AndroidTest/diagnostic files to prevent installing the wrong APK.
+This packaging-only update does not change the verified binary; no rebuild was run.
+The final docs-only commit does not change the tested binary. APK artifact expires
+4 November 2026; obtain or rebuild before then. Release compilation passed but its
+APK is unsigned; use the installable debug APK for phone acceptance.
+
+No Seeker physical tests performed. Segmentation currently stops/restarts
+MediaRecorder and can introduce gaps. Incident export shares original MP4 segments,
+without joining them. Incomplete/uncertain footage is retained without repair.
+The prototype debug key is cached outside Git to support updates; stable release
+signing is not configured. Cache loss can still change signing identity: export
+footage before any uninstall. Android minimum API 28, compile/target API 35.
+Actual signing-cache save succeeded in the passing build. Earlier builds used
+different ephemeral signing keys; use this latest APK as the starting phone build.
+Lint has zero errors and remaining warnings for target API age, storage allocation
+guidance and untranslated English UI strings. Camera service API guards and
+unbounded-wake-lock warnings were fixed. No release tag or Play upload performed.
+
+Next concrete action: confirm Seeker Android version, install this debug APK,
+record six minutes, save an incident at minute five, continue at least 35 seconds,
+stop and inspect/share the saved original segments. Then check screen-off/switch-app
+continuity and measure segment gaps. Do not qualify `v0.1.0` before phone acceptance.
 
 The goal remains a reliable phone dashcam: segmented recording, about five minutes
 of rolling footage, manual incident preservation plus a 30-second tail, playback,
@@ -20,8 +60,11 @@ do not promise automatic collision detection or background access without eviden
 ## Where the work lives
 
 - Private repository: https://github.com/normiecore/dashcam-claude
-- Implementation branch: `astra/hosted-macos-v0.1`.
-- Open draft PR: https://github.com/normiecore/dashcam-claude/pull/2
+- iPhone implementation branch: `astra/hosted-macos-v0.1` (preserved).
+- Active Android branch: `astra/android-v0.1`.
+- Android draft PR: https://github.com/normiecore/dashcam-claude/pull/3
+  (based on the preserved iPhone branch).
+- iPhone draft PR: https://github.com/normiecore/dashcam-claude/pull/2
 - At this checkpoint, the implementation is **not merged into remote `main`**.
   A fresh session must open this branch or PR to see the app and this handover.
 - Existing `claude/v0.1-foundation` branch was preserved.
@@ -43,9 +86,8 @@ do not promise automatic collision detection or background access without eviden
 - User owns an iPhone and **Solana Seeker** Android phone. Seeker Android version
   is unknown. A friend can test a phone described as **“razer”**: clarify whether
   Razer Phone/Phone 2 or Motorola Razr, and obtain Android version.
-- Android discussion: potentially easier build tooling and background recording.
-  Proposed initial target is Seeker, followed by the friend's device. This is a
-  proposed direction, not a completed port or a hardware compatibility claim.
+- Android is now the chosen implementation path, initially for Seeker, followed by
+  the friend's device. Neither phone has been physically tested with this app.
 - Prioritize footage preservation; compile/test continuously, investigate failures,
   keep a short changelog, and use appropriate lower-cost subagents for scoped work.
 
@@ -96,17 +138,16 @@ The first archive check had incorrect `lipo` argument order; fixed and rerun.
 
 ## If the user resumes with Android
 
-1. Confirm target phone models/Android versions and the decision to proceed.
-2. Keep iOS intact; isolate Android work on a dedicated branch/directory after
-   checking the live repository state. Do not blindly copy Swift media code.
-3. Revalidate current CameraX/Camera2, MediaCodec/MediaMuxer, camera/microphone
-   foreground-service and installation rules for those Android versions.
-4. Build the smallest installable slice: rear preview, user-started recording,
-   short segments and manual incident pinning. Reuse retention principles/tests;
-   evaluate reuse of the C policy without forcing an unnecessary native bridge.
-5. Compile and test before expanding. Validate on Seeker, then the second phone:
-   screen-off/switch-app recording, segment gaps, thermal/storage behavior and
-   interrupted-write recovery. Do not guarantee screen-off reliability upfront.
+1. Open `astra/android-v0.1`; read `Android/README.md` and this checkpoint. Keep iOS
+   intact and Apple signing deferred unless the user changes direction.
+2. Confirm Seeker Android version, install the latest verified debug APK, and follow
+   the six-minute incident/tail acceptance test in `Android/README.md`.
+3. Validate switching apps/screen-off, actual segment gaps, audio/orientation,
+   low space, thermal/battery behavior and interrupted-write recovery on Seeker.
+4. Resolve observed capture/lifecycle failures before expanding. Seamless segment
+   writing, joined export, safe explicit saved/recovery deletion and damaged-media
+   repair remain future work. Do not guarantee screen-off reliability upfront.
+5. Clarify the friend's exact phone model/Android version before secondary testing.
 
 Research as of 5 October: Android documents a camera foreground service that can
 continue camera access in the background, but launching it generally requires the
@@ -148,6 +189,8 @@ results, commit/run identifiers and unverified limits before ending the session.
 - `.github/workflows/verify.yml`: hosted verification on PR changes/manual dispatch.
 - `Docs/Architecture.md`, `Docs/AppleReview.md`, `Docs/Verification.md`: detailed design and evidence.
 - `CHANGELOG.md`: completed work and significant decisions.
+- `Android/`: native Java Android app, durable storage, core tests and device tests.
+- `.github/workflows/android.yml`: Android compilation/lint, emulator tests and APK artifact.
 
 Suggested new-session prompt: **“Read AGENTS.md and HANDOVER.md first, inspect the
 current branch, and resume the dashcam project with [Android / iPhone]. Preserve
