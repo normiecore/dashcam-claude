@@ -5,43 +5,81 @@ import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.*;
 import android.provider.OpenableColumns;
 import android.view.View;
 import java.io.*;
 import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Dependency-free installed-app smoke runner. Physical camera acceptance is separate. */
 public final class SmokeInstrumentation extends Instrumentation {
+    private int currentTest;
     @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
     @Override public void onStart() {
         Bundle results = new Bundle();
         Activity activity = null;
+        int resultCode = Activity.RESULT_OK;
         try {
-            testNativeStorage();
-            testReadOnlyProvider();
-            activity = startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            final Activity launched = activity;
-            runOnMainSync(() -> {
-                View root = launched.findViewById(android.R.id.content);
-                require(root != null && root.getWidth() > 0, "Activity content must be laid out");
+            runTest("nativeStorage", this::testNativeStorage);
+            runTest("readOnlyProvider", this::testReadOnlyProvider);
+            Activity[] launch = new Activity[1];
+            runTest("activityLaunch", () -> {
+                launch[0] = startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                waitForIdleSync();
+                runOnMainSync(() -> {
+                    View root = launch[0].findViewById(android.R.id.content);
+                    require(root != null && root.getWidth() > 0, "Activity content must be laid out");
+                });
             });
-            testDeniedCameraStart();
-            results.putInt("passed", 4);
-            results.putString("stream", "\nPASS: native durable storage, read-only footage provider, activity launch, permission-denied start.\nCamera recording and screen-off reliability require separate device tests.\n");
-            finish(Activity.RESULT_OK, results);
+            activity = launch[0];
+            runTest("deniedCameraStart", this::testDeniedCameraStart);
+            runTest("syntheticCameraRecording", this::testSyntheticCameraRecording);
+            results.putInt("passed", 5);
+            results.putString("stream", "\nPASS: native durable storage, read-only footage provider, activity launch, permission-denied start, synthetic camera segment/incident/tail recording.\nPhysical phone recording and screen-off reliability require separate device tests.\n");
         } catch (Throwable failure) {
+            resultCode = Activity.RESULT_CANCELED;
             results.putInt("failed", 1);
-            results.putString("stream", "\nFAIL: " + failure + "\n");
-            finish(Activity.RESULT_CANCELED, results);
+            StringWriter trace = new StringWriter();
+            failure.printStackTrace(new PrintWriter(trace));
+            results.putString("stream", "\nFAIL: " + trace + "\n");
         } finally {
             if (activity != null) {
                 final Activity launched = activity;
                 runOnMainSync(launched::finish);
             }
+        }
+        finish(resultCode, results);
+    }
+
+    private interface TestBody { void run() throws Exception; }
+    private void runTest(String name, TestBody body) throws Exception {
+        Bundle event = new Bundle();
+        event.putString("id", "InstrumentationTestRunner");
+        event.putString("class", getClass().getName());
+        event.putString("test", name);
+        event.putInt("numtests", 5);
+        event.putInt("current", ++currentTest);
+        event.putString("stream", "\n" + getClass().getName() + ":");
+        sendStatus(1, event);
+        try {
+            body.run();
+            event.putString("stream", ".");
+            sendStatus(0, event);
+        } catch (Throwable failure) {
+            StringWriter trace = new StringWriter();
+            failure.printStackTrace(new PrintWriter(trace));
+            event.putString("stack", trace.toString());
+            event.putString("stream", "\nFailure in " + name + ":\n" + trace);
+            sendStatus(-2, event);
+            if (failure instanceof Exception) throw (Exception) failure;
+            if (failure instanceof Error) throw (Error) failure;
+            throw new RuntimeException(failure);
         }
     }
 
@@ -114,6 +152,102 @@ public final class SmokeInstrumentation extends Instrumentation {
             require(!service[0].isRecording(), "Denied permission must never start recording");
             require(service[0].getStatus().contains("permission"), "Denied permission must report a clear status");
         } finally { context.unbindService(connection); }
+    }
+
+    private void testSyntheticCameraRecording() throws Exception {
+        Context context = getTargetContext();
+        // Grant, rather than revoke, while instrumenting: revocation terminates the target process.
+        try (ParcelFileDescriptor command = getUiAutomation().executeShellCommand("pm grant com.daz.dashcam android.permission.CAMERA");
+             InputStream output = new ParcelFileDescriptor.AutoCloseInputStream(command)) {
+            byte[] bytes = new byte[1024];
+            while (output.read(bytes) != -1) { }
+        }
+        require(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED, "Grant synthetic camera permission");
+        CountDownLatch connected = new CountDownLatch(1);
+        RecordingService[] recorder = new RecordingService[1];
+        ServiceConnection connection = new ServiceConnection() {
+            @Override public void onServiceConnected(ComponentName name, IBinder binder) {
+                recorder[0] = ((RecordingService.LocalBinder) binder).service();
+                connected.countDown();
+            }
+            @Override public void onServiceDisconnected(ComponentName name) { }
+        };
+        require(context.bindService(new Intent(context, RecordingService.class), connection, Context.BIND_AUTO_CREATE), "Bind synthetic recorder");
+        try {
+            require(connected.await(10, TimeUnit.SECONDS), "Synthetic recorder binds");
+            RecordingService service = recorder[0];
+            RecordingStore store = service.getStore();
+            require(store != null && store.listSegments().isEmpty() && store.listIncidents().isEmpty(), "Use a fresh emulator install with no user footage");
+            runOnMainSync(() -> context.startForegroundService(new Intent(context, RecordingService.class).setAction(RecordingService.ACTION_START)));
+            await(() -> service.isRecording() && service.getStatus().startsWith("Recording"), 20_000, "Synthetic camera must start: " + service.getStatus());
+            await(() -> completed(store) >= 1, 20_000, "First segment must finalize");
+            service.saveIncident();
+            await(() -> store.listIncidents().size() == 1, 5000, "Incident must be persisted");
+            RecordingStore.Incident incident = store.listIncidents().get(0);
+            await(() -> service.timelineNow() >= incident.endMs + 2000 && completed(store) >= 3, 40_000, "Thirty-second incident tail must finish");
+            await(() -> {
+                for (RecordingStore.Segment segment : store.listSegments()) {
+                    if (!segment.complete && !segment.uncertain) return service.timelineNow() - segment.startMs >= 3000;
+                }
+                return false;
+            }, 15_000, "Final partial segment must contain several seconds of video");
+            runOnMainSync(() -> context.startService(new Intent(context, RecordingService.class).setAction(RecordingService.ACTION_STOP)));
+            await(() -> !service.isRecording() && service.getStatus().startsWith("Stopped"), 10_000, "Recorder must finalize on stop: " + service.getStatus());
+            List<RecordingStore.Segment> segments = store.listSegments();
+            require(segments.size() >= 4, "Multiple ten-second segments must exist");
+            long finalEnd = 0;
+            for (RecordingStore.Segment segment : segments) {
+                require(segment.complete && !segment.uncertain, "Normal stop must leave only finalized media");
+                validateVideo(segment.file);
+                finalEnd = Math.max(finalEnd, segment.endMs);
+            }
+            require(finalEnd >= incident.endMs, "Recorded coverage reaches incident tail");
+            RecordingStore reopened = AndroidStorage.open(new File(context.getFilesDir(), "recordings"));
+            require(reopened.segmentsForIncident(incident.id).size() >= 4, "Pin membership survives native manifest reopen");
+            reopened.prune(service.timelineNow() + 600_000);
+            for (RecordingStore.Segment protectedSegment : reopened.segmentsForIncident(incident.id)) require(protectedSegment.file.isFile(), "Incident footage survives cleanup");
+        } finally {
+            runOnMainSync(() -> context.startService(new Intent(context, RecordingService.class).setAction(RecordingService.ACTION_STOP)));
+            context.unbindService(connection);
+        }
+    }
+
+    private static int completed(RecordingStore store) {
+        int count = 0;
+        for (RecordingStore.Segment segment : store.listSegments()) if (segment.complete) count++;
+        return count;
+    }
+
+    private static void validateVideo(File file) throws Exception {
+        require(file.length() > 1024, "Video output must contain media");
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(file.getAbsolutePath());
+            int video = -1;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat format = extractor.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime != null && mime.startsWith("video/")) { video = i; break; }
+            }
+            require(video >= 0, "Finalized MP4 must have a readable video track");
+            extractor.selectTrack(video);
+            int samples = 0;
+            long first = -1, last = -1;
+            while (extractor.getSampleTime() >= 0) {
+                if (first < 0) first = extractor.getSampleTime();
+                last = extractor.getSampleTime();
+                samples++;
+                if (!extractor.advance()) break;
+            }
+            require(samples >= 15 && last - first >= 500_000, "Finalized clip must contain sustained video frames");
+        } finally { extractor.release(); }
+    }
+
+    private interface Check { boolean get() throws Exception; }
+    private static void await(Check check, long timeout, String message) throws Exception {
+        long deadline = SystemClock.elapsedRealtime() + timeout;
+        while (!check.get() && SystemClock.elapsedRealtime() < deadline) Thread.sleep(25);
+        require(check.get(), message);
     }
 
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }

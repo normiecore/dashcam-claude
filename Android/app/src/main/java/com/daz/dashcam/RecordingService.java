@@ -311,13 +311,21 @@ public final class RecordingService extends Service {
         } catch (Exception error) { stopRecording("Camera configuration failed: " + message(error)); }
     }
 
-    private void finishSegment() {
+    private boolean finishSegment() {
         worker.removeCallbacks(rotate);
         closeSession();
         boolean successful = false;
+        boolean clean = true;
         if (recorder != null) {
-            try { if (recorderStarted) { recorder.stop(); successful = true; } }
+            try {
+                if (recorderStarted) { recorder.stop(); successful = true; }
+                else {
+                    clean = false;
+                    status = "Recording stopped during startup — incomplete file retained for recovery";
+                }
+            }
             catch (RuntimeException error) {
+                clean = false;
                 recording = false;
                 status = "Interrupted segment retained for recovery — recording stopped";
             }
@@ -326,19 +334,20 @@ public final class RecordingService extends Service {
         if (segment != null) {
             try { store.completeSegment(segment.id, timelineNow(), successful); }
             catch (Exception error) {
+                clean = false;
                 recording = false;
                 status = "Manifest write failed — stopped; files retained: " + message(error);
             }
             segment = null;
         }
+        return clean;
     }
 
     private void stopRecording(String reason) {
         recording = false;
         startRequested = false;
         worker.removeCallbacks(checkStorage);
-        finishSegment();
-        status = reason;
+        if (finishSegment()) status = reason;
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
