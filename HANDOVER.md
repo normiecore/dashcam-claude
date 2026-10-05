@@ -25,6 +25,11 @@ Latest verified Android implementation/build commit:
 and [debug APK plus lint reports](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709).
 APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
 Local downloadable APK: `/workspace/dashcam-android-0.1.apk` (workspace may not persist).
+App size is 70,329 bytes (68.7 KiB); the 30,050-byte AndroidTest APK is only tests.
+A clean local installer ZIP, `/workspace/dashcam-android-0.1-install.zip`, contains
+the verified app and brief installation instructions. CI packaging now separates
+the app artifact from AndroidTest/diagnostic files to prevent installing the wrong APK.
+This packaging-only update does not change the verified binary; no rebuild was run.
 The final docs-only commit does not change the tested binary. APK artifact expires
 4 November 2026; obtain or rebuild before then. Release compilation passed but its
 APK is unsigned; use the installable debug APK for phone acceptance.

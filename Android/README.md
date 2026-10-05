@@ -7,6 +7,9 @@ Solana Seeker; its Android version still needs confirmation. Minimum Android 9
 Verified build: `98c6eaaf1a2013bfd210f64f468e97434d1ca670`.
 [Download APK artifact](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709)
 (open `outputs/apk/debug/app-debug.apk` inside the ZIP).
+The app is **70,329 bytes (68.7 KiB)**. The similarly named 30,050-byte
+`app-debug-androidTest.apk` is only the instrumentation test package. Install
+`app-debug.apk`. Future CI downloads separate the app from test/diagnostic artifacts.
 [Build and emulator evidence](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031):
 Debug/Release and instrumentation compile, zero lint errors, 200,647 core assertions,
 five Android 15 emulator tests pass. Physical Seeker recording is still unverified.
@@ -32,7 +35,8 @@ damaged-media repair and explicit deletion of saved/recovery footage are outstan
 ## Build and install
 
 Use JDK 17, Android SDK platform 35 and Gradle 8.11.1. CI installs these and uploads
-an installable, debug-signed APK with reports. Debug signing is for this prototype.
+an installable, debug-signed APK; test packages and reports have a separate artifact.
+Debug signing is for this prototype.
 The build caches its prototype debug key to permit updates while that cache survives;
 cache loss or a different signing key may require an uninstall, which removes
 private footage. Export saved footage before uninstalling. Stable release signing

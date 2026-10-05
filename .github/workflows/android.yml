@@ -47,16 +47,23 @@ jobs:
       - name: Compile Debug, Release and device tests; run lint
         working-directory: Android
         run: gradle --no-daemon :app:assembleDebug :app:assembleRelease :app:assembleAndroidTest :app:lintDebug
-      - name: Upload installable debug APK and reports
-        if: always()
+      - name: Upload installable dashcam app
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: dashcam-android-0.1-${{ github.sha }}
+          path: Android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload test package and diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-diagnostics-${{ github.sha }}
           path: |
-            Android/app/build/outputs/apk/debug/*.apk
             Android/app/build/outputs/apk/androidTest/debug/*.apk
             Android/app/build/reports/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
   emulator:
     runs-on: ubuntu-latest

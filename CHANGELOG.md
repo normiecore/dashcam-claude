@@ -2,6 +2,9 @@
 
 ## Android 0.1 prototype — 2026-10-05
 
+- Separated the installable app artifact from the AndroidTest APK after download
+  size confusion; provided an app-only installer ZIP containing the verified binary.
+
 - User chose Android first, deferring iPhone signing/TestFlight.
 - Added isolated native Android preview/foreground recording, ten-second MP4 segments,
   rolling retention, durable manual incident protection, recovery, playback and sharing.
