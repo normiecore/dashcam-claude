@@ -57,7 +57,9 @@ do not promise automatic collision detection or background access without eviden
 - Private repository: https://github.com/normiecore/dashcam-claude
 - iPhone implementation branch: `astra/hosted-macos-v0.1` (preserved).
 - Active Android branch: `astra/android-v0.1`.
-- Open draft PR: https://github.com/normiecore/dashcam-claude/pull/2
+- Android draft PR: https://github.com/normiecore/dashcam-claude/pull/3
+  (based on the preserved iPhone branch).
+- iPhone draft PR: https://github.com/normiecore/dashcam-claude/pull/2
 - At this checkpoint, the implementation is **not merged into remote `main`**.
   A fresh session must open this branch or PR to see the app and this handover.
 - Existing `claude/v0.1-foundation` branch was preserved.
