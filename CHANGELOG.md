@@ -1,5 +1,13 @@
 # Changelog
 
+## Session handover — 2026-10-05
+
+- Paused implementation/signing at the user's request; preserved the iPhone candidate.
+- Recorded potential Android direction, Solana Seeker availability, unconfirmed second phone model and Android versions.
+- Recorded reported Apple enrollment with activation/access still unconfirmed.
+- Added root HANDOVER.md and AGENTS.md startup/maintenance instructions; linked from README.
+- Documentation only; no new application build or physical testing claimed.
+
 ## 0.1.0-dev.1 — packaging follow-up, 2026-09-30
 
 - Added an opaque app icon asset and a deterministic, dependency-free generator.

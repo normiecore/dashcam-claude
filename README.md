@@ -1,5 +1,10 @@
 # Dashcam — 0.1.0-dev.1
 
+**New session: read [HANDOVER.md](HANDOVER.md) first.** Work is paused as of
+5 October 2026; Android is being considered next. The existing iPhone implementation
+is preserved. Current code and handover are on `astra/hosted-macos-v0.1` ([PR #2](https://github.com/normiecore/dashcam-claude/pull/2)), not yet remote `main`.
+[`AGENTS.md`](AGENTS.md) instructs coding agents to read and maintain the handover.
+
 Native iPhone dashcam implementation candidate: SwiftUI, AVFoundation and durable segmented storage. **Hosted Xcode Debug/Release simulator builds and all 16 XCTest cases pass.** Physical iPhone acceptance has not been completed. The portable C retention engine also passes Linux checks. Do not treat this build as qualified evidence capture until the device acceptance gate passes.
 
 ## Implemented source
