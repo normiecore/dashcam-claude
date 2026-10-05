@@ -6,6 +6,11 @@ physical-device validation pass is complete.
 
 ## [Unreleased] - target 0.1.0
 
+### Changed
+- TestFlight builds start from Actions > TestFlight > Run workflow on `main` now that the workflow
+  is on the default branch; the `testflight` label still builds an open pull request. The label
+  already exists, so docs/TESTING.md drops the step that created it.
+
 ### Added
 - DashcamCore Swift package (Linux and Apple platforms): segment model with wall-clock timing,
   retention planner (age window, byte cap, free-space floor), sidecar-persisted segment store with

@@ -67,11 +67,10 @@ One-time setup. In Safari, use Request Desktop Website if an Apple or GitHub pag
 8. github.com/normiecore/dashcam-claude > Settings > Secrets and variables > Actions > New repository secret. Add four secrets: `ASC_KEY_ID` (Key ID), `ASC_ISSUER_ID` (Issuer ID), `ASC_KEY_P8` (the copied key text) and `APPLE_TEAM_ID` (Team ID).
 9. App Store Connect > your app > TestFlight > + next to Internal Testing. Name the group, tick Enable automatic distribution and add yourself.
 10. Install TestFlight from the App Store on the iPhone.
-11. Create the label that starts a build: github.com/normiecore/dashcam-claude/labels > New label, name it `testflight` exactly (lower case), Create label. The label menu on a pull request can only pick existing labels. (Or tell me the secrets are in and I will create it and start the first build.)
 
 Each build:
 
-1. Add the `testflight` label to the pull request (on the PR page, Labels). That starts `.github/workflows/testflight.yml`: a quick secrets check, then archive, cloud signing and upload on a macOS runner, about 15 to 20 minutes. To build again, remove and re-add the label, or press Re-run on the run's page; every upload gets a new build number from the clock. Once the workflow file is on the default branch it can also be started from Actions > TestFlight > Run workflow.
+1. Open github.com/normiecore/dashcam-claude/actions/workflows/testflight.yml, tap Run workflow, leave the branch on `main` and tap the green Run workflow button. If the button does not show on the phone, use Request Desktop Website. (Or tell me and I will start it.) That runs `.github/workflows/testflight.yml`: a quick secrets check, then archive, cloud signing and upload on a macOS runner, about 15 to 20 minutes. To build again, run it again or press Re-run on the run's page; every upload gets a new build number from the clock. To build an open pull request's branch instead of `main`, add the `testflight` label to that pull request.
 2. Wait for processing, usually 5 to 30 minutes after the run finishes. To check, open App Store Connect (the website or the App Store Connect app) > your app > TestFlight; the build shows as Testing once it has reached your group.
 3. First build only: Apple emails "You're invited to test" to your App Store Connect address. Open it on the iPhone, tap View in TestFlight, then Accept.
 4. Open TestFlight on the iPhone and install Dashcam. Each build expires after 90 days; a newer upload replaces it.
