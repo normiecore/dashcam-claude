@@ -35,6 +35,7 @@ public final class RecordingService extends Service {
     private SurfaceTexture previewTexture;
     private RecordingStore.Segment segment;
     private PowerManager.WakeLock wakeLock;
+    private long wakeRenewedMs;
     private volatile boolean recording;
     private volatile boolean startRequested;
     private volatile boolean stopping;
@@ -57,6 +58,7 @@ public final class RecordingService extends Service {
                 stopRecording("Low storage — stopped safely; footage retained");
                 return;
             }
+            if (SystemClock.elapsedRealtime() - wakeRenewedMs >= 30_000) renewWakeLock();
             worker.postDelayed(this, 2000);
         }
     };
@@ -81,6 +83,7 @@ public final class RecordingService extends Service {
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Dashcam recording", NotificationManager.IMPORTANCE_LOW));
         wakeLock = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dashcam:recording");
+        wakeLock.setReferenceCounted(false);
         if (Build.VERSION.SDK_INT >= 29) {
             thermalListener = level -> {
                 if (recording && level >= PowerManager.THERMAL_STATUS_SEVERE) stopRecording("Phone too hot — recording stopped; footage retained");
@@ -140,10 +143,11 @@ public final class RecordingService extends Service {
                 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
             try {
                 startRequested = true;
-                int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-                if (audio) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-                if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification("Starting camera"), types);
-                else startForeground(NOTIFICATION_ID, notification("Starting camera"));
+                if (Build.VERSION.SDK_INT >= 30) {
+                    int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+                    if (audio) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+                    startForeground(NOTIFICATION_ID, notification("Starting camera"), types);
+                } else startForeground(NOTIFICATION_ID, notification("Starting camera"));
                 worker.post(() -> startRecording(audio));
             } catch (RuntimeException error) {
                 startRequested = false;
@@ -175,7 +179,7 @@ public final class RecordingService extends Service {
         }
         microphone = audio;
         recording = true;
-        wakeLock.acquire();
+        renewWakeLock();
         worker.post(checkStorage);
         status = "Starting rear camera";
         if (camera == null) openCamera();
@@ -224,6 +228,12 @@ public final class RecordingService extends Service {
             openingCamera = false;
             stopRecording("Camera unavailable: " + message(error));
         }
+    }
+
+    private void renewWakeLock() {
+        // Renew while this worker is healthy; a stalled recorder cannot hold it forever.
+        wakeLock.acquire(60_000);
+        wakeRenewedMs = SystemClock.elapsedRealtime();
     }
 
     private void cameraFailed(CameraDevice device, String reason) {
