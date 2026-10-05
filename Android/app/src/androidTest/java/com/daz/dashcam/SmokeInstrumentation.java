@@ -262,10 +262,19 @@ public final class SmokeInstrumentation extends Instrumentation {
         } finally { screenshot.recycle(); }
         // Gradle's installed-app runner removes the app after testing. Shell-owned
         // screenshot copies survive that cleanup; private recordings never leave the app.
-        String export = "sh -c 'mkdir -p /sdcard/Download/dashcam-ui && run-as com.daz.dashcam cat cache/ui-screenshots/"
-            + name + ".png > /sdcard/Download/dashcam-ui/" + name + ".png'";
-        try (ParcelFileDescriptor command = getUiAutomation().executeShellCommand(export);
+        try (ParcelFileDescriptor command = getUiAutomation().executeShellCommand("mkdir -p /sdcard/Download/dashcam-ui");
              InputStream output = new ParcelFileDescriptor.AutoCloseInputStream(command)) {
+            byte[] bytes = new byte[1024];
+            while (output.read(bytes) != -1) { }
+        }
+        if (Build.VERSION.SDK_INT < 31) throw new IOException("UI screenshot export requires an API 31+ test emulator");
+        ParcelFileDescriptor[] pipes = getUiAutomation().executeShellCommandRw("dd of=/sdcard/Download/dashcam-ui/" + name + ".png");
+        try (OutputStream input = new ParcelFileDescriptor.AutoCloseOutputStream(pipes[1]);
+             InputStream original = new FileInputStream(new File(directory, name + ".png"))) {
+            byte[] bytes = new byte[8192]; int count;
+            while ((count = original.read(bytes)) != -1) input.write(bytes, 0, count);
+        }
+        try (InputStream output = new ParcelFileDescriptor.AutoCloseInputStream(pipes[0])) {
             byte[] bytes = new byte[1024];
             while (output.read(bytes) != -1) { }
         }
