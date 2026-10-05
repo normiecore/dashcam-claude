@@ -6,8 +6,19 @@
 - Added isolated native Android preview/foreground recording, ten-second MP4 segments,
   rolling retention, durable manual incident protection, recovery, playback and sharing.
 - Added storage/retention tests and hosted build/emulator verification workflow.
+- Verified 200,647 Android core assertions and five Android 15 emulator tests,
+  including synthetic MP4 segment/incident/tail recording. Debug/Release compilation,
+  device-test compilation and lint passed; physical Seeker recording remains untested.
+- Fixed actual compiler errors in native directory sync and share Intent calls.
+  Added media fsync, conservative write-failure stop, partial-tail status, thermal/
+  storage stops, monotonic recording timestamps, bounded renewable wake lock and
+  API 30 guards for camera/microphone service types.
+- Prototype signing key is cached outside source control; cache survival is required
+  for future updates to preserve signing identity. Production signing remains deferred.
 - MediaRecorder boundaries may have gaps; physical Seeker acceptance remains required.
 - Preserved iPhone source and its implementation branch.
+- Final verified Android build: `98c6eaaf1a2013bfd210f64f468e97434d1ca670`;
+  hosted run `37272375031`, installable debug APK artifact `11329275709`.
 
 ## Session handover — 2026-10-05
 

@@ -4,6 +4,14 @@ First Android prototype alongside the existing iPhone app. Initial physical targ
 Solana Seeker; its Android version still needs confirmation. Minimum Android 9
 (API 28), compile/target API 35. Version `0.1.0-dev.1`.
 
+Verified build: `98c6eaaf1a2013bfd210f64f468e97434d1ca670`.
+[Download APK artifact](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709)
+(open `outputs/apk/debug/app-debug.apk` inside the ZIP).
+[Build and emulator evidence](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031):
+Debug/Release and instrumentation compile, zero lint errors, 200,647 core assertions,
+five Android 15 emulator tests pass. Physical Seeker recording is still unverified.
+APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
+
 ## Included
 
 - Rear camera preview and user-started camera foreground service.
@@ -54,6 +62,11 @@ pruning, restart recovery, corrupt metadata and persistence failure. Synthetic b
 in these tests do not prove MP4 validity. Emulator instrumentation separately checks
 Android directory sync, activity/provider behavior and recording as available.
 Neither establishes physical camera reliability.
+
+Run instrumentation on a fresh emulator install without user footage or granted
+camera permission. It grants Camera itself for the synthetic recording test.
+The suite is intended for disposable test storage, not an installed app with saved
+incidents. Core assertions and emulator media samples are distinct from phone tests.
 
 On the Seeker, record phone model, Android version, build commit and results:
 
