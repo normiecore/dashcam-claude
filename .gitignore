@@ -1,19 +1,33 @@
-.DS_Store
-*.xcuserstate
-*.xcworkspace/xcuserdata/
-*.xcodeproj/xcuserdata/
-DerivedData/
-build/
+# Swift and local build outputs
 .build/
 .swiftpm/
+Package.resolved.bak
+build/
+DerivedData/
 *.xcresult/
 *.log
-*.dSYM/
-*.ipa
 *.app/
-__pycache__/
-*.pyc
+*.ipa
+*.dSYM/
+*.dSYM.zip
+
+# Foundation XcodeGen output; the root Astra project is intentionally tracked.
+App/*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.hmap
+
+# Android and signing assets
 Android/.gradle/
 Android/local.properties
 *.jks
 *.keystore
+
+# Local tooling
+.DS_Store
+*.swp
+/tmp/
+__pycache__/
+*.pyc

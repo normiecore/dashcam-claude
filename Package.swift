@@ -1,14 +1,37 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
+// DashcamCore: platform-independent recording, retention and incident logic.
+// This package intentionally has no AVFoundation/UIKit dependency so it builds and tests on Linux
+// (swift build / swift test) as well as inside the iOS app. The AVFoundation capture layer lives in App/.
 import PackageDescription
 
-// Portable storage-policy gate. The actual camera and AVAssetWriter targets require iOS.
 let package = Package(
     name: "DashcamCore",
-    platforms: [.macOS(.v13), .iOS(.v17)],
-    products: [.library(name: "DashcamCore", targets: ["DashcamCore"])],
+    platforms: [
+        .iOS(.v17),
+        .macOS(.v14),
+    ],
+    products: [
+        .library(name: "DashcamCore", targets: ["DashcamCore"]),
+        .executable(name: "dashcam-sim", targets: ["DashcamSim"]),
+    ],
     targets: [
-        .target(name: "CRetentionPolicy", path: "Core", sources: ["RetentionPolicy.c"], publicHeadersPath: "."),
-        .target(name: "DashcamCore", dependencies: ["CRetentionPolicy"], path: "Core", sources: ["RecordingStore.swift"]),
-        .testTarget(name: "DashcamCoreTests", dependencies: ["DashcamCore"], path: "Tests", sources: ["RecordingStoreTests.swift"]),
-    ]
+        .target(
+            name: "DashcamCore",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency"),
+            ]
+        ),
+        .executableTarget(
+            name: "DashcamSim",
+            dependencies: ["DashcamCore"],
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency"),
+            ]
+        ),
+        .testTarget(
+            name: "DashcamCoreTests",
+            dependencies: ["DashcamCore"]
+        ),
+    ],
+    swiftLanguageModes: [.v6]
 )

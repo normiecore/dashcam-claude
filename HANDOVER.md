@@ -65,10 +65,22 @@ continuity and measure segment gaps. Do not qualify `v0.1.0` before phone accept
 The goal remains a reliable phone dashcam: segmented recording, about five minutes
 of rolling footage, manual incident preservation plus a 30-second tail, playback,
 export, recovery and safe storage cleanup. Original intent is in
-[`Docs/OriginalBrief.md`](Docs/OriginalBrief.md). Challenge platform assumptions;
+[`AstraDocs/OriginalBrief.md`](AstraDocs/OriginalBrief.md). Challenge platform assumptions;
 do not promise automatic collision detection or background access without evidence.
 
 ## Where the work lives
+
+### Integration update — 5 October 2026
+
+PR #3 has been merged into `astra/hosted-macos-v0.1`, so that branch now contains
+the Android prototype. PR #2's conflicts with main are being resolved by preserving
+both iPhone implementations and Android. The four shared files (README, changelog,
+Package.swift and gitignore) are reconciled: the root Swift 6 package belongs to
+`Sources/DashcamCore`; Astra XCTest remains in the root Xcode project. Foundation
+XcodeGen produces `App/Dashcam.xcodeproj`. Keep these build entry points distinct.
+The earlier Astra `Docs/` files are now `AstraDocs/` to avoid case collisions with
+foundation `docs/` on Macs. See README for all build/test commands. Physical phone
+acceptance remains the next product step; no signing/upload is part of this merge.
 
 - Private repository: https://github.com/normiecore/dashcam-claude
 - iPhone implementation branch: `astra/hosted-macos-v0.1` (preserved).
@@ -76,7 +88,9 @@ do not promise automatic collision detection or background access without eviden
 - Android foundation PR: https://github.com/normiecore/dashcam-claude/pull/3
   was merged into `astra/hosted-macos-v0.1` at
   `b3eaaa555487bd3d5afd3370255a503d7c0af1d5`; old Android feature branch removed.
-  UI refinement is based on that merged checkpoint, with a new review PR pending.
+- Android UI draft PR: https://github.com/normiecore/dashcam-claude/pull/7
+  based on the integration branch. Latest integration changes were merged into the
+  UI review branch; the verified Android app source remains identical.
 - iPhone draft PR: https://github.com/normiecore/dashcam-claude/pull/2
 - At this checkpoint, the implementation is **not merged into remote `main`**.
   A fresh session must open this branch or PR to see the app and this handover.
@@ -152,7 +166,7 @@ The first archive check had incorrect `lipo` argument order; fixed and rerun.
 
 ## If the user resumes with Android
 
-1. Open `astra/android-v0.1`; read `Android/README.md` and this checkpoint. Keep iOS
+1. Open `astra/android-ui-polish`; read `Android/README.md` and this checkpoint. Keep iOS
    intact and Apple signing deferred unless the user changes direction.
 2. Confirm Seeker Android version, install the latest verified debug APK, and follow
    the six-minute incident/tail acceptance test in `Android/README.md`.
@@ -183,8 +197,8 @@ Confirm active membership, Team ID and App Store Connect access. Then register t
 chosen bundle ID/app record and configure secure signing/export/upload. Current
 `com.daz.dashcam.dev` is a development identifier, not confirmed registered.
 Keep private keys/passwords in suitable secret storage, never chat or Git.
-Follow [`Docs/HostedMac.md`](Docs/HostedMac.md) and
-[`Docs/DeviceAcceptance.md`](Docs/DeviceAcceptance.md).
+Follow [`AstraDocs/HostedMac.md`](AstraDocs/HostedMac.md) and
+[`AstraDocs/DeviceAcceptance.md`](AstraDocs/DeviceAcceptance.md).
 
 ## Session procedure and file map
 
@@ -201,10 +215,14 @@ results, commit/run identifiers and unverified limits before ending the session.
 - `Tools/verify-mac.sh`: simulator builds and XCTest.
 - `Tools/verify-device-archive.sh`: unsigned iPhone archive checks.
 - `.github/workflows/verify.yml`: hosted verification on PR changes/manual dispatch.
-- `Docs/Architecture.md`, `Docs/AppleReview.md`, `Docs/Verification.md`: detailed design and evidence.
+- `AstraDocs/Architecture.md`, `AstraDocs/AppleReview.md`, `AstraDocs/Verification.md`: detailed design and evidence.
 - `CHANGELOG.md`: completed work and significant decisions.
 - `Android/`: native Java Android app, durable storage, core tests and device tests.
 - `.github/workflows/android.yml`: Android compilation/lint, emulator tests and APK artifact.
+- `Android/app/src/main/java/com/daz/dashcam/Ui.java`, `res/values/`: native design system.
+- `Android/verify-emulator.sh`: test execution and valid screenshot collection.
+- `App/project.yml`, `App/Dashcam/`, `Sources/`, `docs/`: iOS foundation from main,
+  with its own Swift package and XcodeGen build/test paths. Details are in README.
 
 Suggested new-session prompt: **“Read AGENTS.md and HANDOVER.md first, inspect the
 current branch, and resume the dashcam project with [Android / iPhone]. Preserve
