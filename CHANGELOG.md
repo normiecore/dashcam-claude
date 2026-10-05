@@ -111,6 +111,11 @@ physical-device validation pass is complete.
   batches; banners carry identities; Save Incident while stopped closes the incident immediately;
   delete is blocked during export; the consent screen cannot cover a live recording and auto-start
   waits for consent; the microphone prompt follows the audio setting.
+- Simulator preview without a Mac. The UI tests attach a screenshot of each screen they reach, and
+  the Xcode 27 CI lane records the Simulator's screen while they run. Each pull request run
+  publishes both to the `simulator-preview` branch, viewable on GitHub from a phone, and attaches
+  them as the `simulator-preview` artifact. The lane now builds for testing once and runs the unit
+  tests and the UI tests separately, so the recording covers only the UI tests.
 
 ### Decisions
 - Segmented AVAssetWriter (fragmented MP4) instead of AVCaptureMovieFileOutput: iOS cannot switch
