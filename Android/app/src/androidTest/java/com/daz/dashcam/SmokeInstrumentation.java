@@ -363,12 +363,31 @@ public final class SmokeInstrumentation extends Instrumentation {
         return result.toString();
     }
 
-    private void capture(String name) throws IOException {
+    private void capture(String name) throws Exception {
         waitForIdleSync();
+        await(() -> {
+            AccessibilityNodeInfo active = getUiAutomation().getRootInActiveWindow();
+            if (active == null) return false;
+            try {
+                if (getTargetContext().getPackageName().contentEquals(active.getPackageName())) return true;
+                // AOSP Quickstep can ANR during headless emulator boot. Close only
+                // that known launcher error; an app error must still fail the suite.
+                String systemText = nodeText(active);
+                if (systemText.contains("Quickstep") && systemText.contains("responding")) {
+                    AccessibilityNodeInfo close = findAccessible(active, "Close app");
+                    if (close != null) {
+                        try { close.performAction(AccessibilityNodeInfo.ACTION_CLICK); }
+                        finally { close.recycle(); }
+                    }
+                }
+                return false;
+            } finally { active.recycle(); }
+        }, 10_000, "Dashcam must be the active window for screenshot " + name);
         android.view.accessibility.AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
         try {
             require(window != null && getTargetContext().getPackageName().contentEquals(window.getPackageName()),
-                "Screenshot must show Dashcam, without a system error or permission overlay: " + name);
+                "Screenshot must show Dashcam, without a system error or permission overlay: " + name
+                    + "; active package=" + (window == null ? "none" : window.getPackageName()));
         } finally { if (window != null) window.recycle(); }
         Bitmap screenshot = getUiAutomation().takeScreenshot();
         require(screenshot != null, "Capture screenshot " + name);
