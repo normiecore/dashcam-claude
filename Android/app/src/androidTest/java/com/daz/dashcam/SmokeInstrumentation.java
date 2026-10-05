@@ -383,6 +383,9 @@ public final class SmokeInstrumentation extends Instrumentation {
                 return false;
             } finally { active.recycle(); }
         }, 10_000, "Dashcam must be the active window for screenshot " + name);
+        // Wait for accessibility/layout events to settle so the capture includes
+        // the newly selected tab or sheet rather than the preceding rendered frame.
+        getUiAutomation().waitForIdle(150, 3000);
         android.view.accessibility.AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
         try {
             require(window != null && getTargetContext().getPackageName().contentEquals(window.getPackageName()),
