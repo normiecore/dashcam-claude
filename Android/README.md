@@ -24,8 +24,9 @@ damaged-media repair and explicit deletion of saved/recovery footage are outstan
 ## Build and install
 
 Use JDK 17, Android SDK platform 35 and Gradle 8.11.1. CI installs these and uploads
-an installable, debug-signed APK with reports. Debug signing is for this prototype;
-updates from ephemeral CI signing keys may require an uninstall, which removes
+an installable, debug-signed APK with reports. Debug signing is for this prototype.
+The build caches its prototype debug key to permit updates while that cache survives;
+cache loss or a different signing key may require an uninstall, which removes
 private footage. Export saved footage before uninstalling. Stable release signing
 is not configured.
 

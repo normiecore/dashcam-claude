@@ -14,7 +14,8 @@ public final class AndroidStorage {
         return new RecordingStore(directory, root -> {
             FileDescriptor descriptor = null;
             try {
-                descriptor = Os.open(root.getAbsolutePath(), OsConstants.O_RDONLY | OsConstants.O_DIRECTORY, 0);
+                if (!root.isDirectory()) throw new IOException("Recording directory unavailable");
+                descriptor = Os.open(root.getAbsolutePath(), OsConstants.O_RDONLY, 0);
                 Os.fsync(descriptor);
             } catch (ErrnoException error) {
                 throw new IOException("Cannot sync recording directory", error);

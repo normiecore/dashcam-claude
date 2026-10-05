@@ -13,6 +13,7 @@ import android.os.*;
 import android.util.Size;
 import android.view.Surface;
 import java.io.File;
+import java.io.RandomAccessFile;
 import java.util.*;
 
 /** User-started foreground recorder. All camera and manifest work uses one worker. */
@@ -313,24 +314,34 @@ public final class RecordingService extends Service {
 
     private boolean finishSegment() {
         worker.removeCallbacks(rotate);
-        closeSession();
+        // Stop producing new camera frames, but leave outputs alive while MediaRecorder drains.
+        sessionGeneration++;
+        if (session != null) {
+            try { session.stopRepeating(); } catch (Exception ignored) { }
+        }
         boolean successful = false;
         boolean clean = true;
         if (recorder != null) {
             try {
-                if (recorderStarted) { recorder.stop(); successful = true; }
+                if (recorderStarted) {
+                    recorder.stop();
+                    if (segment != null) {
+                        try (RandomAccessFile media = new RandomAccessFile(segment.file, "rw")) { media.getFD().sync(); }
+                    }
+                    successful = true;
+                }
                 else {
                     clean = false;
                     status = "Recording stopped during startup — incomplete file retained for recovery";
                 }
             }
-            catch (RuntimeException error) {
+            catch (Exception error) {
                 clean = false;
                 recording = false;
                 status = "Interrupted segment retained for recovery — recording stopped";
             }
-            finally { recorder.release(); recorder = null; recorderStarted = false; }
-        }
+            finally { closeSession(); recorder.release(); recorder = null; recorderStarted = false; }
+        } else closeSession();
         if (segment != null) {
             try { store.completeSegment(segment.id, timelineNow(), successful); }
             catch (Exception error) {

@@ -182,10 +182,16 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         if (incidents.isEmpty()) { toast("No incidents saved yet"); return; }
         String[] labels = new String[incidents.size()];
         long now = service == null ? System.currentTimeMillis() : service.timelineNow();
+        boolean recording = service != null && service.isRecording();
         for (int i = 0; i < labels.length; i++) {
             RecordingStore.Incident incident = incidents.get(i);
-            labels[i] = time(incident.endMs - RetentionPolicy.TAIL_MS)
-                + (now < incident.endMs ? " · tail pending" : "");
+            long coverageEnd = Long.MIN_VALUE;
+            for (RecordingStore.Segment segment : store.segmentsForIncident(incident.id)) {
+                if (segment.complete && !segment.uncertain) coverageEnd = Math.max(coverageEnd, segment.endMs);
+            }
+            String tail = "";
+            if (coverageEnd < incident.endMs) tail = recording ? (now < incident.endMs ? " · tail recording" : " · finalizing tail") : " · partial tail";
+            labels[i] = time(incident.endMs - RetentionPolicy.TAIL_MS) + tail;
         }
         new AlertDialog.Builder(this).setTitle("Saved incidents").setItems(labels, (dialog, which) -> {
             List<RecordingStore.Segment> segments = store.segmentsForIncident(incidents.get(which).id);
@@ -239,7 +245,8 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         else intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
         ClipData data = ClipData.newUri(getContentResolver(), "Dashcam clips", uris.get(0));
         for (int i = 1; i < uris.size(); i++) data.addItem(new ClipData.Item(uris.get(i)));
-        intent.setClipData(data).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.setClipData(data);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         try { startActivity(Intent.createChooser(intent, "Share dashcam footage")); }
         catch (ActivityNotFoundException error) { toast("No sharing app available"); }
     }
