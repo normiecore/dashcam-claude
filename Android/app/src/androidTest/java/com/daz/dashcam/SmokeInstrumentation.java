@@ -260,6 +260,15 @@ public final class SmokeInstrumentation extends Instrumentation {
         try (FileOutputStream output = new FileOutputStream(new File(directory, name + ".png"))) {
             require(screenshot.compress(Bitmap.CompressFormat.PNG, 100, output), "Write screenshot " + name);
         } finally { screenshot.recycle(); }
+        // Gradle's installed-app runner removes the app after testing. Shell-owned
+        // screenshot copies survive that cleanup; private recordings never leave the app.
+        String export = "sh -c 'mkdir -p /sdcard/Download/dashcam-ui && run-as com.daz.dashcam cat cache/ui-screenshots/"
+            + name + ".png > /sdcard/Download/dashcam-ui/" + name + ".png'";
+        try (ParcelFileDescriptor command = getUiAutomation().executeShellCommand(export);
+             InputStream output = new ParcelFileDescriptor.AutoCloseInputStream(command)) {
+            byte[] bytes = new byte[1024];
+            while (output.read(bytes) != -1) { }
+        }
     }
 
     private void testNativeStorage() throws Exception {
