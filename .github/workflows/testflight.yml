@@ -2,9 +2,10 @@ name: TestFlight
 
 # Archives a Release build, signs it with Apple's cloud-managed distribution certificate and uploads
 # it to App Store Connect for TestFlight. No Mac and no certificate files are needed: signing uses an
-# App Store Connect team API key with the Admin role. Start it by adding the "testflight" label to the
-# pull request (works from a phone browser), or from the Actions tab once this file is on the default
-# branch. The secrets it needs and the one-time App Store Connect setup are in docs/TESTING.md.
+# App Store Connect team API key with the Admin role. Start it from Actions > TestFlight > Run
+# workflow (builds the chosen branch, normally main), or by adding the "testflight" label to an open
+# pull request (builds that pull request). Both work from a phone browser. The secrets it needs and
+# the one-time App Store Connect setup are in docs/TESTING.md.
 on:
   workflow_dispatch:
   pull_request:
