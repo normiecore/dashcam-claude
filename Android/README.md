@@ -2,18 +2,24 @@
 
 First Android prototype alongside the existing iPhone app. Initial physical target:
 Solana Seeker; its Android version still needs confirmation. Minimum Android 9
-(API 28), compile/target API 35. Version `0.1.0-dev.1`.
+(API 28), compile/target API 35. Version `0.1.0-dev.2`, version code `2`.
 
-Verified build: `98c6eaaf1a2013bfd210f64f468e97434d1ca670`.
-[Download APK artifact](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709)
-(open `outputs/apk/debug/app-debug.apk` inside the ZIP).
-The app is **70,329 bytes (68.7 KiB)**. The similarly named 30,050-byte
-`app-debug-androidTest.apk` is only the instrumentation test package. Install
-`app-debug.apk`. Future CI downloads separate the app from test/diagnostic artifacts.
-[Build and emulator evidence](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031):
-Debug/Release and instrumentation compile, zero lint errors, 200,647 core assertions,
-five Android 15 emulator tests pass. Physical Seeker recording is still unverified.
-APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
+Verified build: `0651518568001b0cabbee858107a41ffe7d57925`.
+[Download app-only APK artifact](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291/artifacts/11332392247)
+and install `app-debug.apk` at the ZIP root. App size:
+**120,898 bytes (118.1 KiB)**. AndroidTest and reports are separate artifacts.
+[Passing build and emulator evidence](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291):
+Debug/Release and instrumentation compile, zero lint errors, 200,647 core assertions
+and ten Android 15 emulator tests pass. Seven real UI screenshots were reviewed.
+[Emulator reports/screenshots](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291/artifacts/11331959306).
+Physical Seeker recording remains unverified.
+APK SHA256: `7f7343a3d67cf2099be9044f7bf0c1baa150ca268de025dd50094bc51fc7d6cb`.
+
+**Upgrading from the earlier 69 KiB build:** this APK has a different prototype debug
+signature because signing caches are branch-scoped. Export and check footage from
+the old app before uninstalling, then install this APK. Uninstalling/clearing data
+deletes its private footage. The new key was restored successfully on subsequent
+builds; stable release signing is still pending.
 
 ## Included
 
@@ -24,6 +30,9 @@ APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
 - Overlapping incidents share protected footage; future tail segments are pinned automatically.
 - Durable manifest, conservative interrupted/orphan recovery, low-space stop at a 256 MiB reserve.
 - Library, per-clip playback and sharing of incident MP4 segments.
+- Native dark/mint Recorder and Footage screens with accessible touch targets,
+  Saved/Recent/Recovery filters, video thumbnails and explicit tail protection status.
+- Audio, local-storage and privacy settings; warning before stopping a pending tail.
 - Recording notification with Save/Stop; non-sticky service, no reboot auto-start.
 
 The MediaRecorder prototype stops/restarts between segments and may lose footage at

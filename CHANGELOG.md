@@ -1,5 +1,25 @@
 # Changelog
 
+## Android 0.1.0-dev.2 UI refinement — 2026-10-05
+
+- Added a consistent native dark/mint theme, adaptive launcher icon, large recording
+  controls, clear idle/recording states and persistent Recorder/Footage navigation.
+- Replaced nested library menus with Saved/Recent/Recovery browsing, thumbnails,
+  direct playback/share, live incident-tail status and explanatory empty states.
+- Added audio/privacy/storage settings, saved audio preference, camera onboarding,
+  permission-dialog state restoration and confirmation before stopping an incident tail.
+- Verified Debug/Release and test compilation, lint, 200,647 storage assertions
+  and ten Android 15 emulator checks, including actual recording and accessible
+  incident/settings interactions. Reviewed seven clean emulator screenshots.
+- Final verified build: `0651518568001b0cabbee858107a41ffe7d57925`,
+  hosted run `37281099291`; installable APK artifact `11332392247`.
+- APK is 120,898 bytes; source remains native Java with no UI dependency bundle.
+  New branch has a different debug signing key: export old footage before reinstalling.
+  Physical Seeker acceptance and production signing remain pending.
+
+- Reconciled concurrent integration-branch updates while preserving both iPhone
+  implementations; Android app source matches the verified build exactly.
+
 ## Branch reconciliation — 2026-10-05
 
 - Resolved PR #2's shared README, changelog, Package.swift and gitignore conflicts with main; retained Android and both iPhone implementations.

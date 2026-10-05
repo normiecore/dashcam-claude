@@ -1,7 +1,7 @@
 name: Android 0.1 verification
 on:
   push:
-    branches: ['astra/android-v0.1']
+    branches: ['astra/android-v0.1', 'astra/android-ui-polish']
     paths: ['Android/**', '.github/workflows/android.yml']
   pull_request:
     paths: ['Android/**', '.github/workflows/android.yml']
@@ -89,8 +89,9 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_2
+          cores: 4
           disable-animations: true
-          script: cd Android && gradle --no-daemon :app:connectedDebugAndroidTest
+          script: bash Android/verify-emulator.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
