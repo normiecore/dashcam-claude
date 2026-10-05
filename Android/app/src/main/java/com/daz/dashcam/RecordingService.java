@@ -37,6 +37,7 @@ public final class RecordingService extends Service {
     private PowerManager.WakeLock wakeLock;
     private volatile boolean recording;
     private volatile boolean startRequested;
+    private volatile boolean stopping;
     private volatile boolean destroyed;
     private volatile String status = "Ready";
     private boolean microphone;
@@ -90,7 +91,7 @@ public final class RecordingService extends Service {
 
     @Override public IBinder onBind(Intent intent) { return binder; }
     public RecordingStore getStore() { return store; }
-    public boolean isRecording() { return recording; }
+    public boolean isRecording() { return recording || stopping; }
     public String getStatus() { return status; }
     public long timelineNow() { return epochWall + SystemClock.elapsedRealtime() - epochElapsed; }
 
@@ -129,7 +130,7 @@ public final class RecordingService extends Service {
         if (intent == null) return START_NOT_STICKY; // Never restart camera access after process death.
         String action = intent.getAction();
         if (ACTION_START.equals(action)) {
-            if (recording || startRequested) return START_NOT_STICKY;
+            if (recording || startRequested || stopping) return START_NOT_STICKY;
             if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 status = "Camera permission required";
                 stopSelf();
@@ -355,16 +356,18 @@ public final class RecordingService extends Service {
     }
 
     private void stopRecording(String reason) {
+        stopping = true;
         recording = false;
-        startRequested = false;
         worker.removeCallbacks(checkStorage);
         if (finishSegment()) status = reason;
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
-        // Leave a fresh preview while the visible activity remains bound.
-        if (preview != null && camera != null && !destroyed) configureSession();
+        // Retry preview only after a normal user stop; camera errors must not recursively retry.
+        if (reason.startsWith("Stopped") && preview != null && camera != null && !destroyed) configureSession();
         else closeCamera();
+        startRequested = false;
+        stopping = false;
     }
 
     private void closeSession() {
@@ -395,7 +398,9 @@ public final class RecordingService extends Service {
     }
 
     private void updateNotification() {
-        if (recording) getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(status));
+        if (recording && (Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)) {
+            getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(status));
+        }
     }
 
     private static String message(Throwable error) {
