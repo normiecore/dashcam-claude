@@ -8,8 +8,14 @@
   direct playback/share, live incident-tail status and explanatory empty states.
 - Added audio/privacy/storage settings, saved audio preference, camera onboarding,
   permission-dialog state restoration and confirmation before stopping an incident tail.
-- Added hosted UI screenshots and recording/navigation/recreation/layout checks.
-  Build, emulator and visual verification pending at this checkpoint.
+- Verified Debug/Release and test compilation, lint, 200,647 storage assertions
+  and ten Android 15 emulator checks, including actual recording and accessible
+  incident/settings interactions. Reviewed seven clean emulator screenshots.
+- Final verified build: `0651518568001b0cabbee858107a41ffe7d57925`,
+  hosted run `37281099291`; installable APK artifact `11332392247`.
+- APK is 120,898 bytes; source remains native Java with no UI dependency bundle.
+  New branch has a different debug signing key: export old footage before reinstalling.
+  Physical Seeker acceptance and production signing remain pending.
 
 ## Android 0.1 prototype — 2026-10-05
 

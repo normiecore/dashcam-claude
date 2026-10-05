@@ -4,55 +4,58 @@ Last updated: **2026-10-05, Australia/Perth**.
 
 ## Current position
 
-**UI refinement in progress (Android `0.1.0-dev.2`):** replacing the prototype
-screen and nested library dialogs with a native dark/mint interface, context-aware
-Start/Save primary action, persistent navigation, thumbnail footage rows, playback,
-settings and explicit pending/partial-tail states. Recording and retention pipeline
-is preserved; the service only gains read-only UI metadata. Hosted verification
-and visual screenshot review are pending for this revision. The verified build
-below remains the previous dev.1 binary until that verification completes.
+**Android UI refinement complete — `0.1.0-dev.2`, version code 2.** The native
+dark/mint interface has context-aware Start/Save controls, a separate Stop button,
+portrait/landscape layouts, camera onboarding, Saved/Recent/Recovery browsing,
+thumbnail rows, precise clip times, playback/share sheets, persistent audio settings
+and explicit pending/partial-tail feedback. Capture, retention and durable storage
+behavior is preserved; RecordingService only gains read-only UI metadata.
 
-**Android work resumed at the user's request:** “Let’s start on the android and
-I’ll come back to apple later. Let’s get to working 0.1.” Preserve the working
-iPhone implementation; iPhone signing/TestFlight remains deferred.
+Android is the active platform at the user's request: “Let’s start on the android
+and I’ll come back to apple later. Let’s get to working 0.1.” iPhone signing and
+TestFlight remain deferred. The original Android foundation PR #3 was merged into
+the working iPhone branch, then its feature branch was deleted. UI refinement lives
+on `astra/android-ui-polish`, based on merged checkpoint
+`b3eaaa555487bd3d5afd3370255a503d7c0af1d5`; no iPhone source was changed.
 
-Android implementation lives in `Android/` on dedicated branch `astra/android-v0.1`,
-based on remote iOS checkpoint `4ac15f234bb23d4d382b357f38c9b316e21703dc`.
-Native Java Camera2/MediaRecorder prototype: preview, foreground recording,
-ten-second MP4 segments, five-minute rolling window, manual incident +30s tail,
-durable manifest/recovery, playback and per-clip sharing. See `Android/README.md`.
+Verified build commit: `0651518568001b0cabbee858107a41ffe7d57925`.
+[Passing hosted run](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291).
+Debug/Release and instrumentation compilation pass, lint has no errors, and Android
+retention/storage tests pass **200,647 assertions**, locally and on hosted JDK 17.
+**Ten Android 15 emulator tests pass**: native directory fsync, read-only provider,
+activity launch, accessible Recorder/Footage navigation, denied camera start,
+synthetic MP4 segment/incident/30-second-tail capture using UI Start/Save/Stop,
+activity recreation retaining the recording service and live preview, saved library,
+landscape action visibility, incident-sheet navigation and persistent audio settings.
+Seven real emulator screenshots were exported and visually reviewed: ready, empty
+library, recording, saved library, landscape, incident details and settings.
+These checks do not establish physical camera/audio/screen-off reliability.
 
-Android retention/storage tests pass **200,647 assertions**, locally and on hosted
-JDK 17. Hosted Debug/Release compilation, Android test compilation and lint pass.
-Five Android 15 emulator tests pass, including native directory fsync, read-only
-sharing provider, activity launch, permission-denied start and synthetic camera
-segment/incident/30-second-tail recording with MP4 sample validation and durable pins.
-Latest verified Android implementation/build commit:
-`98c6eaaf1a2013bfd210f64f468e97434d1ca670`.
-[Passing hosted run](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031)
-and [debug APK plus lint reports](https://github.com/normiecore/dashcam-claude/actions/runs/37272375031/artifacts/11329275709).
-APK SHA256: `e380a3ea0a3f2fa168b81918db160d26fa8ca0e9d56aa36cbfca6fb474bed24b`.
-Local downloadable APK: `/workspace/dashcam-android-0.1.apk` (workspace may not persist).
-App size is 70,329 bytes (68.7 KiB); the 30,050-byte AndroidTest APK is only tests.
-A clean local installer ZIP, `/workspace/dashcam-android-0.1-install.zip`, contains
-the verified app and brief installation instructions. CI packaging now separates
-the app artifact from AndroidTest/diagnostic files to prevent installing the wrong APK.
-This packaging-only update does not change the verified binary; no rebuild was run.
-The final docs-only commit does not change the tested binary. APK artifact expires
-4 November 2026; obtain or rebuild before then. Release compilation passed but its
-APK is unsigned; use the installable debug APK for phone acceptance.
+[Installable debug APK artifact](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291/artifacts/11332392247):
+`app-debug.apk` at ZIP root; app is **120,898 bytes (118.1 KiB)**.
+APK SHA256: `7f7343a3d67cf2099be9044f7bf0c1baa150ca268de025dd50094bc51fc7d6cb`.
+[Emulator reports and screenshots](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291/artifacts/11331959306).
+Local downloads: `/workspace/dashcam-android-polished.apk`,
+`/workspace/dashcam-android-polished-install.zip` (app + INSTALL.txt only),
+and screenshots in `/workspace/dashcam-ui-review/ui-screenshots/`.
+Workspace files may not persist. App artifact expires 4 November 2026.
+The final documentation-only commit does not change the verified binary.
+Release compilation passes, but its APK is unsigned; use the debug APK for acceptance.
 
-No Seeker physical tests performed. Segmentation currently stops/restarts
-MediaRecorder and can introduce gaps. Incident export shares original MP4 segments,
-without joining them. Incomplete/uncertain footage is retained without repair.
-The prototype debug key is cached outside Git to support updates; stable release
-signing is not configured. Cache loss can still change signing identity: export
-footage before any uninstall. Android minimum API 28, compile/target API 35.
-Actual signing-cache save succeeded in the passing build. Earlier builds used
-different ephemeral signing keys; use this latest APK as the starting phone build.
-Lint has zero errors and remaining warnings for target API age, storage allocation
-guidance and untranslated English UI strings. Camera service API guards and
-unbounded-wake-lock warnings were fixed. No release tag or Play upload performed.
+**Upgrade caveat:** GitHub Actions debug-key caches are branch-scoped. The new UI
+branch missed the old branch's cache and created a new prototype signing identity.
+Its key was successfully restored on subsequent builds. It differs from the old
+69 KiB APK: export/check wanted footage from the old app before uninstalling it,
+then install this APK. Uninstalling or clearing data removes private footage.
+New certificate SHA256:
+`2baad557df2596cdcc2f9bebea537e788f2df1bf540ae3a8b602ee695d87c135`.
+Stable release signing remains unconfigured; cache expiry/loss can change identity.
+
+No Seeker physical tests performed. MediaRecorder stops/restarts between ten-second
+clips and may introduce gaps. Export shares original MP4 clips without joining them.
+Uncertain files remain retained without repair; explicit deletion remains outstanding.
+Android minimum API 28, compile/target API 35. Remaining lint warnings do not prevent
+compilation; no release tag, Play upload or final `v0.1.0` qualification performed.
 
 Next concrete action: confirm Seeker Android version, install this debug APK,
 record six minutes, save an incident at minute five, continue at least 35 seconds,
@@ -78,7 +81,8 @@ do not promise automatic collision detection or background access without eviden
 - At this checkpoint, the implementation is **not merged into remote `main`**.
   A fresh session must open this branch or PR to see the app and this handover.
 - Existing `claude/v0.1-foundation` branch was preserved.
-- Version: `0.1.0-dev.1`; Xcode marketing version `0.1.0`, build `1`.
+- Android version: `0.1.0-dev.2`, code `2`; iPhone remains `0.1.0-dev.1`
+  with Xcode marketing version `0.1.0`, build `1`.
 - Historical scratch checkout: `/workspace/scratch/7b8755d64a71/Dashcam`.
   Do not depend on this path surviving a new session; GitHub is the durable source.
 - Local scratch Git commits and GitHub commits have different ancestry because
