@@ -69,6 +69,7 @@
     <string name="start_failed">Recording could not start. Reopen the recorder and try again.</string>
     <string name="recorder_unavailable">Recorder unavailable. Reopen the app to reconnect.</string>
     <string name="saving">Saving incident…</string>
+    <string name="incident_saved_hint">Incident saved · capturing the 30-second tail</string>
     <string name="wait_clip">This clip is still recording. Try again when it finishes.</string>
     <string name="play_error">This clip cannot be played. The original file is kept.</string>
     <string name="no_clips">No completed clips to share yet.</string>

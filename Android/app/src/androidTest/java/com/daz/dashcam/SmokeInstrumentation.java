@@ -595,8 +595,11 @@ public final class SmokeInstrumentation extends Instrumentation {
     private interface Check { boolean get() throws Exception; }
     private static void await(Check check, long timeout, String message) throws Exception {
         long deadline = SystemClock.elapsedRealtime() + timeout;
-        while (!check.get() && SystemClock.elapsedRealtime() < deadline) Thread.sleep(25);
-        require(check.get(), message);
+        while (true) {
+            if (check.get()) return;
+            require(SystemClock.elapsedRealtime() < deadline, message);
+            Thread.sleep(25);
+        }
     }
 
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }

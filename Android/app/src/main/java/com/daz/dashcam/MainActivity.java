@@ -162,7 +162,7 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         permissionBody.setGravity(Gravity.CENTER); permissionBody.setPadding(0, dp(12), 0, dp(18));
         permissionCard.addView(permissionBody);
         if (landscape) permissionBody.setVisibility(View.GONE);
-        cameraButton = Ui.button(this, s(R.string.allow_camera), "camera", true, this::requestCamera);
+        cameraButton = Ui.button(this, s(R.string.allow_camera), "camera", false, this::requestCamera);
         permissionCard.addView(cameraButton, lp(-1, -2));
         hero.addView(permissionCard, new FrameLayout.LayoutParams(-1, -1));
         status = label("", 13, Ui.MUTED, false);
@@ -269,7 +269,12 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         permissionCard.setVisibility(permitted ? View.GONE : View.VISIBLE);
         cameraButton.setText(s(cameraPermanentlyDenied() ? R.string.camera_settings : R.string.allow_camera));
         String recorderStatus = service == null ? s(R.string.service_unavailable) : service.getStatus();
-        status.setText(!permitted ? s(R.string.camera_body) : recorderStatus);
+        if (active && (recorderStatus.startsWith("Recording") || recorderStatus.startsWith("Incident saved")) && store() != null) {
+            for (RecordingStore.Incident incident : store().listIncidents())
+                if (incident.endMs > service.timelineNow()) { recorderStatus = s(R.string.incident_saved_hint); break; }
+        }
+        status.setVisibility(permitted ? View.VISIBLE : View.GONE);
+        status.setText(recorderStatus);
         String statusKey = recorderStatus.toLowerCase(Locale.ROOT);
         status.setTextColor(statusKey.contains("failed") || statusKey.contains("low") || statusKey.contains("interrupted")
             || statusKey.contains("hot") || statusKey.contains("cannot") || statusKey.contains("unavailable") ? Ui.AMBER : Ui.MUTED);
@@ -404,6 +409,7 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         if (coverage >= incident.endMs) return s(R.string.protected_label);
         if (service == null || !service.isRecording()) return s(R.string.tail_partial);
         long remaining = incident.endMs - service.timelineNow();
+        if (remaining <= 0 && incident.endMs < service.timelineNow() - service.getElapsedRecordingMs()) return s(R.string.tail_partial);
         if (remaining <= 0) return s(R.string.tail_finalizing);
         return countdown ? getString(R.string.tail_pending, (remaining + 999) / 1000) : s(R.string.tail_recording);
     }
@@ -656,7 +662,7 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
     }
     private String date(long millis) {
         Calendar today = Calendar.getInstance(), day = Calendar.getInstance(); day.setTimeInMillis(millis);
-        String time = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(millis));
+        String time = DateFormat.getTimeInstance(DateFormat.MEDIUM).format(new Date(millis));
         if (today.get(Calendar.YEAR) == day.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == day.get(Calendar.DAY_OF_YEAR))
             return getString(R.string.today_time, time);
         today.add(Calendar.DAY_OF_YEAR, -1);
