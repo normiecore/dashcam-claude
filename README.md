@@ -1,65 +1,78 @@
-# Dashcam — 0.1.0-dev.1
+# Dashcam — V0.1 prototypes
 
-**New session: read [HANDOVER.md](HANDOVER.md) first.** Work is paused as of
-5 October 2026; Android is being considered next. The existing iPhone implementation
-is preserved. Current code and handover are on `astra/hosted-macos-v0.1` ([PR #2](https://github.com/normiecore/dashcam-claude/pull/2)), not yet remote `main`.
-[`AGENTS.md`](AGENTS.md) instructs coding agents to read and maintain the handover.
+**Read [HANDOVER.md](HANDOVER.md) first when starting a session.**
+[`AGENTS.md`](AGENTS.md) describes how to maintain the checkpoint.
 
-Native iPhone dashcam implementation candidate: SwiftUI, AVFoundation and durable segmented storage. **Hosted Xcode Debug/Release simulator builds and all 16 XCTest cases pass.** Physical iPhone acceptance has not been completed. The portable C retention engine also passes Linux checks. Do not treat this build as qualified evidence capture until the device acceptance gate passes.
+Android is the current phone-testing path; iPhone signing/TestFlight is deferred.
+The Android prototype has hosted build and emulator evidence; physical Solana Seeker
+acceptance remains outstanding. See [Android setup and testing](Android/README.md).
+No implementation is yet qualified for reliable incident capture on physical phones.
 
-## Implemented source
+## Repository layout
 
-- Rear-camera preview during recording, start/stop and microphone opt-in.
-- 720p H.264 at a target 30 fps / 4 Mbps, ten-second independently finalized MOV files, one-second fragments.
-- Approximately five minutes of ordinary rolling footage; incident preservation includes the preceding window and a 30-second tail, rounded to whole segments.
-- Durable incident registration before success is reported, protected future segments, overlapping incidents, serial cleanup, and a storage reserve.
-- Saved-incident playback, combined export/share, confirmed removal of incident protection.
-- Foreground/background, thermal and capture-interruption handling; incomplete tails are identified. Uncertain files remain for recovery.
-- Debug incident/interruption injection, structured system logs, portable policy tests, storage XCTest, synthetic video XCTest, and Mac/CI verification scripts.
+This branch reconciles the existing iOS foundation on `main` with the Astra iOS
+checkpoint and Android prototype. Both iPhone implementations remain available;
+they have different defaults and storage layouts, and must be tested separately.
 
-Recording requires the app to remain open and the iPhone unlocked. Automatic Apple Crash Detection is **not enabled**. Footage stays on this device and is excluded from backup; export important incidents. Deleting the app removes its private files.
+| Component | Entry point | Verification |
+| --- | --- | --- |
+| Android prototype | `Android/` | `bash Android/core-tests/run.sh`; `.github/workflows/android.yml` |
+| iOS foundation from main | `App/project.yml`, `App/Dashcam/` | `swift test`; `.github/workflows/ci.yml` |
+| Foundation portable Swift core/simulator | `Sources/DashcamCore`, `Sources/DashcamSim` | `swift test`; `swift run dashcam-sim drive --hours 2 --incidents 1200,4000` |
+| Astra iOS checkpoint | Root `Dashcam.xcodeproj`, `App/*.swift`, `Core/` | `bash Tools/test-core.sh`; `bash Tools/verify-mac.sh`; `bash Tools/verify-device-archive.sh` |
 
-## Hosted verification
+The root `Package.swift` belongs to the foundation Swift 6 core. Astra storage and
+synthetic media tests remain in the root Xcode project. Root `swift test` does not
+run those tests. XcodeGen generates **`App/Dashcam.xcodeproj`** for the foundation;
+it does not replace the checked-in root project. Their bundle IDs are respectively
+`com.matrixengineered.dashcam` and `com.daz.dashcam.dev`; the TestFlight workflow
+builds the foundation project.
 
-The [latest verification run](https://github.com/normiecore/dashcam-claude/actions/runs/36671496781) also passes a Release archive against the iPhoneOS SDK, including arm64 binary and packaged-resource checks. It is unsigned and cannot yet be installed. See the [account setup steps](Docs/HostedMac.md#next-action-from-ipad-or-iphone) for the remaining signing dependency.
+Foundation documentation: [platform review](docs/PLATFORM_REVIEW.md),
+[architecture](docs/ARCHITECTURE.md), [plan](docs/PLAN.md), [testing](docs/TESTING.md).
+Astra documentation: [architecture](AstraDocs/Architecture.md),
+[Apple API review](AstraDocs/AppleReview.md), [verification](AstraDocs/Verification.md),
+[hosted Mac](AstraDocs/HostedMac.md), [physical acceptance](AstraDocs/DeviceAcceptance.md).
+The earlier `Docs/` files were relocated to `AstraDocs/` so they do not collide with
+foundation `docs/` filenames on case-insensitive Macs.
 
-The private [GitHub repository](https://github.com/normiecore/dashcam-claude) has a [draft pull request](https://github.com/normiecore/dashcam-claude/pull/2) for the hosted macOS gate. The [passing Actions run](https://github.com/normiecore/dashcam-claude/actions/runs/36592919853) tested code commit `f3d7b8e68c50ba909a8c8337431ec5f1ea3ba018` with Xcode 26.6. Pull requests and manual workflow dispatch run the Linux policy checks and macOS simulator builds/tests. See [Hosted Mac verification](Docs/HostedMac.md) for evidence and limitations.
+## Android acceptance next
 
-GitHub Actions provides an ephemeral build/test runner, not an interactive Mac desktop. The simulator build disables code signing and needs no Apple account credentials. Installing on a physical iPhone later requires an Apple development team and signing setup (or a TestFlight distribution setup); never paste signing credentials into chat.
+Confirm the Seeker's Android version, install the verified debug APK described in
+`Android/README.md`, and complete its six-minute incident/tail test. Check actual
+segment gaps, screen-off/switch-app behavior, microphone, heat/storage and restart
+recovery before broadening the feature set. The friend's phone described as “razer”
+still needs an exact model and Android version. Automatic crash detection is not
+implemented in the Android prototype.
 
-## Optional local Mac build and device test
+## iPhone development and installation
 
-1. Extract the project, install the latest stable Xcode compatible with the iPhone's iOS, and launch Xcode once to finish installing its components. Install an iOS Simulator runtime when prompted.
-2. In Terminal, enter the extracted `Dashcam` folder. Run:
+Recording remains foreground-only on iPhone. Both implementations require physical
+camera, audio, thermal and recovery acceptance. The foundation's optional motion
+heuristic is not a validated collision detector; SafetyKit requires restricted
+approval and is flag-gated. The Astra checkpoint has neither detector enabled.
 
-   ```sh
-   bash Tools/test-core.sh
-   bash Tools/verify-mac.sh
-   ```
+For the foundation on a Mac, install Xcode/XcodeGen, run `swift test` at the root,
+then `cd App && xcodegen generate` and open `App/Dashcam.xcodeproj`. Optional team
+configuration: `DASHCAM_TEAM_ID=YOURTEAMID xcodegen generate` inside `App`.
 
-   The second command compiles Debug and Release, runs simulator XCTest and writes logs/results under `build/verification`. A failure stops the script.
-3. Open `Dashcam.xcodeproj`. Select the Dashcam target → Signing & Capabilities, choose your Apple development team, and change `com.daz.dashcam.dev` to an available bundle identifier if needed. No SafetyKit entitlement is needed for this build.
-4. Connect an iPhone, trust the Mac, enable Developer Mode on the iPhone if requested, and select it as Xcode's run destination. Build and run.
-5. In the app, start recording, grant camera access, and point the rear camera at a clock while stationary. Record six minutes, tap **Save Incident**, wait 40 seconds, stop, then play and export the incident. Inspect segment boundaries and verify the expected five-minute pre-event and 30-second post-event coverage.
-6. Follow [DeviceAcceptance.md](Docs/DeviceAcceptance.md) before any mounted-road qualification. Return the compiler/test log or `.xcresult` if a build/test fails; do not delete the app to troubleshoot footage recovery.
+For the Astra checkpoint, run `python3 Tools/verify_project.py`,
+`bash Tools/test-core.sh`, `bash Tools/verify-mac.sh` and
+`bash Tools/verify-device-archive.sh`, then open the root `Dashcam.xcodeproj`.
 
-The project has a shared scheme and no third-party packages. The optional `swift test` package runs the storage tests on a Mac without the iOS camera target; it is not a substitute for the full verification script.
+GitHub Actions supplies hosted build/simulator machines. Foundation installation
+options and its TestFlight workflow are documented in `docs/TESTING.md`; Astra's
+unsigned archive and account setup are documented in `AstraDocs/HostedMac.md`.
+No signed upload was performed as part of conflict resolution. Keep signing keys
+and passwords in private secret storage, not chat or source control.
 
-## Development and version control
+## Version control
 
-Source is in the private [normiecore/dashcam-claude repository](https://github.com/normiecore/dashcam-claude). Review the hosted Mac work in the [draft pull request](https://github.com/normiecore/dashcam-claude/pull/2) before merging.
+Repository: https://github.com/normiecore/dashcam-claude.
+Integration PR: https://github.com/normiecore/dashcam-claude/pull/2.
+The Android PR #3 was merged into `astra/hosted-macos-v0.1`, not remote `main`.
+Use that integration branch until PR #2 is merged. Existing branches are preserved.
+Update `HANDOVER.md` and `CHANGELOG.md` when project state changes. Reserve a
+qualified `v0.1.0` tag for successful physical-device acceptance.
 
-Use `main` for reviewable milestones, small feature branches for later work, and semantic versions. The current pre-release is `0.1.0-dev.1`; retain version `0.1.0` / build `1` in the Xcode bundle until a new build is needed. Reserve a `v0.1.0` release tag for a successful physical acceptance run. Commits use a neutral project-local identity; set your own Git author for future commits.
-
-The included workflow provides Linux policy and macOS iOS verification gates for pull requests and manual dispatch. Check the workflow result and uploaded evidence; a passing simulator gate does not replace physical-device acceptance.
-
-## Read next
-
-- [Architecture and plan](Docs/Architecture.md)
-- [Apple API corrections and sources](Docs/AppleReview.md)
-- [Verification results and remaining gates](Docs/Verification.md)
-- [Hosted Mac verification](Docs/HostedMac.md)
-- [Physical-device test instructions](Docs/DeviceAcceptance.md)
-- [Changelog](CHANGELOG.md)
-
-Important limits: no SafetyKit or Core Motion detector, no GPS, no background/locked camera capture, no cloud upload, no guaranteed recovery of the current unfinished fragment. Export concatenates retained segments; keep originals and the manifest if timing gaps matter. Damaged overlapping media blocks normal export and is retained for manual recovery.
+License: TBD.

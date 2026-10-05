@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch or pull request supersedes a run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-linux:
+    name: DashcamCore (Linux, swift test)
+    runs-on: ubuntu-latest
+    container: swift:6.4-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: |
+          set -o pipefail
+          swift test --parallel 2>&1 | tail -40
+
+  app-simulator:
+    # Xcode 26.6 and the iOS 26.5 SDK. macOS minutes bill at a multiple on this private repository,
+    # so pull requests run only the Xcode 27 lane below; run this one from the Actions tab when a
+    # change could behave differently on the older SDK.
+    name: App (iOS Simulator, xcodebuild test)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: cd App && xcodegen generate
+      - name: Build and test on Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+
+  app-simulator-xcode27:
+    # Xcode 27 and the iOS 27 SDK, which is what the project is opened with. GitHub's xcode-27 label
+    # is a public preview (macOS 27, Xcode 27.0 default, iOS 27.0 simulators).
+    name: App (Xcode 27, iOS 27 Simulator)
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: xcode-27
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version && xcrun simctl list devices available | grep -i iphone | head -5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: cd App && xcodegen generate
+      - name: Build and test on Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+      - name: Archive Release for device (unsigned)
+        # Debug builds carry the simulated camera and the UI-test launch options. This checks that the
+        # shipping configuration and the device-only code paths compile without them, and that the
+        # bundle has what an App Store Connect upload needs (icon, iPhone only, launch screen).
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Dashcam.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO archive 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+          scripts/check-app-bundle.sh "$RUNNER_TEMP/Dashcam.xcarchive/Products/Applications/Dashcam.app"
+          sips -g hasAlpha App/Dashcam/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | grep -q 'hasAlpha: no' \
+            || { echo "::error::The app icon has an alpha channel (ITMS-90717)"; exit 1; }
+      - name: Package unsigned IPA
+        # For re-signing tools (free Apple Account sideloading); see docs/TESTING.md.
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/Dashcam.xcarchive/Products/Applications/Dashcam.app" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/Dashcam-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/Dashcam-unsigned.ipa
+          archive: false
+          retention-days: 14

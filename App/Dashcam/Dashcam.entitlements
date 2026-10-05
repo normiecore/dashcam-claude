@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Add when Apple grants Crash Detection access, together with the DASHCAM_SAFETYKIT compile flag:
+	<key>com.apple.developer.severe-vehicular-crash-event</key>
+	<true/>
+	-->
+</dict>
+</plist>
