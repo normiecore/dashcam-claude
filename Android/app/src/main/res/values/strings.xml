@@ -15,6 +15,7 @@
     <string name="start_recording">Start recording</string>
     <string name="save_incident">Save incident</string>
     <string name="stop_recording">Stop recording</string>
+    <string name="stop_short">Stop</string>
     <string name="start_help">The oldest unsaved clips roll over automatically.</string>
     <string name="save_help">Keeps available footage from the last 5 minutes, plus 30 seconds after.</string>
     <string name="buffer_label">Rolling buffer</string>

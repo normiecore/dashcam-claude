@@ -16,6 +16,7 @@ import android.provider.OpenableColumns;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.TextureView;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.TextView;
 import java.io.*;
 import java.util.UUID;
@@ -25,9 +26,9 @@ import java.util.concurrent.TimeUnit;
 
 /** Dependency-free installed-app smoke runner. Physical camera acceptance is separate. */
 public final class SmokeInstrumentation extends Instrumentation {
-    private static final int TEST_COUNT = 8;
+    private static final int TEST_COUNT = 10;
     private static final int RECORD_TAB = 1001, LIBRARY_TAB = 1002, PRIMARY_ACTION = 1003,
-        STOP_ACTION = 1004, FOOTAGE_LIST = 1005;
+        STOP_ACTION = 1004, FOOTAGE_LIST = 1005, SETTINGS_ACTION = 1006;
     private int currentTest;
     private Activity activity;
     @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
@@ -52,8 +53,10 @@ public final class SmokeInstrumentation extends Instrumentation {
             runTest("syntheticCameraRecording", this::testSyntheticCameraRecording);
             runTest("savedLibrary", this::testSavedLibrary);
             runTest("responsiveRecorder", this::testResponsiveRecorder);
+            runTest("incidentSheet", this::testIncidentSheet);
+            runTest("settingsSheet", this::testSettingsSheet);
             results.putInt("passed", TEST_COUNT);
-            results.putString("stream", "\nPASS: native durable storage, read-only footage provider, activity launch, recorder/library navigation, permission-denied start, synthetic camera segment/incident/tail recording with activity recreation and UI recording actions, saved footage library, landscape recorder controls.\nUI screenshots: app cache/ui-screenshots. Physical phone recording and screen-off reliability require separate device tests.\n");
+            results.putString("stream", "\nPASS: native durable storage, read-only footage provider, activity launch, recorder/library navigation, permission-denied start, synthetic camera segment/incident/tail recording with activity recreation and UI recording actions, saved footage library, landscape recorder controls, accessible incident sheet, persisted audio setting.\nUI screenshots: app cache/ui-screenshots and emulator Download/dashcam-ui. Physical phone recording and screen-off reliability require separate device tests.\n");
         } catch (Throwable failure) {
             resultCode = Activity.RESULT_CANCELED;
             results.putInt("failed", 1);
@@ -147,6 +150,115 @@ public final class SmokeInstrumentation extends Instrumentation {
         });
         capture("05-landscape");
         orient(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    }
+
+    private void testIncidentSheet() throws Exception {
+        awaitUi(() -> actionEnabled(PRIMARY_ACTION), 5000, "Portrait recorder must reconnect before opening footage");
+        click(LIBRARY_TAB);
+        runOnMainSync(() -> {
+            ViewGroup list = (ViewGroup) requiredView(FOOTAGE_LIST);
+            require(list.getChildCount() > 0 && list.getChildAt(0).performClick(), "Open the saved incident from its library row");
+        });
+        waitForIdleSync();
+        await(() -> windowHasText(R.string.clips_footer) && windowHasText(R.string.protected_label)
+            && windowHasText(R.string.clip_ready), 5000,
+            "Incident sheet must expose original clips, protected tail status and playable footage");
+        capture("06-incident");
+        closeAccessibleSheet();
+        runOnMainSync(() -> require(requiredView(FOOTAGE_LIST) != null, "Closing the incident must return to the footage library"));
+    }
+
+    private void testSettingsSheet() throws Exception {
+        click(SETTINGS_ACTION);
+        await(() -> audioSwitchChecked(false), 5000, "Audio setting must begin off on a fresh install");
+        clickAccessible(R.string.record_audio);
+        await(() -> audioSwitchChecked(true), 5000, "Audio switch must respond to its accessible action");
+        require(getTargetContext().getSharedPreferences("interface", Context.MODE_PRIVATE).getBoolean("audio", false),
+            "Audio preference must be saved when enabled");
+        closeAccessibleSheet();
+        click(SETTINGS_ACTION);
+        await(() -> audioSwitchChecked(true), 5000, "Reopening Settings must restore the enabled audio preference");
+        clickAccessible(R.string.record_audio);
+        await(() -> audioSwitchChecked(false), 5000, "Audio switch must return to off");
+        require(!getTargetContext().getSharedPreferences("interface", Context.MODE_PRIVATE).getBoolean("audio", true),
+            "Audio preference must be saved when disabled");
+        capture("07-settings");
+        closeAccessibleSheet();
+        click(RECORD_TAB);
+    }
+
+    private boolean windowHasText(int text) {
+        AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
+        if (window == null) return false;
+        try { return nodeText(window).contains(getTargetContext().getString(text)); }
+        finally { window.recycle(); }
+    }
+
+    private boolean audioSwitchChecked(boolean expected) {
+        AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
+        if (window == null) return false;
+        AccessibilityNodeInfo toggle = null;
+        try {
+            toggle = findAccessible(window, getTargetContext().getString(R.string.record_audio));
+            return toggle != null && toggle.isCheckable() && toggle.isEnabled() && toggle.isChecked() == expected;
+        } finally { if (toggle != null) toggle.recycle(); window.recycle(); }
+    }
+
+    private void clickAccessible(int text) throws Exception {
+        String label = getTargetContext().getString(text);
+        await(() -> {
+            AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
+            if (window == null) return false;
+            AccessibilityNodeInfo action = null;
+            try {
+                action = findAccessible(window, label);
+                return action != null && action.isEnabled() && action.isClickable()
+                    && action.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            } finally { if (action != null) action.recycle(); window.recycle(); }
+        }, 5000, "Accessible action must be available: " + label);
+        waitForIdleSync();
+    }
+
+    private void closeAccessibleSheet() throws Exception {
+        AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
+        require(window != null, "Sheet must be the active accessible window");
+        final int sheetWindow = window.getWindowId(); window.recycle();
+        clickAccessible(R.string.close);
+        await(() -> {
+            AccessibilityNodeInfo current = getUiAutomation().getRootInActiveWindow();
+            if (current == null) return false;
+            try { return current.getWindowId() != sheetWindow; }
+            finally { current.recycle(); }
+        }, 5000, "Accessible Close must dismiss the sheet");
+    }
+
+    /** The returned snapshot is separately owned; callers recycle it after use. */
+    private static AccessibilityNodeInfo findAccessible(AccessibilityNodeInfo node, String label) {
+        if (label.contentEquals(node.getText() == null ? "" : node.getText())
+            || label.contentEquals(node.getContentDescription() == null ? "" : node.getContentDescription()))
+            return AccessibilityNodeInfo.obtain(node);
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child == null) continue;
+            try {
+                AccessibilityNodeInfo found = findAccessible(child, label);
+                if (found != null) return found;
+            } finally { child.recycle(); }
+        }
+        return null;
+    }
+
+    private static String nodeText(AccessibilityNodeInfo node) {
+        StringBuilder text = new StringBuilder();
+        if (node.getText() != null) text.append(node.getText()).append(' ');
+        if (node.getContentDescription() != null) text.append(node.getContentDescription()).append(' ');
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child == null) continue;
+            try { text.append(nodeText(child)); }
+            finally { child.recycle(); }
+        }
+        return text.toString();
     }
 
     private void orient(int requested) {
@@ -253,6 +365,11 @@ public final class SmokeInstrumentation extends Instrumentation {
 
     private void capture(String name) throws IOException {
         waitForIdleSync();
+        android.view.accessibility.AccessibilityNodeInfo window = getUiAutomation().getRootInActiveWindow();
+        try {
+            require(window != null && getTargetContext().getPackageName().contentEquals(window.getPackageName()),
+                "Screenshot must show Dashcam, without a system error or permission overlay: " + name);
+        } finally { if (window != null) window.recycle(); }
         Bitmap screenshot = getUiAutomation().takeScreenshot();
         require(screenshot != null, "Capture screenshot " + name);
         File directory = new File(getTargetContext().getCacheDir(), "ui-screenshots");

@@ -89,6 +89,7 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_2
+          cores: 4
           disable-animations: true
           script: bash Android/verify-emulator.sh
       - uses: actions/upload-artifact@v4

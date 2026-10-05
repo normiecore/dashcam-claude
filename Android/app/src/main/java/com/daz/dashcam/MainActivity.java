@@ -30,11 +30,12 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
     private final Map<String, List<ImageView>> thumbnailPending = new HashMap<>();
     private final List<Dialog> dialogs = new ArrayList<>();
     private RecordingService service, previewOwner;
-    private boolean bound, visible, startAfterPermission, library, starting;
+    private boolean bound, visible, startAfterPermission, library, starting, landscape;
     private int filter;
     private SharedPreferences preferences;
     private LinearLayout root, recorderPage, libraryPage, footageList, actionPanel;
     private TextureView preview;
+    private FrameLayout hero;
     private LinearLayout permissionCard;
     private TextView title, subtitle, status, live, clock, audio, buffer, saved, actionHint;
     private Button primary, stop, recordTab, libraryTab, recordingStrip, cameraButton;
@@ -58,6 +59,7 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        landscape = getResources().getConfiguration().orientation == 2;
         preferences = getSharedPreferences("interface", MODE_PRIVATE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         root = Ui.column(this); root.setBackgroundColor(Ui.BG);
@@ -69,7 +71,8 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         buildHeader();
         FrameLayout pages = new FrameLayout(this);
         root.addView(pages, new LinearLayout.LayoutParams(-1, 0, 1));
-        recorderPage = Ui.column(this); padding(recorderPage, 20);
+        recorderPage = Ui.column(this);
+        recorderPage.setPadding(dp(20), dp(landscape ? 8 : 12), dp(20), dp(landscape ? 8 : 12));
         ScrollView recorderScroll = scroll(recorderPage);
         pages.addView(recorderScroll, new FrameLayout.LayoutParams(-1, -1));
         buildRecorder();
@@ -79,7 +82,8 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         pages.addView(libraryScroll, new FrameLayout.LayoutParams(-1, -1));
         buildLibrary();
         actionPanel = Ui.column(this);
-        actionPanel.setPadding(dp(20), dp(12), dp(20), dp(12));
+        actionPanel.setPadding(dp(20), dp(landscape ? 8 : 12), dp(20), dp(landscape ? 8 : 12));
+        LinearLayout actionRow = Ui.row(this);
         primary = Ui.button(this, s(R.string.start_recording), "camera", true, () -> {
             if (service != null && service.isRecording()) {
                 service.saveIncident();
@@ -88,14 +92,17 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
             } else requestStart();
         });
         primary.setId(PRIMARY_ACTION);
-        actionPanel.addView(primary, lp(-1, -2));
-        stop = Ui.button(this, s(R.string.stop_recording), "stop", false, this::requestStop);
+        actionRow.addView(primary, new LinearLayout.LayoutParams(0, -2, 1));
+        stop = Ui.button(this, s(R.string.stop_short), "stop", false, this::requestStop);
+        stop.setContentDescription(s(R.string.stop_recording));
+        stop.setPadding(dp(12), dp(12), dp(12), dp(12));
         stop.setId(STOP_ACTION);
-        LinearLayout.LayoutParams stopParams = lp(-1, -2); stopParams.topMargin = dp(8);
-        actionPanel.addView(stop, stopParams);
+        LinearLayout.LayoutParams stopParams = lp(dp(112), -2); stopParams.leftMargin = dp(8);
+        actionRow.addView(stop, stopParams); actionPanel.addView(actionRow);
         actionHint = label("", 12, Ui.MUTED, false);
         actionHint.setGravity(Gravity.CENTER); actionHint.setPadding(dp(6), dp(10), dp(6), 0);
         actionPanel.addView(actionHint);
+        if (landscape) actionHint.setVisibility(View.GONE);
         root.addView(actionPanel);
         buildNavigation();
         setContentView(root);
@@ -106,7 +113,7 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
     }
 
     private void buildHeader() {
-        LinearLayout header = Ui.row(this); header.setPadding(dp(20), dp(10), dp(20), dp(8));
+        LinearLayout header = Ui.row(this); header.setPadding(dp(20), dp(landscape ? 4 : 8), dp(20), dp(4));
         ImageView mark = new ImageView(this);
         mark.setImageDrawable(new Ui.Glyph("camera", Ui.MINT, dp(24)));
         mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -123,9 +130,10 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         title = label("", 28, Ui.TEXT, true); recorderPage.addView(title);
         subtitle = label("", 14, Ui.MUTED, false);
         subtitle.setPadding(0, dp(8), 0, dp(20)); recorderPage.addView(subtitle);
-        FrameLayout hero = new FrameLayout(this);
+        if (landscape) { title.setVisibility(View.GONE); subtitle.setVisibility(View.GONE); }
+        hero = new FrameLayout(this);
         hero.setBackground(Ui.shape(this, Color.BLACK, Ui.LINE, 24)); hero.setClipToOutline(true);
-        int height = getResources().getConfiguration().orientation == 2 ? 190 : 280;
+        int height = previewHeight();
         recorderPage.addView(hero, lp(-1, dp(height)));
         preview = new TextureView(this); preview.setId(PREVIEW);
         preview.setSurfaceTextureListener(this);
@@ -147,31 +155,33 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         audio = label("", 12, Ui.TEXT, false); audio.setShadowLayer(5, 0, 1, Color.BLACK);
         audio.setPadding(0, dp(4), 0, 0); bottom.addView(audio);
         hero.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
-        permissionCard = Ui.column(this); padding(permissionCard, 24);
+        permissionCard = Ui.column(this); padding(permissionCard, landscape ? 12 : 20);
         permissionCard.setGravity(Gravity.CENTER); permissionCard.setBackgroundColor(Ui.SURFACE);
-        permissionCard.addView(label(s(R.string.camera_heading), 20, Ui.TEXT, true));
+        permissionCard.addView(label(s(R.string.camera_heading), landscape ? 16 : 20, Ui.TEXT, true));
         TextView permissionBody = label(s(R.string.camera_body), 14, Ui.MUTED, false);
         permissionBody.setGravity(Gravity.CENTER); permissionBody.setPadding(0, dp(12), 0, dp(18));
         permissionCard.addView(permissionBody);
+        if (landscape) permissionBody.setVisibility(View.GONE);
         cameraButton = Ui.button(this, s(R.string.allow_camera), "camera", true, this::requestCamera);
         permissionCard.addView(cameraButton, lp(-1, -2));
         hero.addView(permissionCard, new FrameLayout.LayoutParams(-1, -1));
         status = label("", 13, Ui.MUTED, false);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        status.setPadding(0, dp(14), 0, dp(16)); recorderPage.addView(status);
+        status.setPadding(0, dp(landscape ? 6 : 12), 0, dp(landscape ? 0 : 12)); recorderPage.addView(status);
         LinearLayout stats = Ui.row(this);
         buffer = metric(stats, s(R.string.buffer_label)); saved = metric(stats, s(R.string.saved_label));
-        recorderPage.addView(stats); Ui.gap(recorderPage, 10);
+        recorderPage.addView(stats);
+        if (landscape) stats.setVisibility(View.GONE); else Ui.gap(recorderPage, 8);
     }
 
     private TextView metric(LinearLayout parent, String name) {
         LinearLayout card = Ui.column(this);
-        card.setPadding(dp(14), dp(14), dp(14), dp(14));
+        card.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.setBackground(Ui.shape(this, Ui.SURFACE, Ui.LINE, 18));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
         if (parent.getChildCount() > 0) params.leftMargin = dp(10);
         parent.addView(card, params);
-        card.addView(label(name, 12, Ui.MUTED, false)); Ui.gap(card, 8);
+        card.addView(label(name, 12, Ui.MUTED, false)); Ui.gap(card, 6);
         TextView value = label("", 18, Ui.TEXT, true); card.addView(value); return value;
     }
 
@@ -201,12 +211,15 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
 
     private void buildNavigation() {
         LinearLayout navigation = Ui.row(this);
-        navigation.setPadding(dp(20), dp(8), dp(20), dp(8));
+        navigation.setPadding(dp(20), dp(6), dp(20), dp(6));
         navigation.setBackgroundColor(Ui.SURFACE);
         recordTab = Ui.button(this, s(R.string.record_tab), "camera", false, () -> selectTab(false));
         recordTab.setId(RECORD_TAB);
         libraryTab = Ui.button(this, s(R.string.library_tab), "library", false, () -> selectTab(true));
         libraryTab.setId(LIBRARY_TAB);
+        if (landscape) {
+            for (Button tab : new Button[]{recordTab, libraryTab}) { tab.setMinHeight(dp(48)); tab.setMinimumHeight(dp(48)); }
+        }
         navigation.addView(recordTab, new LinearLayout.LayoutParams(0, -2, 1));
         LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(0, -2, 1); second.leftMargin = dp(10);
         navigation.addView(libraryTab, second); root.addView(navigation);
@@ -249,6 +262,10 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         boolean mic = active ? service.isMicrophoneEnabled() : preferences.getBoolean("audio", false);
         audio.setText(s(mic ? R.string.audio_on : R.string.audio_off));
         boolean permitted = cameraGranted();
+        int desiredHeight = dp(previewHeight());
+        if (hero.getLayoutParams().height != desiredHeight) {
+            ViewGroup.LayoutParams params = hero.getLayoutParams(); params.height = desiredHeight; hero.setLayoutParams(params);
+        }
         permissionCard.setVisibility(permitted ? View.GONE : View.VISIBLE);
         cameraButton.setText(s(cameraPermanentlyDenied() ? R.string.camera_settings : R.string.allow_camera));
         String recorderStatus = service == null ? s(R.string.service_unavailable) : service.getStatus();
@@ -632,6 +649,11 @@ public final class MainActivity extends Activity implements TextureView.SurfaceT
         return owner == null || !owner.detachPreview(texture, true);
     }
     private RecordingStore store() { return service == null ? null : service.getStore(); }
+    private int previewHeight() {
+        int screen = Math.round(getResources().getDisplayMetrics().heightPixels / getResources().getDisplayMetrics().density);
+        if (landscape) return Math.max(120, Math.min(210, screen - 266));
+        return Math.max(cameraGranted() ? 180 : 230, Math.min(280, screen - 560));
+    }
     private String date(long millis) {
         Calendar today = Calendar.getInstance(), day = Calendar.getInstance(); day.setTimeInMillis(millis);
         String time = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(millis));
