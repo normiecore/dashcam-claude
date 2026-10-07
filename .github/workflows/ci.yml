@@ -90,6 +90,24 @@ jobs:
           xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -destination "id=$SIM_UDID" \
             -skip-testing:DashcamUITests $TEST_FLAGS \
             CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+      - name: Adaptive layout on compact and large iPhones
+        run: |
+          set -o pipefail
+          for name in "iPhone 17e" "iPhone 18 Pro Max"; do
+            udid=$(xcrun simctl list devices available -j | DEVICE_NAME="$name" python3 -c '
+          import json, os, sys
+          devices = json.load(sys.stdin)["devices"]
+          name = os.environ["DEVICE_NAME"]
+          found = sorted((rt, d["udid"]) for rt, ds in devices.items() if ".iOS-27-" in rt for d in ds if d["name"] == name)
+          print(found[0][1] if found else "")')
+            [ -n "$udid" ] || { echo "::error::No available $name simulator"; exit 1; }
+            xcrun simctl bootstatus "$udid" -b
+            xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -destination "id=$udid" \
+              -only-testing:DashcamUITests/DashcamUITests/testRecordControlsRemainReachableInPortraitAndLandscape \
+              $TEST_FLAGS CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 \
+              | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+            xcrun simctl shutdown "$udid"
+          done
       - name: UI tests on Simulator, recorded
         # Runs even when a unit test failed, as the single `xcodebuild test` did; the job still fails.
         id: ui-tests
