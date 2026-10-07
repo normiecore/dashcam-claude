@@ -112,6 +112,31 @@ final class DashcamUITests: XCTestCase {
         XCTAssertFalse(app.buttons["record.saveIncident"].isEnabled, "there is nothing to save")
     }
 
+    // MARK: Adaptive layout
+
+    @MainActor
+    func testRecordControlsRemainReachableInPortraitAndLandscape() throws {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        defer { device.orientation = .portrait }
+
+        let app = launch()
+        let start = app.buttons["record.startStop"]
+        XCTAssertTrue(start.waitForExistence(timeout: 20))
+        XCTAssertTrue(start.isHittable, "Start is reachable in portrait on this iPhone size")
+        start.tap()
+        XCTAssertTrue(state(app).wait(labelContaining: "Recording", timeout: 20))
+
+        device.orientation = .landscapeLeft
+        XCTAssertTrue(app.buttons["record.startStop"].wait(for: \.isHittable, toEqual: true, timeout: 10), "Stop is reachable in landscape")
+        XCTAssertTrue(app.buttons["record.saveIncident"].isHittable, "Save clip is reachable in landscape")
+        XCTAssertTrue(app.buttons["record.dim"].isHittable, "Dim screen is reachable in landscape")
+
+        device.orientation = .portrait
+        XCTAssertTrue(app.buttons["record.startStop"].wait(for: \.isHittable, toEqual: true, timeout: 10), "Stop remains reachable after returning to portrait")
+        stopRecording(app)
+    }
+
     // MARK: Helpers
 
     @MainActor
