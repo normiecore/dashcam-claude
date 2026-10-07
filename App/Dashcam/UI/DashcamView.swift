@@ -46,20 +46,7 @@ struct DashcamView: View {
     private var portraitLayout: some View {
         VStack(spacing: 0) {
             statusBar
-            warningsAndMessages
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-            Spacer(minLength: 12)
-            centerMessage
-                .layoutPriority(1)
-                .padding(.horizontal, 16)
-            Spacer(minLength: 12)
-            if let incident = coordinator.activeIncident {
-                IncidentProgressCard(incident: incident)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
-                    .transition(.opacity)
-            }
+            adaptiveInformation(horizontalPadding: 12)
             controls
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -69,25 +56,46 @@ struct DashcamView: View {
     }
 
     private var landscapeLayout: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                statusBar
-                warningsAndMessages
-                    .padding(8)
-                Spacer(minLength: 8)
-                centerMessage
-                    .padding(.horizontal, 12)
-                Spacer(minLength: 8)
-                if let incident = coordinator.activeIncident {
-                    IncidentProgressCard(incident: incident)
-                        .padding(8)
+        GeometryReader { geometry in
+            let controlWidth = min(max(geometry.size.width * 0.36, 236), 320)
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    statusBar
+                    adaptiveInformation(horizontalPadding: 8)
                 }
+                controls
+                    .padding(12)
+                    .frame(width: controlWidth)
+                    .frame(maxHeight: .infinity)
+                    .background(Color.black.opacity(0.94))
             }
-            controls
-                .padding(16)
-                .frame(width: 300)
-                .frame(maxHeight: .infinity)
-                .background(Color.black.opacity(0.94))
+        }
+    }
+
+    /// The camera area grows to fill large phones and becomes vertically scrollable when warnings,
+    /// Dynamic Type or a short landscape screen need more room. The driving controls remain fixed and
+    /// reachable at every supported iPhone size.
+    private func adaptiveInformation(horizontalPadding: CGFloat) -> some View {
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    warningsAndMessages
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, 8)
+                    Spacer(minLength: 12)
+                    centerMessage
+                        .padding(.horizontal, horizontalPadding + 4)
+                    Spacer(minLength: 12)
+                    if let incident = coordinator.activeIncident {
+                        IncidentProgressCard(incident: incident)
+                            .padding(.horizontal, horizontalPadding)
+                            .padding(.bottom, 8)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
