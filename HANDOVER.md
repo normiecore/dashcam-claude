@@ -14,12 +14,10 @@ thumbnail rows, precise clip times, playback/share sheets, persistent audio sett
 and explicit pending/partial-tail feedback. Capture, retention and durable storage
 behavior is preserved; RecordingService only gains read-only UI metadata.
 
-Android is the active platform at the user's request: “Let’s start on the android
-and I’ll come back to apple later. Let’s get to working 0.1.” iPhone signing and
-TestFlight can resume now that the owner has enrolled. The original Android foundation PR #3 was merged into
-the working iPhone branch, then its feature branch was deleted. UI refinement lives
-on `astra/android-ui-polish`, based on merged checkpoint
-`b3eaaa555487bd3d5afd3370255a503d7c0af1d5`; no iPhone source was changed.
+Android development started first; the owner has now resumed the iPhone path after
+joining the Apple Developer Program. Android PRs #3 and #7 were merged into
+integration PR #2. Both platforms need physical-device acceptance; iPhone signing
+and TestFlight upload remain pending Apple/GitHub account setup.
 
 Verified build commit: `0651518568001b0cabbee858107a41ffe7d57925`.
 [Passing hosted run](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291).
@@ -60,10 +58,11 @@ Uncertain files remain retained without repair; explicit deletion remains outsta
 Android minimum API 28, compile/target API 35. Remaining lint warnings do not prevent
 compilation; no release tag, Play upload or final `v0.1.0` qualification performed.
 
-Next concrete action: confirm Seeker Android version, install this debug APK,
-record six minutes, save an incident at minute five, continue at least 35 seconds,
-stop and inspect/share the saved original segments. Then check screen-off/switch-app
-continuity and measure segment gaps. Do not qualify `v0.1.0` before phone acceptance.
+Next concrete actions: finish the App ID, App Store Connect record and GitHub
+signing secrets for `com.normiecore.dashcam` (see `docs/TESTING.md`), then run a
+hosted TestFlight upload. On Android, confirm the Seeker version and run the
+six-minute incident/tail test from `Android/README.md`. Do not qualify `v0.1.0`
+before physical phone acceptance.
 
 The goal remains a reliable phone dashcam: segmented recording, about five minutes
 of rolling footage, manual incident preservation plus a 30-second tail, playback,
@@ -73,52 +72,39 @@ do not promise automatic collision detection or background access without eviden
 
 ## Where the work lives
 
-### Integration update — 5 October 2026
+### Integration history — 5–7 October 2026
 
-PR #3 has been merged into `astra/hosted-macos-v0.1`, so that branch now contains
-the Android prototype. PR #2's conflicts with main are being resolved by preserving
-both iPhone implementations and Android. The four shared files (README, changelog,
-Package.swift and gitignore) are reconciled: the root Swift 6 package belongs to
-`Sources/DashcamCore`; Astra XCTest remains in the root Xcode project. Foundation
-XcodeGen produces `App/Dashcam.xcodeproj`. Keep these build entry points distinct.
-The earlier Astra `Docs/` files are now `AstraDocs/` to avoid case collisions with
-foundation `docs/` on Macs. See README for all build/test commands. Physical phone
-acceptance remains the next product step; no signing/upload is part of this merge.
+Android foundation PR #3 and UI PR #7 were merged into integration PR #2.
+PR #2 reconciles the foundation Swift 6 package, Android app and two distinct
+iOS projects. XcodeGen produces `App/Dashcam.xcodeproj` for production/TestFlight;
+the root `Dashcam.xcodeproj` is a separate Astra development checkpoint.
+The earlier Astra `Docs/` moved to `AstraDocs/` to avoid case collisions on Macs.
+Foundation simulator preview changes from PRs #5 and #6 on `main` survive the
+integration merge. See README for build paths and PR #2 for the reviewed merge.
+No signing, TestFlight upload or physical-device qualification is implied.
 
 - Private repository: https://github.com/normiecore/dashcam-claude
-- iPhone implementation branch: `astra/hosted-macos-v0.1` (preserved).
-- Active Android UI refinement branch: `astra/android-ui-polish`.
-- Android foundation PR: https://github.com/normiecore/dashcam-claude/pull/3
-  was merged into `astra/hosted-macos-v0.1` at
-  `b3eaaa555487bd3d5afd3370255a503d7c0af1d5`; old Android feature branch removed.
-- Android UI draft PR: https://github.com/normiecore/dashcam-claude/pull/7
-  based on the integration branch. Latest integration changes were merged into the
-  UI review branch; the verified Android app source remains identical.
-- iPhone draft PR: https://github.com/normiecore/dashcam-claude/pull/2
-- At this checkpoint, the implementation is **not merged into remote `main`**.
-  A fresh session must open this branch or PR to see the app and this handover.
-- Existing `claude/v0.1-foundation` branch was preserved.
-- Android version: `0.1.0-dev.2`, code `2`; iPhone remains `0.1.0-dev.1`
-  with Xcode marketing version `0.1.0`, build `1`.
-- Historical scratch checkout: `/workspace/scratch/7b8755d64a71/Dashcam`.
-  Do not depend on this path surviving a new session; GitHub is the durable source.
-- Local scratch Git commits and GitHub commits have different ancestry because
-  source was transferred through the GitHub connector. Prefer a fresh checkout of
-  the remote implementation branch; do not force-push the scratch `main` over it.
+- Integration review: https://github.com/normiecore/dashcam-claude/pull/2
+- Canonical source after PR #2 merges: `main`.
+- Android version: `0.1.0-dev.2`, code `2`; iPhone marketing version `0.1.0`,
+  build `1` in source (TestFlight assigns a fresh build number).
+- Earlier scratch checkout: `/workspace/scratch/7b8755d64a71/Dashcam` is
+  stale; GitHub is the durable source. Do not force-push its unrelated ancestry.
 
 ## User context and decisions
 
 - User works from iPad/iPhone and wants cloud development without buying a Mac.
 - A GitHub-hosted Mac already compiles/tests this project; it is an ephemeral CI
   runner, not an interactive desktop or a connected physical phone.
-- User reported enrolling in Apple Developer Program on 5 October. Activation,
-  Team ID and App Store Connect access have **not** been confirmed. No Apple
-  signing credentials or upload connection have been configured.
+- User confirmed Apple Developer Program access on 7 October. Team ID, App ID,
+  App Store Connect record and GitHub signing secrets have **not** been confirmed.
+  No signed upload has been run.
 - User owns an iPhone and **Solana Seeker** Android phone. Seeker Android version
   is unknown. A friend can test a phone described as **“razer”**: clarify whether
   Razer Phone/Phone 2 or Motorola Razr, and obtain Android version.
-- Android is now the chosen implementation path, initially for Seeker, followed by
-  the friend's device. Neither phone has been physically tested with this app.
+- Android was chosen first for Seeker, followed by the friend's device; the owner
+  has now resumed iPhone distribution setup. Neither platform has physical capture
+  acceptance yet.
 - Prioritize footage preservation; compile/test continuously, investigate failures,
   keep a short changelog, and use appropriate lower-cost subagents for scoped work.
 

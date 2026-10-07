@@ -1,5 +1,9 @@
 # Changelog
 
+## Integration readiness — 2026-10-07
+
+- Reconciled live README, handover and implementation plan with the owner's active iPhone TestFlight setup and Android device testing. Verified PR #2's merge candidate retains the simulator preview workflow, Android app, both separate iOS projects and `com.normiecore.dashcam`; hosted iOS, core and Android checks are green. No signed upload or physical acceptance yet.
+
 ## iOS bundle identity — 2026-10-07
 
 - Chose `com.normiecore.dashcam` for the production iOS/TestFlight target and `com.normiecore.dashcam.dev` for the separate Astra development target. Updated test identifiers, source namespaces, generator/checker and Apple setup instructions. No Apple signing or physical-device test has occurred.
