@@ -22,7 +22,7 @@ final class AppSettingsTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(defaults: defaults)
-        settings.recentHistoryHours = 12
+        settings.recentHistoryMinutes = 12 * 60
         settings.recentHistoryGigabytes = 4
 
         settings.quality = .hd720p30
