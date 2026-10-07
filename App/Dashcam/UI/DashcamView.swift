@@ -249,7 +249,7 @@ struct DashcamView: View {
         }
     }
 
-    private var bufferTarget: TimeInterval { TimeInterval(max(1, settings.recentHistoryHours) * 3_600) }
+    private var bufferTarget: TimeInterval { TimeInterval(max(1, settings.recentHistoryMinutes) * 60) }
 
     private var bufferText: String {
         // Retention trims whole segments, so the buffer can briefly exceed the target; show at most the target.
