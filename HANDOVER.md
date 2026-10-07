@@ -1,6 +1,42 @@
 # Dashcam project — read first
 
-Last updated: **2026-10-07, Australia/Perth**.
+Last updated: **2026-10-08, Australia/Perth**.
+
+## Active checkpoint — documentary workflow PR #8
+
+The user selected the quiet documentary-camera direction and authorised implementation,
+GitHub merge and TestFlight upload. Work is on
+`codex/documentary-workflow-20261007`, PR #8, corrected head
+`9b748612fde278daddf56326a7519652da5979a5`; `main` has not been changed.
+
+Implemented: a camera-first adaptive Record screen; contextual **Save clip** rather
+than a persistent incident control; a full-colour dated archive; Standard, Space Saver
+and High Detail quality presets; separate saved-clip pre-roll and rolling history;
+six-hour/four-GB default retention; storage estimates; Shortcuts URLs for start, stop
+and save; and CarPlay/Bluetooth automation guidance. The iPhone-only target supports
+every iPhone on iOS 18 or later. Layout uses size classes, safe areas and available
+geometry, with pinned controls and scrollable secondary information on short screens.
+
+Run `37649683820` compiled the app and passed the new portrait/landscape reachability
+test on iPhone 17 plus four existing UI journeys. It found two expected test-assumption
+updates: the rollover harness still shared the old one-minute pre-roll, and the denied
+camera test queried the now-absent Save clip button. Both are fixed in the current head;
+the harness now sets one-minute recent history explicitly and the denied state requires
+Save clip to be absent. CI is configured to repeat the rotation test on iPhone 17e and
+iPhone 18 Pro Max.
+
+After those fixes, every GitHub-hosted job began failing before checkout with no steps
+or downloadable log, including Linux, both iOS verification workflows and reruns. The
+authorised `testflight` label was added, but TestFlight run `37652027764` failed at the
+preflight job before any step; archive/upload was skipped. No new TestFlight build was
+uploaded. This points to hosted-runner/account availability rather than a source/test
+failure, but the exact GitHub notice has not been inspected in the browser.
+
+Next actions: inspect the PR/Actions account notice, restore hosted-runner execution,
+rerun CI and verify that unit tests, the full UI suite, compact/large layout checks and
+the unsigned device archive pass. Then rerun TestFlight for this exact head, record the
+accepted build/run, update this handover and changelog, and squash-merge PR #8. Do not
+merge or claim a second upload before those gates pass.
 
 ## Resume checkpoint — session paused 7 October, 22:26 Perth
 
