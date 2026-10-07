@@ -52,6 +52,10 @@ targets:
         # give every TestFlight upload a new build number.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleURLTypes:
+          - CFBundleURLName: com.normiecore.dashcam.automation
+            CFBundleURLSchemes:
+              - dashcam
         LSRequiresIPhoneOS: true
         UILaunchScreen: {}
         UIApplicationSceneManifest:
