@@ -346,7 +346,7 @@ final class CameraCaptureService: NSObject, CaptureControlling {
             }
         } else {
             usingPreset = true
-            let preset: AVCaptureSession.Preset = quality == .hd1080p30 ? .hd1920x1080 : .hd1280x720
+            let preset: AVCaptureSession.Preset = quality.height == 1080 ? .hd1920x1080 : .hd1280x720
             session.sessionPreset = session.canSetSessionPreset(preset) ? preset : .high
             logger.warning(.capture, "No explicit \(quality.width)x\(quality.height)@\(quality.frameRate) format; using preset \(session.sessionPreset.rawValue)")
         }
