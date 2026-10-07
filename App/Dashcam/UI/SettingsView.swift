@@ -7,7 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
 
     private let postRollOptions = [30, 60, 120, 180]
-    private let historyHourOptions = [1, 3, 6, 12]
+    private let historyMinuteOptions = [60, 180, 360, 720]
     private let historyStorageOptions = [1, 2, 4, 8, 16]
 
     var body: some View {
@@ -118,9 +118,9 @@ struct SettingsView: View {
                     Text("\(gigabytes) GB").tag(gigabytes)
                 }
             }
-            Picker("Maximum history", selection: $settings.recentHistoryHours) {
-                ForEach(historyHourOptions, id: \.self) { hours in
-                    Text("\(hours) h").tag(hours)
+            Picker("Maximum history", selection: $settings.recentHistoryMinutes) {
+                ForEach(historyMinuteOptions, id: \.self) { minutes in
+                    Text("\(minutes / 60) h").tag(minutes)
                 }
             }
             LabeledContent("Estimated history", value: formatApproximateDuration(settings.estimatedRecentHistorySeconds))
