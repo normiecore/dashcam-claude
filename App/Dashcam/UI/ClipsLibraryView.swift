@@ -1,35 +1,63 @@
+import AVFoundation
 import SwiftUI
+import UIKit
 import DashcamCore
 
-/// Saved incidents, newest first.
+/// Saved clips, grouped by day and presented as a quiet local archive.
 struct ClipsLibraryView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     @EnvironmentObject var settings: AppSettings
     @State private var pendingDelete: Incident? = nil
 
+    private struct DayGroup: Identifiable {
+        let day: Date
+        let incidents: [Incident]
+        var id: Date { day }
+    }
+
+    private var groupedIncidents: [DayGroup] {
+        let calendar = Calendar.current
+        let groups = Dictionary(grouping: coordinator.incidents) {
+            calendar.startOfDay(for: $0.triggerTime)
+        }
+        return groups.keys.sorted(by: >).map { day in
+            DayGroup(day: day, incidents: groups[day, default: []].sorted { $0.triggerTime > $1.triggerTime })
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                ForEach(coordinator.incidents) { incident in
-                    row(for: incident)
+                ForEach(groupedIncidents) { group in
+                    Section {
+                        ForEach(group.incidents) { incident in
+                            row(for: incident)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .listRowSeparator(.hidden)
+                        }
+                    } header: {
+                        Text(group.day, format: .dateTime.day().month(.wide).year())
+                            .font(.caption.weight(.medium))
+                            .tracking(1.2)
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color(red: 0.97, green: 0.965, blue: 0.94))
             .overlay {
                 if coordinator.incidents.isEmpty {
                     emptyState
                         .allowsHitTesting(false)
                 }
             }
-            .navigationTitle("Clips")
+            .navigationTitle("Saved clips")
             .navigationDestination(for: UUID.self) { id in
                 ClipDetailView(incidentID: id)
             }
-            .refreshable {
-                await coordinator.refreshIncidents()
-            }
-            .task {
-                await coordinator.refreshIncidents()
-            }
+            .refreshable { await coordinator.refreshIncidents() }
+            .task { await coordinator.refreshIncidents() }
             .confirmationDialog(
                 "Delete this clip?",
                 isPresented: isConfirmingDelete,
@@ -46,19 +74,18 @@ struct ClipsLibraryView: View {
         }
     }
 
-    /// Only finished incidents can be deleted (the coordinator enforces the same rule); the affordance
-    /// is hidden so the user is not invited to try.
     private func canDelete(_ incident: Incident) -> Bool {
         RecordingCoordinator.canDelete(incident)
     }
 
     @ViewBuilder private func row(for incident: Incident) -> some View {
         let link = NavigationLink(value: incident.id) {
-            IncidentRow(incident: incident)
+            IncidentArchiveRow(incident: incident)
         }
+        .buttonStyle(.plain)
+
         if canDelete(incident) {
             link
-                // Not role: .destructive, which would animate the row away before the user confirms.
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         pendingDelete = incident
@@ -83,50 +110,84 @@ struct ClipsLibraryView: View {
         ContentUnavailableView {
             Label("No saved clips", systemImage: "film.stack")
         } description: {
-            Text("While recording, press Save Incident, or let a detected impact do it, and Dashcam keeps the last \(settings.bufferMinutes) min of footage plus the next \(settings.postRollSeconds) s here. Everything else is overwritten automatically.")
+            Text("Tap Save clip while recording, or enable possible event detection. Recent footage rolls over automatically; saved clips stay here until you delete them.")
         }
     }
 
     private var isConfirmingDelete: Binding<Bool> {
         Binding(
             get: { pendingDelete != nil },
-            set: { isPresented in
-                if !isPresented { pendingDelete = nil }
-            }
+            set: { isPresented in if !isPresented { pendingDelete = nil } }
         )
     }
 }
 
-/// One incident in the library list.
-struct IncidentRow: View {
+struct IncidentArchiveRow: View {
+    @EnvironmentObject var coordinator: RecordingCoordinator
     let incident: Incident
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: DisplayText.sourceSymbol(incident.primarySource))
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 32)
+        VStack(alignment: .leading, spacing: 8) {
+            ClipThumbnailView(incident: incident)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                .clipShape(Rectangle())
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(incident.triggerTime, format: .dateTime.year().month(.abbreviated).day().hour().minute().second())
-                    .font(.headline)
+
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(incident.triggerTime, format: .dateTime.hour().minute().second())
+                    .font(.headline.monospacedDigit())
                 Text(incident.primarySource.displayName)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                HStack(spacing: 12) {
-                    Label(formatDuration(incident.footageDuration), systemImage: "clock")
-                    Label(formatBytes(incident.totalBytes), systemImage: "doc")
-                }
-                .labelStyle(.titleAndIcon)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Text(formatDuration(incident.footageDuration))
+                    .font(.subheadline.monospacedDigit())
+                StateBadge(state: incident.state)
             }
-            Spacer(minLength: 8)
-            StateBadge(state: incident.state)
         }
-        .padding(.vertical, 4)
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.primary.opacity(0.18)).frame(height: 1)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("clips.row")
+    }
+}
+
+private struct ClipThumbnailView: View {
+    @EnvironmentObject var coordinator: RecordingCoordinator
+    let incident: Incident
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.08)
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "video")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .clipped()
+        .task(id: incident.id) { await loadThumbnail() }
+    }
+
+    @MainActor
+    private func loadThumbnail() async {
+        guard image == nil, let url = coordinator.clipURLs(for: incident).first else { return }
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 960, height: 540)
+        do {
+            let result = try await generator.image(at: CMTime(seconds: 0.25, preferredTimescale: 600))
+            image = UIImage(cgImage: result.image)
+        } catch {
+            // A collecting or recovering clip may not be readable yet; the placeholder is truthful.
+        }
     }
 }
