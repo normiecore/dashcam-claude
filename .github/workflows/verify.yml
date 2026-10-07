@@ -1,0 +1,40 @@
+name: Verify iOS and portable core
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Project structure
+        run: python3 Tools/verify_project.py
+      - name: Portable C policy
+        run: bash Tools/test-core.sh
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+      - name: Compile and test
+        run: bash Tools/verify-mac.sh
+      - name: Device SDK and archive packaging
+        run: bash Tools/verify-device-archive.sh
+      - name: Upload compiler and XCTest evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashcam-xcode-evidence
+          path: |
+            build/verification
+            !build/verification/**/DerivedData/**
+          if-no-files-found: warn

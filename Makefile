@@ -1,5 +1,7 @@
 # Developer shortcuts. On Linux the Swift toolchain lives wherever `swift` resolves; on macOS use Xcode's.
 SWIFT ?= swift
+SHELL := /bin/bash
+.SHELLFLAGS := -o pipefail -c
 
 .PHONY: build test test-verbose clean project sim
 
@@ -7,7 +9,7 @@ build:
 	$(SWIFT) build
 
 test:
-	$(SWIFT) test 2>&1 | grep -E "✘|✔ Suite|Test run|error:" || true
+	$(SWIFT) test
 
 test-verbose:
 	$(SWIFT) test

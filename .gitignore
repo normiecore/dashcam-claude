@@ -1,21 +1,33 @@
-# Swift Package Manager
+# Swift and local build outputs
 .build/
 .swiftpm/
 Package.resolved.bak
+build/
+DerivedData/
+*.xcresult/
+*.log
+*.app/
+*.ipa
+*.dSYM/
+*.dSYM.zip
 
-# Xcode (the .xcodeproj is generated from App/project.yml by XcodeGen)
-*.xcodeproj/
+# Foundation XcodeGen output; the root Astra project is intentionally tracked.
+App/*.xcodeproj/
 *.xcworkspace/
 xcuserdata/
-DerivedData/
 *.xcuserstate
 *.moved-aside
 *.hmap
-*.ipa
-*.dSYM.zip
-*.dSYM
+
+# Android and signing assets
+Android/.gradle/
+Android/local.properties
+*.jks
+*.keystore
 
 # Local tooling
 .DS_Store
 *.swp
 /tmp/
+__pycache__/
+*.pyc
