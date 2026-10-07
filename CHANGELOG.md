@@ -1,5 +1,9 @@
 # Changelog
 
+## First signed TestFlight upload — 2026-10-07
+
+- Apple accepted foundation version `0.1.0`, build `20261007.1334`, from source `fcec715dbfd50093b523a176ed9ecbc83e4c8ccd`; [run 37629540786](https://github.com/normiecore/dashcam-claude/actions/runs/37629540786) passed secrets preflight, release archive, cloud signing and upload. Apple processing, installation and physical recording acceptance are pending. Build is internal-testing-only; no public release.
+
 ## Integration readiness — 2026-10-07
 
 - Reconciled live README, handover and implementation plan with the owner's active iPhone TestFlight setup and Android device testing. Verified PR #2's merge candidate retains the simulator preview workflow, Android app, both separate iOS projects and `com.normiecore.dashcam`; hosted iOS, core and Android checks are green. No signed upload or physical acceptance yet.

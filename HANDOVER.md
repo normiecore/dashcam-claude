@@ -4,8 +4,18 @@ Last updated: **2026-10-07, Australia/Perth**.
 
 ## Current position
 
-The owner has Apple Developer Program access and chose `com.normiecore.dashcam` for the production iOS/TestFlight app. The separate Astra checkpoint uses `com.normiecore.dashcam.dev`. No Apple App ID, App Store Connect record or signing key was confirmed created as of this change. The next owner action is one-time Apple/GitHub signing setup in `docs/TESTING.md`; never request or store the private key in chat. The bundle identity change at `e9aa19470de214b56b671b9410bfd2ee547c9b85` passed [foundation CI](https://github.com/normiecore/dashcam-claude/actions/runs/37607434634), [Astra iOS and portable core](https://github.com/normiecore/dashcam-claude/actions/runs/37607434624) and [Android CI](https://github.com/normiecore/dashcam-claude/actions/runs/37607434644). The separate main branch change `35110adeee652f8d07c99ca640103607579bc4d2` passed [main CI](https://github.com/normiecore/dashcam-claude/actions/runs/37607344747). This validates hosted simulator builds/tests and unsigned archives; signing/upload and physical recording still need the owner setup and iPhone.
+**First signed iPhone upload succeeded.** The production foundation app uses
+`com.normiecore.dashcam`. Apple accepted version `0.1.0`, build `20261007.1334`,
+from source `fcec715dbfd50093b523a176ed9ecbc83e4c8ccd` in
+[TestFlight run 37629540786](https://github.com/normiecore/dashcam-claude/actions/runs/37629540786).
+The secrets preflight, release archive, cloud signing and upload all passed.
+Apple processing and installation have not been confirmed; physical capture
+acceptance is still outstanding. The workflow uploads internal-testing-only builds.
 
+The owner created the Normiecore Dashcam App Store Connect record and configured
+four GitHub Actions signing secrets. Never request or store the private key in
+chat. PR #2 is merged; `main` is canonical. The separate root Astra checkpoint
+uses `com.normiecore.dashcam.dev` and has not been distributed.
 
 **Android UI refinement complete — `0.1.0-dev.2`, version code 2.** The native
 dark/mint interface has context-aware Start/Save controls, a separate Stop button,
@@ -16,8 +26,8 @@ behavior is preserved; RecordingService only gains read-only UI metadata.
 
 Android development started first; the owner has now resumed the iPhone path after
 joining the Apple Developer Program. Android PRs #3 and #7 were merged into
-integration PR #2. Both platforms need physical-device acceptance; iPhone signing
-and TestFlight upload remain pending Apple/GitHub account setup.
+integration PR #2. Both platforms need physical-device acceptance; the first production iPhone
+TestFlight upload has succeeded.
 
 Verified build commit: `0651518568001b0cabbee858107a41ffe7d57925`.
 [Passing hosted run](https://github.com/normiecore/dashcam-claude/actions/runs/37281099291).
@@ -58,11 +68,11 @@ Uncertain files remain retained without repair; explicit deletion remains outsta
 Android minimum API 28, compile/target API 35. Remaining lint warnings do not prevent
 compilation; no release tag, Play upload or final `v0.1.0` qualification performed.
 
-Next concrete actions: finish the App ID, App Store Connect record and GitHub
-signing secrets for `com.normiecore.dashcam` (see `docs/TESTING.md`), then run a
-hosted TestFlight upload. On Android, confirm the Seeker version and run the
-six-minute incident/tail test from `Android/README.md`. Do not qualify `v0.1.0`
-before physical phone acceptance.
+Next concrete actions: wait for Apple processing, create an internal TestFlight
+group, add the owner and build, install from TestFlight, then follow the physical
+iPhone checklist in `docs/TESTING.md`. On Android, confirm the Seeker version and
+run the six-minute incident/tail test from `Android/README.md`. Do not qualify
+`v0.1.0` before physical phone acceptance.
 
 The goal remains a reliable phone dashcam: segmented recording, about five minutes
 of rolling footage, manual incident preservation plus a 30-second tail, playback,
@@ -85,7 +95,7 @@ No signing, TestFlight upload or physical-device qualification is implied.
 
 - Private repository: https://github.com/normiecore/dashcam-claude
 - Integration review: https://github.com/normiecore/dashcam-claude/pull/2
-- Canonical source after PR #2 merges: `main`.
+- Canonical source: `main`; PR #2 merged on 7 October 2026.
 - Android version: `0.1.0-dev.2`, code `2`; iPhone marketing version `0.1.0`,
   build `1` in source (TestFlight assigns a fresh build number).
 - Earlier scratch checkout: `/workspace/scratch/7b8755d64a71/Dashcam` is
@@ -96,9 +106,8 @@ No signing, TestFlight upload or physical-device qualification is implied.
 - User works from iPad/iPhone and wants cloud development without buying a Mac.
 - A GitHub-hosted Mac already compiles/tests this project; it is an ephemeral CI
   runner, not an interactive desktop or a connected physical phone.
-- User confirmed Apple Developer Program access on 7 October. Team ID, App ID,
-  App Store Connect record and GitHub signing secrets have **not** been confirmed.
-  No signed upload has been run.
+- Apple Developer membership, registered production App ID, App Store Connect
+  record and GitHub signing secrets are now established by the successful upload.
 - User owns an iPhone and **Solana Seeker** Android phone. Seeker Android version
   is unknown. A friend can test a phone described as **“razer”**: clarify whether
   Razer Phone/Phone 2 or Motorola Razr, and obtain Android version.
@@ -108,7 +117,7 @@ No signing, TestFlight upload or physical-device qualification is implied.
 - Prioritize footage preservation; compile/test continuously, investigate failures,
   keep a short changelog, and use appropriate lower-cost subagents for scoped work.
 
-## Implemented and verified
+## Astra checkpoint: implemented and verified
 
 iPhone implementation: SwiftUI, AVFoundation, serial capture/storage operations,
 720p30 target, H.264 4 Mbps, ten-second MOV segments, one-second fragments,
@@ -137,14 +146,15 @@ Real failures fixed: sparse final frames inflated movie/export duration; writer
 now explicitly ends the session at accepted video coverage, with regression checks.
 The first archive check had incorrect `lipo` argument order; fixed and rerun.
 
-## Limits and open issues
+## Astra checkpoint limits and shared acceptance
 
 - iPhone recording is foreground/unlocked only. No SafetyKit entitlement or
   integration, no motion classifier, no GPS, no cloud upload.
 - iPhone-only app target; using an iPad to manage development does not mean iPad
   recording support is implemented.
-- No signed/installable IPA or TestFlight build exists. Unsigned archive success
-  does not demonstrate camera, audio, heat, battery, lock or recovery reliability.
+- The Astra checkpoint is unsigned. The foundation's first signed TestFlight
+  upload is recorded above; neither implementation has physical camera, audio,
+  heat, battery, lock or recovery acceptance.
 - Physical acceptance is mandatory: six-minute pre/post incident test, interruptions,
   low space, termination/recovery, audio/orientation and prolonged recording.
 - Legacy orientation/export callback compiler warnings remain in Swift 5 mode.
@@ -155,8 +165,8 @@ The first archive check had incorrect `lipo` argument order; fixed and rerun.
 
 ## If the user resumes with Android
 
-1. Open `astra/android-ui-polish`; read `Android/README.md` and this checkpoint. Keep iOS
-   intact and Apple signing deferred unless the user changes direction.
+1. Open `main`; read `Android/README.md` and this checkpoint. Preserve the separate
+   iOS implementations and the configured TestFlight workflow.
 2. Confirm Seeker Android version, install the latest verified debug APK, and follow
    the six-minute incident/tail acceptance test in `Android/README.md`.
 3. Validate switching apps/screen-off, actual segment gaps, audio/orientation,
@@ -182,12 +192,11 @@ Sources to recheck:
 
 ## If the user resumes with iPhone
 
-Confirm active membership, Team ID and App Store Connect access. Then register the
-chosen bundle ID/app record and configure secure signing/export/upload. Current
-`com.normiecore.dashcam.dev` is a development identifier, not confirmed registered.
+Open `main`. Use the foundation project (`App/project.yml`, `App/Dashcam/`) and
+`docs/TESTING.md` for TestFlight installation and physical acceptance. Signing is
+configured and the first upload succeeded; check Apple processing before uploading
+again. The separate `com.normiecore.dashcam.dev` checkpoint remains undistributed.
 Keep private keys/passwords in suitable secret storage, never chat or Git.
-Follow [`AstraDocs/HostedMac.md`](AstraDocs/HostedMac.md) and
-[`AstraDocs/DeviceAcceptance.md`](AstraDocs/DeviceAcceptance.md).
 
 ## Session procedure and file map
 

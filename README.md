@@ -4,8 +4,8 @@
 [`AGENTS.md`](AGENTS.md) describes how to maintain the checkpoint.
 
 Android and iPhone prototypes are both in active testing. The owner has Apple
-Developer Program access and the iPhone TestFlight route is ready for account
-setup. The Android prototype has hosted build and emulator evidence; physical
+Developer Program access and the first signed iPhone TestFlight upload succeeded;
+Apple processing and physical iPhone acceptance remain outstanding. The Android prototype has hosted build and emulator evidence; physical
 Solana Seeker acceptance remains outstanding. See [Android setup and testing](Android/README.md).
 No implementation is yet qualified for reliable incident capture on physical phones.
 
@@ -64,15 +64,16 @@ For the Astra checkpoint, run `python3 Tools/verify_project.py`,
 GitHub Actions supplies hosted build/simulator machines. Foundation installation
 options and its TestFlight workflow are documented in `docs/TESTING.md`; Astra's
 unsigned archive and account setup are documented in `AstraDocs/HostedMac.md`.
-No signed upload has been performed. Keep signing keys
+The first signed foundation upload succeeded in [TestFlight run 37629540786](https://github.com/normiecore/dashcam-claude/actions/runs/37629540786).
+Keep signing keys
 and passwords in private secret storage, not chat or source control.
 
 ## Version control
 
 Repository: https://github.com/normiecore/dashcam-claude.
 Integration history: https://github.com/normiecore/dashcam-claude/pull/2.
-Android PRs #3 and #7 joined the integration branch before PR #2. After PR #2
-merges, `main` is the canonical source for both platforms.
+Android PRs #3 and #7 joined integration PR #2, which is now merged.
+`main` is the canonical source for both platforms.
 Update `HANDOVER.md` and `CHANGELOG.md` when project state changes. Reserve a
 qualified `v0.1.0` tag for successful physical-device acceptance.
 
