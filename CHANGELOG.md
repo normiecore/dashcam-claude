@@ -1,5 +1,13 @@
 # Changelog
 
+## iPhone documentary workflow candidate — 2026-10-08
+
+- Opened [PR #8](https://github.com/normiecore/dashcam-claude/pull/8) with the selected neutral documentary design: a quieter camera-first Record screen, contextual Save clip action, dated full-colour clip archive, restrained warnings and adaptive portrait/landscape layout.
+- Added Space Saver, Standard (default) and High Detail quality presets; storage estimates; a six-hour/four-GB default rolling-history policy independent of the five-minute saved-clip pre-roll; and protected saved/recovered clips.
+- Added car automation guidance and `dashcam://start`, `dashcam://stop` and `dashcam://save` URLs for Shortcuts triggered by CarPlay or the selected car Bluetooth connection. Camera recording remains foreground-only under iOS.
+- Added adaptive layout coverage that rotates during active recording and is configured to run on compact iPhone 17e and large iPhone 18 Pro Max simulators. The first iPhone 17 run compiled and passed the rotation/reachability test plus four other UI journeys; it exposed and led to fixes for an old one-minute retention harness assumption and a denied-camera assertion.
+- The corrected head is `9b748612fde278daddf56326a7519652da5979a5`. Subsequent CI, verification and TestFlight attempts failed before checkout with no runner steps or logs. TestFlight run `37652027764` did not archive or upload. PR remains open and unmerged pending restored hosted-runner execution, green tests and a signed upload.
+
 ## First signed TestFlight upload — 2026-10-07
 
 - Apple accepted foundation version `0.1.0`, build `20261007.1334`, from source `fcec715dbfd50093b523a176ed9ecbc83e4c8ccd`; [run 37629540786](https://github.com/normiecore/dashcam-claude/actions/runs/37629540786) passed secrets preflight, release archive, cloud signing and upload. Apple processing, installation and physical recording acceptance are pending. Build is internal-testing-only; no public release.
