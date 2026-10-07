@@ -31,6 +31,15 @@ func formatFreeSpace(_ bytes: Int64) -> String {
     return formatter.string(fromByteCount: bytes)
 }
 
+func formatApproximateDuration(_ seconds: TimeInterval) -> String {
+    let totalMinutes = max(1, Int((seconds / 60).rounded()))
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    if hours == 0 { return "About \(minutes) min" }
+    if minutes == 0 { return "About \(hours) h" }
+    return "About \(hours) h \(minutes) min"
+}
+
 /// Human-readable labels for model and system values. Kept as free functions (rather than extensions on
 /// DashcamCore or Apple types) so they can never collide with members added to those types later.
 enum DisplayText {
@@ -205,28 +214,40 @@ struct BannerView: View {
     let text: String
     let systemImage: String
     let tint: Color
-    let onDismiss: () -> Void
+    var onDismiss: (() -> Void)? = nil
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        Button(action: onDismiss) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Image(systemName: systemImage)
-                Text(text)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        Group {
+            if let onDismiss {
+                Button(action: onDismiss) { content }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Double-tap to dismiss")
+            } else {
+                content
+            }
+        }
+    }
+
+    private var content: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+            Text(text)
+                .multilineTextAlignment(.leading)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if onDismiss != nil {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
                     .opacity(0.7)
             }
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(12)
-            .background(tint.opacity(0.88), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Double-tap to dismiss")
+        .font(.callout.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(10)
+        .background(Color.black.opacity(0.86), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(tint.opacity(0.55)))
     }
 }
 
