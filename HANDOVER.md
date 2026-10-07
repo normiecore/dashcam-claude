@@ -2,6 +2,28 @@
 
 Last updated: **2026-10-07, Australia/Perth**.
 
+## Resume checkpoint — session paused 7 October, 22:26 Perth
+
+The user is pausing and will continue in a new session. Read `AGENTS.md` and this
+file first, fetch current `main`, and check for intervening work before editing.
+The latest confirmed outcome is the successful signed upload below. Apple processing,
+TestFlight group setup, invitation and installation are **not confirmed**. Do not
+assume the app is installed or repeat the upload just because processing is pending.
+
+Next session:
+1. Open https://appstoreconnect.apple.com/apps/6820104006 and select **TestFlight**.
+2. Check version `0.1.0`, build `20261007.1334`. Resolve any processing or compliance
+   prompt shown by Apple; do not invent answers to export-compliance questions.
+3. Create an **Internal Testing** group, add the owner and the processed build,
+   then install via Apple's TestFlight app on the iPhone.
+4. Follow `docs/TESTING.md`, record device/iOS version and actual results, and fix
+   observed reliability failures before adding features. The production foundation
+   uses a 60-second incident tail; the Astra/Android 30-second tail is separate.
+
+The upload run's Node.js 20 checkout-action and future Ubuntu image notices were
+nonblocking maintenance warnings. They have not been fixed. No public App Store
+submission, external beta distribution or physical acceptance has been performed.
+
 ## Current position
 
 **First signed iPhone upload succeeded.** The production foundation app uses
@@ -91,7 +113,8 @@ the root `Dashcam.xcodeproj` is a separate Astra development checkpoint.
 The earlier Astra `Docs/` moved to `AstraDocs/` to avoid case collisions on Macs.
 Foundation simulator preview changes from PRs #5 and #6 on `main` survive the
 integration merge. See README for build paths and PR #2 for the reviewed merge.
-No signing, TestFlight upload or physical-device qualification is implied.
+The merge verification itself did not establish signing or physical-device
+qualification. The subsequent successful signed upload is recorded above.
 
 - Private repository: https://github.com/normiecore/dashcam-claude
 - Integration review: https://github.com/normiecore/dashcam-claude/pull/2
@@ -205,8 +228,9 @@ new user direction with this checkpoint. Do not rerun successful expensive build
 for a documentation-only change. Test meaningful code changes and record actual
 results, commit/run identifiers and unverified limits before ending the session.
 
-- `App/`: iOS capture, writer, UI, export and debug simulation.
-- `Core/RecordingStore.swift`: durable manifest, retention integration and recovery.
+- `App/Dashcam/`: production foundation iOS app distributed through TestFlight.
+- `App/` also contains legacy Astra sources; follow each project's target membership.
+- `Core/RecordingStore.swift` (Astra checkpoint): durable manifest, retention integration and recovery.
 - `Core/RetentionPolicy.c`: production interval/protection/deletion policy.
 - `Tests/`: C policy, Swift storage and synthetic media tests.
 - `Tools/test-core.sh`, `Tools/verify_project.py`: Linux checks.
