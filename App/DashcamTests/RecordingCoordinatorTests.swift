@@ -410,6 +410,7 @@ final class CoordinatorHarness {
         settings.segmentSeconds = 2
         settings.postRollSeconds = postRollSeconds
         settings.bufferMinutes = 1
+        settings.recentHistoryMinutes = 1
         settings.audioEnabled = audio
         settings.hasCompletedOnboarding = true
         settings.autoStartRecording = false
