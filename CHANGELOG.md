@@ -105,6 +105,12 @@ physical-device validation pass is complete.
 
 ## [Unreleased] - target 0.1.0
 
+### Changed
+- Set the production iOS/TestFlight bundle ID to `com.normiecore.dashcam` and the iOS test IDs to matching suffixes. Align the alternate Astra development project under `com.normiecore.dashcam.dev` on the integration branch; remove unrelated company identity from setup instructions.
+- TestFlight builds start from Actions > TestFlight > Run workflow on `main` now that the workflow
+  is on the default branch; the `testflight` label still builds an open pull request. The label
+  already exists, so docs/TESTING.md drops the step that created it.
+
 ### Added
 - DashcamCore Swift package (Linux and Apple platforms): segment model with wall-clock timing,
   retention planner (age window, byte cap, free-space floor), sidecar-persisted segment store with
@@ -210,6 +216,13 @@ physical-device validation pass is complete.
   batches; banners carry identities; Save Incident while stopped closes the incident immediately;
   delete is blocked during export; the consent screen cannot cover a live recording and auto-start
   waits for consent; the microphone prompt follows the audio setting.
+- Simulator preview without a Mac. The UI tests attach a screenshot of each screen they reach, and
+  the Xcode 27 CI lane records the Simulator's screen while they run. Each pull request run
+  publishes both to the `simulator-preview` branch, viewable on GitHub from a phone, and attaches
+  them as the `simulator-preview` artifact. The lane now builds for testing once and runs the unit
+  tests and the UI tests separately, so the recording covers only the UI tests. The UI tests still
+  run when a unit test fails, and a run whose UI tests fail still publishes its preview, marked as
+  failed, with only the tests' own screenshots (not Xcode's failure attachments).
 
 ### Decisions
 - Segmented AVAssetWriter (fragmented MP4) instead of AVCaptureMovieFileOutput: iOS cannot switch
