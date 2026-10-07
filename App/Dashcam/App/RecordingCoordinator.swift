@@ -394,14 +394,14 @@ final class RecordingCoordinator: ObservableObject {
             await refreshIncidents()
             if incident.state == .collecting {
                 if isRecording {
-                    setStatus("Saving incident: \(Int(incident.footageDuration))s so far, recording \(Int(settings.incidentPolicy.postRoll))s more")
+                    setStatus("Saving clip: \(Int(incident.footageDuration))s included, recording \(Int(settings.incidentPolicy.postRoll))s more")
                 } else {
-                    setStatus("Saving incident: \(Int(incident.footageDuration))s so far; finishes when recording resumes")
+                    setStatus("Saving clip: \(Int(incident.footageDuration))s included; finishes when recording resumes")
                 }
             }
             return incident
         } catch {
-            setError("Could not save incident: \(error.localizedDescription)")
+            setError("Could not save clip: \(error.localizedDescription)")
             logger.error(.incident, "Trigger failed: \(error)")
             return nil
         }
@@ -1167,12 +1167,12 @@ final class RecordingCoordinator: ObservableObject {
         case .triggered, .updated:
             break
         case .readyToAssemble(let incident):
-            setStatus("Incident footage secured (\(Int(incident.footageDuration))s); exporting")
+            setStatus("Clip secured (\(Int(incident.footageDuration))s); preparing playback")
             await assemble(incident.id)
         case .completed(let incident):
-            setStatus("Incident clip saved (\(Int(incident.footageDuration))s)", autoClearAfter: 8)
+            setStatus("Clip saved (\(Int(incident.footageDuration))s)", autoClearAfter: 8)
         case .failed(let incident):
-            setError("Incident could not be saved: \(incident.failureReason ?? "unknown error")")
+            setError("Clip could not be saved: \(incident.failureReason ?? "unknown error")")
         }
         await refreshIncidents()
     }
