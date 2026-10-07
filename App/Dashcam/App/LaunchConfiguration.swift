@@ -56,6 +56,7 @@ struct LaunchConfiguration {
         let settings = AppSettings(defaults: UserDefaults(suiteName: Self.uiTestingDefaultsSuite) ?? .standard)
         settings.segmentSeconds = 2
         settings.bufferMinutes = 1
+        settings.recentHistoryMinutes = 1
         settings.postRollSeconds = 5
         settings.minimumFreeMegabytes = 512
         settings.motionDetectionEnabled = false
