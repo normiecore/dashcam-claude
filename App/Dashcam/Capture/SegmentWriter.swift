@@ -50,7 +50,7 @@ final class SegmentWriter: NSObject {
     private let audioInput: AVAssetWriterInput?
     // userInitiated, not utility: until a segment is on disk it exists only in memory and is lost if
     // the app is killed, and a busy phone (navigation, music, heat) starves utility work first.
-    private let ioQueue = DispatchQueue(label: "com.matrixengineered.dashcam.segment.io", qos: .userInitiated)
+    private let ioQueue = DispatchQueue(label: "com.normiecore.dashcam.segment.io", qos: .userInitiated)
     private let logger: DashcamLogger
 
     private var sessionStartPTS: CMTime?

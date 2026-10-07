@@ -7,6 +7,7 @@ physical-device validation pass is complete.
 ## [Unreleased] - target 0.1.0
 
 ### Changed
+- Set the production iOS/TestFlight bundle ID to `com.normiecore.dashcam` and the iOS test IDs to matching suffixes. Align the alternate Astra development project under `com.normiecore.dashcam.dev` on the integration branch; remove unrelated company identity from setup instructions.
 - TestFlight builds start from Actions > TestFlight > Run workflow on `main` now that the workflow
   is on the default branch; the `testflight` label still builds an open pull request. The label
   already exists, so docs/TESTING.md drops the step that created it.

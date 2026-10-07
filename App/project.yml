@@ -3,7 +3,7 @@
 # The generated Dashcam.xcodeproj is ignored by git; this file is the source of truth.
 name: Dashcam
 options:
-  bundleIdPrefix: com.matrixengineered
+  bundleIdPrefix: com.normiecore
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
@@ -74,7 +74,7 @@ targets:
       properties: {}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam
+        PRODUCT_BUNDLE_IDENTIFIER: com.normiecore.dashcam
         PRODUCT_NAME: Dashcam
         # XcodeGen's iOS preset sets "1,2" at the target level, which overrides the project-wide "1"
         # and would build an iPad app that fails App Store Connect's iPad orientation rules.
@@ -96,7 +96,7 @@ targets:
       - target: Dashcam
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.normiecore.dashcam.tests
 
   # Drives the app's screens with the simulated camera (Debug builds; see LaunchConfiguration.swift).
   DashcamUITests:
@@ -108,5 +108,5 @@ targets:
       - target: Dashcam
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.matrixengineered.dashcam.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: com.normiecore.dashcam.uitests
         TEST_TARGET_NAME: Dashcam

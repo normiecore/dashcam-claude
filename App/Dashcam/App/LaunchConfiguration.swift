@@ -38,7 +38,7 @@ struct LaunchConfiguration {
         #endif
     }
 
-    private static let uiTestingDefaultsSuite = "com.matrixengineered.dashcam.ui-testing"
+    private static let uiTestingDefaultsSuite = "com.normiecore.dashcam.ui-testing"
     private static var uiTestingRoot: URL {
         AppPaths.root.deletingLastPathComponent().appendingPathComponent("DashcamUITesting", isDirectory: true)
     }
