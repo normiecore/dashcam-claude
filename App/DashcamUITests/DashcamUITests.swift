@@ -109,7 +109,7 @@ final class DashcamUITests: XCTestCase {
         let start = app.buttons["record.startStop"]
         XCTAssertTrue(start.exists)
         XCTAssertFalse(start.isEnabled, "recording cannot start without camera access")
-        XCTAssertFalse(app.buttons["record.saveIncident"].isEnabled, "there is nothing to save")
+        XCTAssertFalse(app.buttons["record.saveIncident"].exists, "Save clip is not offered when there is nothing to save")
     }
 
     // MARK: Adaptive layout
