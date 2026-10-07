@@ -4,7 +4,7 @@ Last updated: **2026-10-07, Australia/Perth**.
 
 ## Current position
 
-The owner has Apple Developer Program access and chose `com.normiecore.dashcam` for the production iOS/TestFlight app. The separate Astra checkpoint uses `com.normiecore.dashcam.dev`. No Apple App ID, App Store Connect record or signing key was confirmed created as of this change. The next owner action is one-time Apple/GitHub signing setup in `docs/TESTING.md`; never request or store the private key in chat. CI must validate the changed identity; physical recording still needs an iPhone.
+The owner has Apple Developer Program access and chose `com.normiecore.dashcam` for the production iOS/TestFlight app. The separate Astra checkpoint uses `com.normiecore.dashcam.dev`. No Apple App ID, App Store Connect record or signing key was confirmed created as of this change. The next owner action is one-time Apple/GitHub signing setup in `docs/TESTING.md`; never request or store the private key in chat. The bundle identity change at `e9aa19470de214b56b671b9410bfd2ee547c9b85` passed [foundation CI](https://github.com/normiecore/dashcam-claude/actions/runs/37607434634), [Astra iOS and portable core](https://github.com/normiecore/dashcam-claude/actions/runs/37607434624) and [Android CI](https://github.com/normiecore/dashcam-claude/actions/runs/37607434644). The separate main branch change `35110adeee652f8d07c99ca640103607579bc4d2` passed [main CI](https://github.com/normiecore/dashcam-claude/actions/runs/37607344747). This validates hosted simulator builds/tests and unsigned archives; signing/upload and physical recording still need the owner setup and iPhone.
 
 
 **Android UI refinement complete — `0.1.0-dev.2`, version code 2.** The native
