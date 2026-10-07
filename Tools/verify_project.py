@@ -179,7 +179,7 @@ for object_id, object_body in objects.items():
         check(all(item in objects for item in object_body.get('buildConfigurations', [])),
               f'Unresolved build configuration in {object_id}')
 check('DEVELOPMENT_TEAM =' not in pbx, 'Project must not fix an Apple development team')
-check('com.daz.dashcam.dev' in pbx, 'Expected development bundle identifier')
+check('com.normiecore.dashcam.dev' in pbx, 'Expected development bundle identifier')
 check('IPHONEOS_DEPLOYMENT_TARGET = 17.0' in pbx, 'Deployment target must be iOS 17')
 check('SWIFT_VERSION = 5.0' in pbx, 'Swift language mode must be 5')
 check('CODE_SIGN_ENTITLEMENTS' not in pbx, 'Unexpected entitlements in project')

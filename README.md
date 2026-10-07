@@ -25,7 +25,7 @@ The root `Package.swift` belongs to the foundation Swift 6 core. Astra storage a
 synthetic media tests remain in the root Xcode project. Root `swift test` does not
 run those tests. XcodeGen generates **`App/Dashcam.xcodeproj`** for the foundation;
 it does not replace the checked-in root project. Their bundle IDs are respectively
-`com.matrixengineered.dashcam` and `com.daz.dashcam.dev`; the TestFlight workflow
+`com.normiecore.dashcam` and `com.normiecore.dashcam.dev`; the TestFlight workflow
 builds the foundation project.
 
 Foundation documentation: [platform review](docs/PLATFORM_REVIEW.md),

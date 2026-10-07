@@ -86,7 +86,7 @@ app_common = {
     'CLANG_ENABLE_MODULES': 'YES', 'CODE_SIGN_STYLE': 'Automatic',
     'CURRENT_PROJECT_VERSION': '1', 'GENERATE_INFOPLIST_FILE': 'NO',
     'INFOPLIST_FILE': 'App/Info.plist',
-    'MARKETING_VERSION': '0.1.0', 'PRODUCT_BUNDLE_IDENTIFIER': 'com.daz.dashcam.dev',
+    'MARKETING_VERSION': '0.1.0', 'PRODUCT_BUNDLE_IDENTIFIER': 'com.normiecore.dashcam.dev',
     'PRODUCT_NAME': '"$(TARGET_NAME)"',
     'SWIFT_OBJC_BRIDGING_HEADER': 'App/Dashcam-Bridging-Header.h',
     'HEADER_SEARCH_PATHS': '( "$(PROJECT_DIR)/Core", )',
@@ -95,7 +95,7 @@ app_common = {
 }
 test_common = {
     'BUNDLE_LOADER': '"$(TEST_HOST)"', 'CODE_SIGN_STYLE': 'Automatic',
-    'GENERATE_INFOPLIST_FILE': 'YES', 'PRODUCT_BUNDLE_IDENTIFIER': 'com.daz.dashcam.dev.tests',
+    'GENERATE_INFOPLIST_FILE': 'YES', 'PRODUCT_BUNDLE_IDENTIFIER': 'com.normiecore.dashcam.dev.tests',
     'PRODUCT_NAME': '"$(TARGET_NAME)"', 'SWIFT_VERSION': '5.0',
     'TEST_HOST': '"$(BUILT_PRODUCTS_DIR)/Dashcam.app/Dashcam"',
     'TEST_TARGET_NAME': 'Dashcam',

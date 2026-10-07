@@ -1,5 +1,9 @@
 # Changelog
 
+## iOS bundle identity — 2026-10-07
+
+- Chose `com.normiecore.dashcam` for the production iOS/TestFlight target and `com.normiecore.dashcam.dev` for the separate Astra development target. Updated test identifiers, source namespaces, generator/checker and Apple setup instructions. No Apple signing or physical-device test has occurred.
+
 ## Android 0.1.0-dev.2 UI refinement — 2026-10-05
 
 - Added a consistent native dark/mint theme, adaptive launcher icon, large recording

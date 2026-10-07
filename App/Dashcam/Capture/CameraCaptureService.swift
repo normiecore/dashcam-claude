@@ -81,8 +81,8 @@ enum CaptureError: LocalizedError {
 /// delivered on `dataQueue`. This class knows nothing about files or incidents.
 final class CameraCaptureService: NSObject, CaptureControlling {
     let session = AVCaptureSession()
-    private let sessionQueue = DispatchQueue(label: "com.matrixengineered.dashcam.capture.session")
-    private let dataQueue = DispatchQueue(label: "com.matrixengineered.dashcam.capture.data", qos: .userInitiated)
+    private let sessionQueue = DispatchQueue(label: "com.normiecore.dashcam.capture.session")
+    private let dataQueue = DispatchQueue(label: "com.normiecore.dashcam.capture.data", qos: .userInitiated)
     private let logger: DashcamLogger
 
     weak var sink: CaptureSampleSink?

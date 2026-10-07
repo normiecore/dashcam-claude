@@ -7,7 +7,7 @@ import DashcamCore
 final class OSLogSink: LogSink {
     private let loggers: [LogCategory: Logger]
 
-    init(subsystem: String = Bundle.main.bundleIdentifier ?? "com.matrixengineered.dashcam") {
+    init(subsystem: String = Bundle.main.bundleIdentifier ?? "com.normiecore.dashcam") {
         var loggers: [LogCategory: Logger] = [:]
         for category in LogCategory.allCases {
             loggers[category] = Logger(subsystem: subsystem, category: category.rawValue)

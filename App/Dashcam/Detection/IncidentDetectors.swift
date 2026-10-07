@@ -44,7 +44,7 @@ final class MotionIncidentDetector: IncidentDetector {
         self.detector = MotionImpactDetector(configuration: configuration)
         self.logger = logger
         queue.maxConcurrentOperationCount = 1
-        queue.name = "com.matrixengineered.dashcam.motion"
+        queue.name = "com.normiecore.dashcam.motion"
     }
 
     var isAvailable: Bool { manager.isDeviceMotionAvailable }

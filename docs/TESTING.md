@@ -44,19 +44,18 @@ CI (`.github/workflows/ci.yml`) runs the same command for pull requests on GitHu
 
 The build, signing and upload run on GitHub's macOS runners, so everything on your side happens on the iPhone and in a browser. Two routes:
 
-- **TestFlight (recommended).** Needs the paid Apple Developer Program (99 USD a year). Install from the TestFlight app, builds last 90 days, no Developer Mode or trust steps, and TestFlight passes crash reports and screenshot feedback back to App Store Connect. If Matrix Engineered already has a paid Apple developer team, ask its Account Holder to add you as an Admin instead of enrolling yourself; see the note after step 1.
+- **TestFlight (recommended).** Needs the paid Apple Developer Program (99 USD a year). Install from the TestFlight app, builds last 90 days, no Developer Mode or trust steps, and TestFlight passes crash reports and screenshot feedback back to App Store Connect.
 - **Free Apple Account with a Windows or Linux PC.** Costs nothing but needs a PC and a USB cable, the app stops launching after 7 days until you re-install it, and since July 2026 Apple has been rejecting many free-account installs with "The provisioning profile is banned" (0xe8008024) whichever tool is used. Use it only if you have a PC and do not want to pay yet.
 
 ### Route A: TestFlight
 
 One-time setup. In Safari, use Request Desktop Website if an Apple or GitHub page is cramped.
 
-1. Enrol: install the Apple Developer app on the iPhone. Account tab > sign in with your Apple Account (two-factor authentication on) > Agree if asked > Enroll Now > Continue, and choose Individual. Do the whole enrolment on this one iPhone, signed in to iCloud and protected by a passcode. You enter your legal name, which is shown as the seller on the App Store, and photograph a government ID when asked (a passport works in most regions). Payment is an auto-renewing subscription on your Apple Account's card; gift card balance is not accepted. Enrolling as an organisation needs a D-U-N-S number and takes days longer. Wait for the confirmation email.
+1. Already enrolled? Continue with step 2. Otherwise, enrol: install the Apple Developer app on the iPhone. Account tab > sign in with your Apple Account (two-factor authentication on) > Agree if asked > Enroll Now > Continue, and choose Individual. Do the whole enrolment on this one iPhone, signed in to iCloud and protected by a passcode. You enter your legal name, which is shown as the seller on the App Store, and photograph a government ID when asked (a passport works in most regions). Payment is an auto-renewing subscription on your Apple Account's card; gift card balance is not accepted. Enrolling as an organisation needs a D-U-N-S number and takes days longer. Wait for the confirmation email.
 
-   Using an existing Matrix Engineered team instead: skip step 1. Only that team's Account Holder can accept agreements (step 2) and press Request Access for the App Store Connect API (step 6), so ask them to do both. As an Admin you can do the rest yourself. If the team has never added an app, the New App dialog in step 5 also asks for a Company Name, which appears on the App Store and cannot be changed later.
 2. Open appstoreconnect.apple.com > Business and accept any pending agreements. Until you do, apps cannot be added and uploads fail.
 3. Open developer.apple.com/account > Membership details and copy the Team ID (10 characters).
-4. developer.apple.com/account > Certificates, Identifiers & Profiles > Identifiers > + > App IDs > App. Choose Explicit, enter `com.matrixengineered.dashcam`, description Dashcam, tick no capabilities, then Register.
+4. developer.apple.com/account > Certificates, Identifiers & Profiles > Identifiers > + > App IDs > App. Choose Explicit, enter `com.normiecore.dashcam`, description Dashcam, tick no capabilities, then Register.
 5. App Store Connect > Apps > + > New App: platform iOS; a name that is not already taken on the store (plain "Dashcam" almost certainly is; the name under the home screen icon stays Dashcam); a primary language; the bundle ID from step 4; any SKU, for example DASHCAM001; Full Access. Create.
 6. App Store Connect > Users and Access > Integrations > App Store Connect API. If there is a Request Access button, request access and wait for Apple's approval. Then Team Keys > Generate API Key (or + if a key already exists): name it GitHub Actions, set Access to **Admin** (signing in the cloud needs Admin, and the role cannot be changed later), Generate. Download the `.p8` file now, because Apple only lets you download it once, and note the Key ID and the Issuer ID shown on the page. This key can do anything in App Store Connect: keep it only in GitHub secrets, and revoke it on this page if it ever leaks.
 7. In the Files app, open the downloaded `AuthKey_<KEYID>.p8`. If it will not preview, rename it to end in `.txt`. Copy all of its text, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines.
@@ -118,11 +117,11 @@ For a system-level failure, hold Volume Up and Volume Down together until the ph
 
 ### With a Mac
 
-Not needed for any of the above, but if one is available: run from Xcode with a free account (Developer Mode on), force thermal states with Device Conditions, and do not mirror the iPhone with Device Hub's View Screen during capture (apps lose the camera and microphone while Device Hub interacts with the device). Console.app filters by subsystem `com.matrixengineered.dashcam`, and:
+Not needed for any of the above, but if one is available: run from Xcode with a free account (Developer Mode on), force thermal states with Device Conditions, and do not mirror the iPhone with Device Hub's View Screen during capture (apps lose the camera and microphone while Device Hub interacts with the device). Console.app filters by subsystem `com.normiecore.dashcam`, and:
 
 ```
 sudo log collect --device --start "2026-09-29 10:00:00" --output dashcam.logarchive
 xcrun devicectl device copy from --device <id> \
   --source "Library/Application Support/Dashcam/logs/dashcam.log" --destination ./dashcam.log \
-  --domain-type appDataContainer --domain-identifier com.matrixengineered.dashcam
+  --domain-type appDataContainer --domain-identifier com.normiecore.dashcam
 ```

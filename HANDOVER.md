@@ -1,8 +1,11 @@
 # Dashcam project — read first
 
-Last updated: **2026-10-05, Australia/Perth**.
+Last updated: **2026-10-07, Australia/Perth**.
 
 ## Current position
+
+The owner has Apple Developer Program access and chose `com.normiecore.dashcam` for the production iOS/TestFlight app. The separate Astra checkpoint uses `com.normiecore.dashcam.dev`. No Apple App ID, App Store Connect record or signing key was confirmed created as of this change. The next owner action is one-time Apple/GitHub signing setup in `docs/TESTING.md`; never request or store the private key in chat. CI must validate the changed identity; physical recording still needs an iPhone.
+
 
 **Android UI refinement complete — `0.1.0-dev.2`, version code 2.** The native
 dark/mint interface has context-aware Start/Save controls, a separate Stop button,
@@ -13,7 +16,7 @@ behavior is preserved; RecordingService only gains read-only UI metadata.
 
 Android is the active platform at the user's request: “Let’s start on the android
 and I’ll come back to apple later. Let’s get to working 0.1.” iPhone signing and
-TestFlight remain deferred. The original Android foundation PR #3 was merged into
+TestFlight can resume now that the owner has enrolled. The original Android foundation PR #3 was merged into
 the working iPhone branch, then its feature branch was deleted. UI refinement lives
 on `astra/android-ui-polish`, based on merged checkpoint
 `b3eaaa555487bd3d5afd3370255a503d7c0af1d5`; no iPhone source was changed.
@@ -195,7 +198,7 @@ Sources to recheck:
 
 Confirm active membership, Team ID and App Store Connect access. Then register the
 chosen bundle ID/app record and configure secure signing/export/upload. Current
-`com.daz.dashcam.dev` is a development identifier, not confirmed registered.
+`com.normiecore.dashcam.dev` is a development identifier, not confirmed registered.
 Keep private keys/passwords in suitable secret storage, never chat or Git.
 Follow [`AstraDocs/HostedMac.md`](AstraDocs/HostedMac.md) and
 [`AstraDocs/DeviceAcceptance.md`](AstraDocs/DeviceAcceptance.md).
