@@ -22,7 +22,7 @@ final class DashcamUITests: XCTestCase {
         startRecording(app, snapshotBefore: "02 Ready to record")
         snapshot(app, "03 Recording")
         let save = app.buttons["record.saveIncident"]
-        XCTAssertTrue(save.wait(for: \.isEnabled, toEqual: true, timeout: 15), "Save Incident is enabled while recording")
+        XCTAssertTrue(save.wait(for: \.isEnabled, toEqual: true, timeout: 15), "Save clip is enabled while recording")
         save.tap()
         let card = element(app, "record.incidentCard")
         XCTAssertTrue(card.waitForExistence(timeout: 10), "the incident card shows while the post-roll is recorded")
@@ -62,7 +62,7 @@ final class DashcamUITests: XCTestCase {
         snapshot(app, "07 Dimmed")
 
         cover.press(forDuration: 1.6)
-        XCTAssertTrue(cover.wait(labelContaining: "Securing footage", timeout: 10), "holding the dimmed screen saves an incident without waking it: \(cover.label)")
+        XCTAssertTrue(cover.wait(labelContaining: "Saving clip", timeout: 10), "holding the dimmed screen saves a clip without waking it: \(cover.label)")
         snapshot(app, "08 Dimmed, saving an incident")
 
         cover.tap()
