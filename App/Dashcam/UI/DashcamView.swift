@@ -85,7 +85,8 @@ struct DashcamView: View {
             }
             controls
                 .padding(16)
-                .frame(width: 300, maxHeight: .infinity)
+                .frame(width: 300)
+                .frame(maxHeight: .infinity)
                 .background(Color.black.opacity(0.94))
         }
     }
