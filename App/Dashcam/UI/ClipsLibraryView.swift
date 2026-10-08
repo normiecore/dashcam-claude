@@ -6,7 +6,7 @@ import DashcamCore
 /// Saved clips, grouped by day and presented as a quiet local archive.
 struct ClipsLibraryView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
-    @EnvironmentObject var settings: AppSettings
+    var onRecord: () -> Void
     @State private var pendingDelete: Incident? = nil
 
     private struct DayGroup: Identifiable {
@@ -32,27 +32,29 @@ struct ClipsLibraryView: View {
                     Section {
                         ForEach(group.incidents) { incident in
                             row(for: incident)
-                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                                .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
                         }
                     } header: {
                         Text(group.day, format: .dateTime.day().month(.wide).year())
-                            .font(.caption.weight(.medium))
-                            .tracking(1.2)
-                            .foregroundStyle(.primary)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(nil)
                     }
                 }
             }
-            .listStyle(.plain)
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background(Color(red: 0.97, green: 0.965, blue: 0.94))
+            .background(Color(uiColor: .systemGroupedBackground))
             .overlay {
                 if coordinator.incidents.isEmpty {
                     emptyState
-                        .allowsHitTesting(false)
                 }
             }
             .navigationTitle("Saved clips")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(uiColor: .systemGroupedBackground), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 ClipDetailView(incidentID: id)
             }
@@ -110,7 +112,12 @@ struct ClipsLibraryView: View {
         ContentUnavailableView {
             Label("No saved clips", systemImage: "film.stack")
         } description: {
-            Text("Tap Save clip while recording, or enable possible event detection. Recent footage rolls over automatically; saved clips stay here until you delete them.")
+            Text("While recording, tap Save clip to keep a moment. Your saved clips will appear here.")
+        } actions: {
+            Button("Go to camera", action: onRecord)
+                .buttonStyle(.borderedProminent)
+                .foregroundStyle(Color(uiColor: .systemBackground))
+                .accessibilityIdentifier("clips.goToCamera")
         }
     }
 
@@ -123,35 +130,53 @@ struct ClipsLibraryView: View {
 }
 
 struct IncidentArchiveRow: View {
-    @EnvironmentObject var coordinator: RecordingCoordinator
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let incident: Incident
 
+    private var layout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        layout {
             ClipThumbnailView(incident: incident)
-                .frame(maxWidth: .infinity)
-                .aspectRatio(16.0 / 9.0, contentMode: .fit)
-                .clipShape(Rectangle())
+                .frame(width: 96, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    Image(systemName: "play.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.55))
+                }
                 .accessibilityHidden(true)
 
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(incident.triggerTime, format: .dateTime.hour().minute().second())
+            VStack(alignment: .leading, spacing: 6) {
+                Text(incident.triggerTime, format: .dateTime.hour().minute())
                     .font(.headline.monospacedDigit())
-                Text(incident.primarySource.displayName)
+                Text("\(incident.primarySource.displayName) · \(formatDuration(incident.footageDuration))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Spacer(minLength: 8)
-                Text(formatDuration(incident.footageDuration))
-                    .font(.subheadline.monospacedDigit())
-                StateBadge(state: incident.state)
+                status
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.bottom, 8)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.18)).frame(height: 1)
-        }
+        .foregroundStyle(.primary)
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens playback and sharing options")
         .accessibilityIdentifier("clips.row")
+    }
+
+    @ViewBuilder private var status: some View {
+        if incident.state == .complete {
+            Label("Saved", systemImage: "checkmark.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            StateBadge(state: incident.state)
+        }
     }
 }
 
@@ -161,20 +186,30 @@ private struct ClipThumbnailView: View {
     @State private var image: UIImage?
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.08)
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "video")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+        // The image fills an explicitly bounded viewport. Its intrinsic portrait size
+        // must never negotiate the row's height or cover neighbouring navigation.
+        GeometryReader { geometry in
+            ZStack {
+                Color(uiColor: .tertiarySystemFill)
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                } else {
+                    Image(systemName: "video")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
-        .clipped()
-        .task(id: incident.id) { await loadThumbnail() }
+        .task(id: thumbnailIdentity) { await loadThumbnail() }
+    }
+
+    private var thumbnailIdentity: String {
+        "\(incident.id)-\(coordinator.clipURLs(for: incident).first?.absoluteString ?? "pending")"
     }
 
     @MainActor
@@ -182,7 +217,7 @@ private struct ClipThumbnailView: View {
         guard image == nil, let url = coordinator.clipURLs(for: incident).first else { return }
         let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
         generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 960, height: 540)
+        generator.maximumSize = CGSize(width: 288, height: 192)
         do {
             let result = try await generator.image(at: CMTime(seconds: 0.25, preferredTimescale: 600))
             image = UIImage(cgImage: result.image)

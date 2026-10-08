@@ -137,6 +137,60 @@ final class DashcamUITests: XCTestCase {
         stopRecording(app)
     }
 
+    // MARK: Library navigation and appearance regressions
+
+    @MainActor
+    func testLibraryNavigationInLightAppearance() throws {
+        try exerciseLibraryNavigation(appearance: "light")
+    }
+
+    @MainActor
+    func testLibraryNavigationInDarkAppearance() throws {
+        try exerciseLibraryNavigation(appearance: "dark")
+    }
+
+    @MainActor
+    private func exerciseLibraryNavigation(appearance: String) throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launch(["--appearance-\(appearance)"])
+        XCTAssertTrue(app.tabBars.buttons["Clips"].waitForExistence(timeout: 20))
+        app.tabBars.buttons["Clips"].tap()
+        let camera = app.buttons["clips.goToCamera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 10))
+        XCTAssertTrue(camera.isHittable, "An empty library offers a reachable route back to recording")
+        snapshot(app, "12 Empty clips \(appearance)")
+        camera.tap()
+        startRecording(app)
+        app.buttons["record.saveIncident"].tap()
+        let card = element(app, "record.incidentCard")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        XCTAssertTrue(card.waitForNonExistence(timeout: 60))
+        stopRecording(app)
+        app.tabBars.buttons["Clips"].tap()
+        let row = element(app, "clips.row")
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.wait(labelContaining: "Saved", timeout: 60))
+        XCTAssertLessThan(row.frame.height, app.frame.height / 4, "A portrait thumbnail must not expand a clip row to screen height")
+        XCTAssertTrue(row.isHittable)
+        snapshot(app, "13 Compact clips \(appearance)")
+        row.tap()
+        XCTAssertTrue(app.buttons["clip.share"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["clip.delete"].isHittable, "Primary clip actions are visible without scrolling through technical metadata")
+        snapshot(app, "14 Clip actions \(appearance)")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
+        snapshot(app, "15 Settings \(appearance)")
+        app.tabBars.buttons["Record"].tap()
+        XCTAssertTrue(app.buttons["record.startStop"].isHittable)
+        app.tabBars.buttons["Clips"].tap()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(row.wait(for: \.isHittable, toEqual: true, timeout: 10))
+        snapshot(app, "16 Landscape clips \(appearance)")
+    }
+
     // MARK: Helpers
 
     @MainActor

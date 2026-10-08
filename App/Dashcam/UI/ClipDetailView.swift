@@ -128,32 +128,36 @@ struct ClipDetailView: View {
                 }
             }
 
-            Section("Triggers") {
-                ForEach(Array(incident.triggers.enumerated()), id: \.offset) { _, trigger in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label(trigger.source.displayName, systemImage: DisplayText.sourceSymbol(trigger.source))
-                        Text(trigger.time.formatted(date: .abbreviated, time: .standard))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if let note = trigger.note, !note.isEmpty {
-                            Text(note)
+            Section {
+                DisclosureGroup("Event details") {
+                    ForEach(Array(incident.triggers.enumerated()), id: \.offset) { _, trigger in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label(trigger.source.displayName, systemImage: DisplayText.sourceSymbol(trigger.source))
+                            Text(trigger.time.formatted(date: .abbreviated, time: .standard))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            if let note = trigger.note, !note.isEmpty {
+                                Text(note)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
             }
 
-            Section("Details") {
-                detailRow("Requested window", "\(incident.windowStart.formatted(date: .omitted, time: .standard)) to \(incident.windowEnd.formatted(date: .omitted, time: .standard))")
-                if let start = incident.coveredStart, let end = incident.coveredEnd {
-                    detailRow("Footage covered", "\(start.formatted(date: .omitted, time: .standard)) to \(end.formatted(date: .omitted, time: .standard))")
+            Section {
+                DisclosureGroup("File details") {
+                    detailRow("Requested window", "\(incident.windowStart.formatted(date: .omitted, time: .standard)) to \(incident.windowEnd.formatted(date: .omitted, time: .standard))")
+                    if let start = incident.coveredStart, let end = incident.coveredEnd {
+                        detailRow("Footage covered", "\(start.formatted(date: .omitted, time: .standard)) to \(end.formatted(date: .omitted, time: .standard))")
+                    }
+                    detailRow("Duration", formatDuration(incident.footageDuration))
+                    detailRow("Size", formatBytes(incident.totalBytes))
+                    detailRow("Segments", "\(incident.mediaParts.count)")
+                    detailRow("Created", incident.createdAt.formatted(date: .abbreviated, time: .shortened))
+                    detailRow("Identifier", incident.id.uuidString)
                 }
-                detailRow("Duration", formatDuration(incident.footageDuration))
-                detailRow("Size", formatBytes(incident.totalBytes))
-                detailRow("Segments", "\(incident.mediaParts.count)")
-                detailRow("Created", incident.createdAt.formatted(date: .abbreviated, time: .shortened))
-                detailRow("Identifier", incident.id.uuidString)
             }
 
             Section {
