@@ -31,7 +31,7 @@ struct RootView: View {
             .toolbarBackground(selection == .record ? Color.black : Color(uiColor: .systemGroupedBackground), for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
             .toolbarColorScheme(selection == .record ? .dark : colorScheme, for: .tabBar)
-            .tint(selection == .record ? .white : .primary)
+            .tint(selection == .record ? .white : .teal)
 
             // Dimmed mode covers the whole app, tab bar included; the TabView (and the camera preview in
             // it) stays alive underneath so nothing about the capture session changes.

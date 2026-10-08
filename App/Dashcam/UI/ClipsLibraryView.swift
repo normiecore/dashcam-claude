@@ -38,7 +38,7 @@ struct ClipsLibraryView: View {
                     } header: {
                         Text(group.day, format: .dateTime.day().month(.wide).year())
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.primary)
                             .textCase(nil)
                     }
                 }
@@ -116,6 +116,7 @@ struct ClipsLibraryView: View {
         } actions: {
             Button("Go to camera", action: onRecord)
                 .buttonStyle(.borderedProminent)
+                .tint(.primary)
                 .foregroundStyle(Color(uiColor: .systemBackground))
                 .accessibilityIdentifier("clips.goToCamera")
         }

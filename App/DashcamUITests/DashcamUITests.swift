@@ -187,7 +187,14 @@ final class DashcamUITests: XCTestCase {
         XCTAssertTrue(app.buttons["record.startStop"].isHittable)
         app.tabBars.buttons["Clips"].tap()
         XCUIDevice.shared.orientation = .landscapeLeft
-        XCTAssertTrue(row.wait(for: \.isHittable, toEqual: true, timeout: 10))
+        let landscapeLayout = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let bounds = app.frame
+            return bounds.width > bounds.height && row.isHittable
+                && bounds.contains(row.frame)
+                && app.tabBars.buttons["Record"].isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [landscapeLayout], timeout: 15), .completed,
+                       "The library and its navigation settle inside the landscape viewport")
         snapshot(app, "16 Landscape clips \(appearance)")
     }
 
