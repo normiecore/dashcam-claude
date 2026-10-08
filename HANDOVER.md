@@ -2,13 +2,14 @@
 
 Last updated: **2026-10-08, Australia/Perth**.
 
-## Active checkpoint — documentary build uploaded; merge awaiting approval
+## Active checkpoint — documentary build uploaded and merged
 
 The owner made the repository public on 8 October after exhausting private-repository
 Actions minutes. Hosted runners now execute normally. The documentary implementation
-is on `codex/documentary-workflow-20261007`, [PR #8](https://github.com/normiecore/dashcam-claude/pull/8).
+was developed on `codex/documentary-workflow-20261007` in [PR #8](https://github.com/normiecore/dashcam-claude/pull/8).
 Verified source is `31ef969d8fccae7f0187f798813b818ad630a238`; later checkpoint edits are documentation only.
-`main` remains unchanged.
+The owner explicitly authorized the merge on 8 October. PR #8 is squash-merged into
+`main` at `d95aabf4f82c2fd9eaf11595702a54ae1b3cbad5`; `main` is canonical.
 
 Apple accepted version **0.1.0**, build **20261008.408**, at 12:11 Perth on 8 October.
 [TestFlight run 37725988703](https://github.com/normiecore/dashcam-claude/actions/runs/37725988703)
@@ -38,13 +39,11 @@ phone-size check an independent runner/job, disables parallel simulator clones, 
 allows the main unit/UI/archive job 45 minutes. Both size checks and the complete main
 suite passed with this setup; app code did not change during this repair.
 
-Automatic approval review rejected the squash merge into main, stating that deployment
-had been authorized but merging into the default branch had not been explicitly authorized.
-Do not bypass that rejection or merge through another method. The concrete reviewed
-PR and accepted TestFlight build are ready; ask the owner for explicit permission
-to merge PR #8 into main.
+The earlier automatic approval block is resolved by the owner's explicit instruction:
+"yeah merge into main please". The merge succeeded and GitHub confirms PR #8 is merged.
+No app code changed after the verified TestFlight source; later edits only record results.
 
-Next: obtain explicit merge permission; inspect App Store Connect app 6820104006,
+Next: inspect App Store Connect app 6820104006,
 TestFlight version 0.1.0/build 20261008.408 after processing; resolve only evidenced
 compliance prompts; install via TestFlight and follow docs/TESTING.md on a physical iPhone.
 Do not repeat the successful upload merely because Apple processing is pending.
