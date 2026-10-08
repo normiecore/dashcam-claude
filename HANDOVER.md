@@ -2,67 +2,57 @@
 
 Last updated: **2026-10-08, Australia/Perth**.
 
-## Active checkpoint — documentary workflow PR #8
+## Active checkpoint — documentary build uploaded; merge awaiting approval
 
-The user selected the quiet documentary-camera direction and authorised implementation,
-GitHub merge and TestFlight upload. Work is on
-`codex/documentary-workflow-20261007`, PR #8, corrected head
-`9b748612fde278daddf56326a7519652da5979a5`; `main` has not been changed.
+The owner made the repository public on 8 October after exhausting private-repository
+Actions minutes. Hosted runners now execute normally. The documentary implementation
+is on `codex/documentary-workflow-20261007`, [PR #8](https://github.com/normiecore/dashcam-claude/pull/8).
+Verified source is `31ef969d8fccae7f0187f798813b818ad630a238`; later checkpoint edits are documentation only.
+`main` remains unchanged.
 
-Implemented: a camera-first adaptive Record screen; contextual **Save clip** rather
-than a persistent incident control; a full-colour dated archive; Standard, Space Saver
-and High Detail quality presets; separate saved-clip pre-roll and rolling history;
-six-hour/four-GB default retention; storage estimates; Shortcuts URLs for start, stop
-and save; and CarPlay/Bluetooth automation guidance. The iPhone-only target supports
-every iPhone on iOS 18 or later. Layout uses size classes, safe areas and available
-geometry, with pinned controls and scrollable secondary information on short screens.
+Apple accepted version **0.1.0**, build **20261008.408**, at 12:11 Perth on 8 October.
+[TestFlight run 37725988703](https://github.com/normiecore/dashcam-claude/actions/runs/37725988703)
+passed secrets preflight, Release archive, bundle checks, cloud signing and upload.
+This is an internal-testing-only build. Apple processing, tester assignment,
+installation and physical camera acceptance have not been confirmed.
 
-Run `37649683820` compiled the app and passed the new portrait/landscape reachability
-test on iPhone 17 plus four existing UI journeys. It found two expected test-assumption
-updates: the rollover harness still shared the old one-minute pre-roll, and the denied
-camera test queried the now-absent Save clip button. Both are fixed in the current head;
-the harness now sets one-minute recent history explicitly and the denied state requires
-Save clip to be absent. CI is configured to repeat the rotation test on iPhone 17e and
-iPhone 18 Pro Max.
+Implemented: camera-first adaptive Record screen, contextual Save clip, dated full-colour
+archive, Standard (default)/Space Saver/High Detail quality presets, storage estimates,
+five-minute saved-clip pre-roll separate from six-hour/four-GB default rolling history,
+Shortcuts start/stop/save URLs and CarPlay/Bluetooth automation guidance.
+The production target supports iPhones on iOS 18 or later with adaptive dimensions,
+safe areas and orientation. Camera recording remains foreground/unlocked only.
 
-After those fixes, every GitHub-hosted job began failing before checkout with no steps
-or downloadable log, including Linux, both iOS verification workflows and reruns. The
-authorised `testflight` label was added, but TestFlight run `37652027764` failed at the
-preflight job before any step; archive/upload was skipped. No new TestFlight build was
-uploaded. This points to hosted-runner/account availability rather than a source/test
-failure, but the exact GitHub notice has not been inspected in the browser.
+[CI 37724913174](https://github.com/normiecore/dashcam-claude/actions/runs/37724913174) passes:
+61 Swift core tests, 22 production app unit tests, all five UI journeys on iPhone 17,
+portrait/landscape reachability on iPhone 17e and iPhone 18 Pro Max, production
+Release device archive/bundle checks, simulator preview and unsigned IPA packaging.
+[Verification 37724913182](https://github.com/normiecore/dashcam-claude/actions/runs/37724913182)
+passes portable C retention checks (400,036 normally and with sanitizers), policy simulation,
+16 alternate-project simulator tests, and alternate unsigned device archive checks.
+These are simulator/policy results, not physical-device tests.
 
-Next actions: inspect the PR/Actions account notice, restore hosted-runner execution,
-rerun CI and verify that unit tests, the full UI suite, compact/large layout checks and
-the unsigned device archive pass. Then rerun TestFlight for this exact head, record the
-accepted build/run, update this handover and changelog, and squash-merge PR #8. Do not
-merge or claim a second upload before those gates pass.
+The first resumed CI attempt exceeded its 30-minute job limit while starting the second
+phone-size check, after app unit tests and compact layout passed. CI now gives each
+phone-size check an independent runner/job, disables parallel simulator clones, and
+allows the main unit/UI/archive job 45 minutes. Both size checks and the complete main
+suite passed with this setup; app code did not change during this repair.
 
-## Resume checkpoint — session paused 7 October, 22:26 Perth
+Automatic approval review rejected the squash merge into main, stating that deployment
+had been authorized but merging into the default branch had not been explicitly authorized.
+Do not bypass that rejection or merge through another method. The concrete reviewed
+PR and accepted TestFlight build are ready; ask the owner for explicit permission
+to merge PR #8 into main.
 
-The user is pausing and will continue in a new session. Read `AGENTS.md` and this
-file first, fetch current `main`, and check for intervening work before editing.
-The latest confirmed outcome is the successful signed upload below. Apple processing,
-TestFlight group setup, invitation and installation are **not confirmed**. Do not
-assume the app is installed or repeat the upload just because processing is pending.
-
-Next session:
-1. Open https://appstoreconnect.apple.com/apps/6820104006 and select **TestFlight**.
-2. Check version `0.1.0`, build `20261007.1334`. Resolve any processing or compliance
-   prompt shown by Apple; do not invent answers to export-compliance questions.
-3. Create an **Internal Testing** group, add the owner and the processed build,
-   then install via Apple's TestFlight app on the iPhone.
-4. Follow `docs/TESTING.md`, record device/iOS version and actual results, and fix
-   observed reliability failures before adding features. The production foundation
-   uses a 60-second incident tail; the Astra/Android 30-second tail is separate.
-
-The upload run's Node.js 20 checkout-action and future Ubuntu image notices were
-nonblocking maintenance warnings. They have not been fixed. No public App Store
-submission, external beta distribution or physical acceptance has been performed.
+Next: obtain explicit merge permission; inspect App Store Connect app 6820104006,
+TestFlight version 0.1.0/build 20261008.408 after processing; resolve only evidenced
+compliance prompts; install via TestFlight and follow docs/TESTING.md on a physical iPhone.
+Do not repeat the successful upload merely because Apple processing is pending.
+Do not qualify/tag v0.1.0 before physical acceptance.
 
 ## Current position
 
-**First signed iPhone upload succeeded.** The production foundation app uses
+**Earlier first signed iPhone upload succeeded.** The production foundation app uses
 `com.normiecore.dashcam`. Apple accepted version `0.1.0`, build `20261007.1334`,
 from source `fcec715dbfd50093b523a176ed9ecbc83e4c8ccd` in
 [TestFlight run 37629540786](https://github.com/normiecore/dashcam-claude/actions/runs/37629540786).
@@ -152,7 +142,7 @@ integration merge. See README for build paths and PR #2 for the reviewed merge.
 The merge verification itself did not establish signing or physical-device
 qualification. The subsequent successful signed upload is recorded above.
 
-- Private repository: https://github.com/normiecore/dashcam-claude
+- Public repository (owner changed visibility on 8 October): https://github.com/normiecore/dashcam-claude
 - Integration review: https://github.com/normiecore/dashcam-claude/pull/2
 - Canonical source: `main`; PR #2 merged on 7 October 2026.
 - Android version: `0.1.0-dev.2`, code `2`; iPhone marketing version `0.1.0`,
