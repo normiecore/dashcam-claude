@@ -14,7 +14,7 @@ struct OnboardingView: View {
                 OnboardingPoint(
                     systemImage: "video.fill",
                     title: "Records while the app is open",
-                    text: "Dashcam records video from the camera continuously while the app is open. It keeps only the last \(bufferPhrase) and deletes older footage automatically, unless you save an incident."
+                    text: "Dashcam records continuously while the app is open. Recent footage rolls over when it reaches your time, storage or free-space limit. Clips you save are kept."
                 )
                 OnboardingPoint(
                     systemImage: "mic.fill",
@@ -61,7 +61,7 @@ struct OnboardingView: View {
             } label: {
                 Text("Continue")
             }
-            .buttonStyle(BigButtonStyle(color: .blue))
+            .buttonStyle(BigButtonStyle(color: Color(red: 0.95, green: 0.94, blue: 0.90), foreground: .black))
             .accessibilityIdentifier("onboarding.continue")
             .frame(maxWidth: 600)
             .padding(.horizontal, 24)
@@ -69,10 +69,6 @@ struct OnboardingView: View {
             .frame(maxWidth: .infinity)
             .background(.bar)
         }
-    }
-
-    private var bufferPhrase: String {
-        settings.bufferMinutes == 1 ? "minute" : "\(settings.bufferMinutes) minutes"
     }
 
     private var header: some View {

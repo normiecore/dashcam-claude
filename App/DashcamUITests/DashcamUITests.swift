@@ -22,7 +22,7 @@ final class DashcamUITests: XCTestCase {
         startRecording(app, snapshotBefore: "02 Ready to record")
         snapshot(app, "03 Recording")
         let save = app.buttons["record.saveIncident"]
-        XCTAssertTrue(save.wait(for: \.isEnabled, toEqual: true, timeout: 15), "Save Incident is enabled while recording")
+        XCTAssertTrue(save.wait(for: \.isEnabled, toEqual: true, timeout: 15), "Save clip is enabled while recording")
         save.tap()
         let card = element(app, "record.incidentCard")
         XCTAssertTrue(card.waitForExistence(timeout: 10), "the incident card shows while the post-roll is recorded")
@@ -62,7 +62,7 @@ final class DashcamUITests: XCTestCase {
         snapshot(app, "07 Dimmed")
 
         cover.press(forDuration: 1.6)
-        XCTAssertTrue(cover.wait(labelContaining: "Securing footage", timeout: 10), "holding the dimmed screen saves an incident without waking it: \(cover.label)")
+        XCTAssertTrue(cover.wait(labelContaining: "Saving clip", timeout: 10), "holding the dimmed screen saves a clip without waking it: \(cover.label)")
         snapshot(app, "08 Dimmed, saving an incident")
 
         cover.tap()
@@ -109,7 +109,32 @@ final class DashcamUITests: XCTestCase {
         let start = app.buttons["record.startStop"]
         XCTAssertTrue(start.exists)
         XCTAssertFalse(start.isEnabled, "recording cannot start without camera access")
-        XCTAssertFalse(app.buttons["record.saveIncident"].isEnabled, "there is nothing to save")
+        XCTAssertFalse(app.buttons["record.saveIncident"].exists, "Save clip is not offered when there is nothing to save")
+    }
+
+    // MARK: Adaptive layout
+
+    @MainActor
+    func testRecordControlsRemainReachableInPortraitAndLandscape() throws {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        defer { device.orientation = .portrait }
+
+        let app = launch()
+        let start = app.buttons["record.startStop"]
+        XCTAssertTrue(start.waitForExistence(timeout: 20))
+        XCTAssertTrue(start.isHittable, "Start is reachable in portrait on this iPhone size")
+        start.tap()
+        XCTAssertTrue(state(app).wait(labelContaining: "Recording", timeout: 20))
+
+        device.orientation = .landscapeLeft
+        XCTAssertTrue(app.buttons["record.startStop"].wait(for: \.isHittable, toEqual: true, timeout: 10), "Stop is reachable in landscape")
+        XCTAssertTrue(app.buttons["record.saveIncident"].isHittable, "Save clip is reachable in landscape")
+        XCTAssertTrue(app.buttons["record.dim"].isHittable, "Dim screen is reachable in landscape")
+
+        device.orientation = .portrait
+        XCTAssertTrue(app.buttons["record.startStop"].wait(for: \.isHittable, toEqual: true, timeout: 10), "Stop remains reachable after returning to portrait")
+        stopRecording(app)
     }
 
     // MARK: Helpers

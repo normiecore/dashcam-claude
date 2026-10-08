@@ -44,38 +44,97 @@ struct DashcamView: View {
     // scrolls only when it truly cannot fit; the center message gets what is left; the Spacers, at the
     // default priority, only share out the remainder.
     private var portraitLayout: some View {
-        VStack(spacing: 12) {
-            scrollableInformation
-                .layoutPriority(2)
-            Spacer(minLength: 0)
-            centerMessage
-                .layoutPriority(1)
-            Spacer(minLength: 0)
+        VStack(spacing: 0) {
+            statusBar
+            adaptiveInformation(horizontalPadding: 12)
             controls
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
+                .background(Color.black.opacity(0.94))
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
     }
 
     private var landscapeLayout: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(spacing: 10) {
-                scrollableInformation
-                    .layoutPriority(2)
-                Spacer(minLength: 0)
-                centerMessage
-                    .layoutPriority(1)
-                Spacer(minLength: 0)
-            }
-            VStack {
-                Spacer(minLength: 0)
+        GeometryReader { geometry in
+            let controlWidth = min(max(geometry.size.width * 0.36, 236), 320)
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    statusBar
+                    adaptiveInformation(horizontalPadding: 8)
+                }
                 controls
+                    .padding(12)
+                    .frame(width: controlWidth)
+                    .frame(maxHeight: .infinity)
+                    .background(Color.black.opacity(0.94))
             }
-            .frame(width: 280)
         }
+    }
+
+    /// The camera area grows to fill large phones and becomes vertically scrollable when warnings,
+    /// Dynamic Type or a short landscape screen need more room. The driving controls remain fixed and
+    /// reachable at every supported iPhone size.
+    private func adaptiveInformation(horizontalPadding: CGFloat) -> some View {
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    warningsAndMessages
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, 8)
+                    Spacer(minLength: 12)
+                    centerMessage
+                        .padding(.horizontal, horizontalPadding + 4)
+                    Spacer(minLength: 12)
+                    if let incident = coordinator.activeIncident {
+                        IncidentProgressCard(incident: incident)
+                            .padding(.horizontal, horizontalPadding)
+                            .padding(.bottom, 8)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    private var statusBar: some View {
+        HStack(spacing: 10) {
+            stateIndicator
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("record.state")
+            Spacer(minLength: 12)
+            if coordinator.isRecording && coordinator.runHasAudio && !coordinator.audioInterrupted {
+                Image(systemName: "waveform")
+                    .accessibilityLabel("Audio recording on")
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.white)
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .frame(minHeight: 50)
+        .background(Color.black.opacity(0.92))
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+    }
+
+    private var warningsAndMessages: some View {
+        VStack(spacing: 8) {
+            banners
+            if showsHeatWarning {
+                BannerView(text: heatText, systemImage: "thermometer.high", tint: .orange)
+            }
+            if coordinator.isRecording, !settings.keepScreenAwake {
+                BannerView(text: "Auto-Lock can stop recording", systemImage: "lock.iphone", tint: .orange)
+            }
+            if let storage = coordinator.storage, let tint = storageWarningTint(storage.level) {
+                BannerView(
+                    text: "\(formatFreeSpace(storage.availableBytes)) storage remaining",
+                    systemImage: "internaldrive.fill",
+                    tint: tint
+                )
+            }
+        }
     }
 
     /// The HUD, banners and incident card scroll when they do not fit (accessibility text sizes, landscape
@@ -156,10 +215,8 @@ struct DashcamView: View {
         switch coordinator.state {
         case .recording:
             HStack(spacing: 8) {
-                PulsingDot(size: 16)
-                Text("REC")
-                    .font(.title2.weight(.heavy))
-                    .foregroundStyle(.red)
+                PulsingDot(size: 10)
+                Text("Recording")
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Recording")
@@ -168,7 +225,6 @@ struct DashcamView: View {
                 ProgressView()
                     .tint(.white)
                 Text("Starting")
-                    .font(.title3.weight(.bold))
             }
         case .interrupted(_, let reason):
             Label {
@@ -178,17 +234,14 @@ struct DashcamView: View {
                 Image(systemName: "pause.circle.fill")
                     .foregroundStyle(.yellow)
             }
-            .font(.headline)
         case .stopping:
             HStack(spacing: 8) {
                 ProgressView()
                     .tint(.white)
                 Text("Stopping")
-                    .font(.title3.weight(.bold))
             }
         case .idle:
             Label("Stopped", systemImage: "stop.circle")
-                .font(.title3.weight(.bold))
         case .failed:
             Label("Error", systemImage: "exclamationmark.triangle.fill")
                 .font(.title3.weight(.bold))
@@ -196,7 +249,7 @@ struct DashcamView: View {
         }
     }
 
-    private var bufferTarget: TimeInterval { TimeInterval(max(1, settings.bufferMinutes) * 60) }
+    private var bufferTarget: TimeInterval { TimeInterval(max(1, settings.recentHistoryMinutes) * 60) }
 
     private var bufferText: String {
         // Retention trims whole segments, so the buffer can briefly exceed the target; show at most the target.
@@ -251,6 +304,14 @@ struct DashcamView: View {
     private func storageTint(_ level: StorageLevel) -> Color {
         switch level {
         case .ok: return .white
+        case .low: return .orange
+        case .critical: return .red
+        }
+    }
+
+    private func storageWarningTint(_ level: StorageLevel) -> Color? {
+        switch level {
+        case .ok: return nil
         case .low: return .orange
         case .critical: return .red
         }
@@ -320,30 +381,34 @@ struct DashcamView: View {
     }
 
     private var idleHint: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "video.fill")
-                .font(.largeTitle)
+        VStack(spacing: 6) {
             Text("Ready to record")
-                .font(.title2.weight(.bold))
-            Text("Mount the phone securely, then tap Start recording. Keep the app open while you drive.")
-                .font(.body)
+                .font(.headline)
+            Text("Mount the iPhone securely and keep Dashcam open while you drive.")
+                .font(.subheadline)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
         }
         .foregroundStyle(.white)
-        .padding(20)
+        .padding(16)
         .frame(maxWidth: 440)
-        .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: Controls
 
     private var controls: some View {
         VStack(spacing: 12) {
-            saveButton
-            secondaryControlsLayout {
+            if canSave {
+                saveButton
+            }
+            if coordinator.state.isActive {
+                secondaryControlsLayout {
+                    startStopButton
+                    dimButton
+                }
+            } else {
                 startStopButton
-                dimButton
             }
         }
     }
@@ -363,14 +428,13 @@ struct DashcamView: View {
         Button {
             // The haptic is the driver's confirmation, so it follows the outcome rather than the tap.
             Task {
-                let incident = await coordinator.triggerIncident(source: .manual, note: "Save Incident button")
+                let incident = await coordinator.triggerIncident(source: .manual, note: "Save clip button")
                 if incident != nil { Haptics.success() } else { Haptics.warning() }
             }
         } label: {
-            Label("SAVE INCIDENT", systemImage: "exclamationmark.shield.fill")
-                .font(.title2.weight(.heavy))
+            Label("Save clip", systemImage: "bookmark.fill")
         }
-        .buttonStyle(BigButtonStyle(color: Color(red: 0.86, green: 0.12, blue: 0.1), minHeight: 76))
+        .buttonStyle(BigButtonStyle(color: Color(red: 0.95, green: 0.94, blue: 0.90), foreground: .black, minHeight: 64))
         .disabled(!canSave)
         .accessibilityHint("Keeps the buffered footage and the next \(settings.postRollSeconds) seconds.")
         .accessibilityIdentifier("record.saveIncident")
@@ -387,13 +451,14 @@ struct DashcamView: View {
         let active = coordinator.state.isActive
         let title: String = active ? "Stop" : "Start recording"
         let symbol: String = active ? "stop.fill" : "record.circle"
-        let color: Color = active ? Color(white: 0.35) : Color(red: 0.1, green: 0.55, blue: 0.22)
+        let color: Color = active ? Color(white: 0.16) : Color(red: 0.95, green: 0.94, blue: 0.90)
+        let foreground: Color = active ? .white : .black
         return Button {
             Task { await coordinator.toggle() }
         } label: {
             Label(title, systemImage: symbol)
         }
-        .buttonStyle(BigButtonStyle(color: color))
+        .buttonStyle(BigButtonStyle(color: color, foreground: foreground))
         .disabled(isTransitioning || (!active && coordinator.permissions.cameraDenied))
         .accessibilityIdentifier("record.startStop")
     }
@@ -404,7 +469,7 @@ struct DashcamView: View {
         } label: {
             Label("Dim screen", systemImage: "moon.fill")
         }
-        .buttonStyle(BigButtonStyle(color: Color(red: 0.2, green: 0.22, blue: 0.45)))
+        .buttonStyle(BigButtonStyle(color: Color(white: 0.16)))
         .disabled(!coordinator.isRecording)
         .accessibilityHint("Blacks out the screen while recording continues. Tap to wake.")
         .accessibilityIdentifier("record.dim")
@@ -430,13 +495,13 @@ struct IncidentProgressCard: View {
         let remaining = max(0, incident.windowEnd.timeIntervalSince(now))
         let countdown: String = remaining > 0 ? formatDuration(remaining) : "Finishing"
         let detail: String = remaining > 0
-            ? "Recording \(Int(remaining.rounded(.up))) s more into this incident. Keep the app open."
+            ? "Saving the next \(Int(remaining.rounded(.up))) s. Keep Dashcam open."
             : "Writing the last segment…"
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "lock.shield.fill")
-                Text("Securing footage…")
-                    .font(.title3.weight(.bold))
+                Image(systemName: "bookmark.fill")
+                Text("Saving clip")
+                    .font(.headline)
                 Spacer(minLength: 8)
                 Text(countdown)
                     .font(.headline.monospacedDigit())
@@ -445,13 +510,14 @@ struct IncidentProgressCard: View {
                 .tint(.orange)
             Text(detail)
                 .font(.subheadline)
-            Text("\(formatDuration(incident.footageDuration)) protected so far")
+            Text("\(formatDuration(incident.footageDuration)) included so far")
                 .font(.caption)
                 .foregroundStyle(Color.white.opacity(0.8))
         }
         .foregroundStyle(.white)
         .padding(14)
-        .background(Color(red: 0.5, green: 0.22, blue: 0.0).opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.black.opacity(0.9), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.28)))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("record.incidentCard")
     }
@@ -508,7 +574,7 @@ struct PermissionsView: View {
         case .denied:
             return "Dashcam needs the camera to record the road ahead. Turn on Camera for Dashcam in Settings. Footage stays on this iPhone."
         case .notDetermined:
-            return "Dashcam records the road ahead while the app is open and keeps only the last few minutes unless you save an incident. Footage stays on this iPhone."
+            return "Dashcam records the road ahead while the app is open. Recent footage rolls over automatically; clips you save remain on this iPhone."
         }
     }
 }
@@ -516,7 +582,7 @@ struct PermissionsView: View {
 // MARK: - Dimmed mode
 
 /// Opaque black cover shown over the whole app while recording continues underneath.
-/// Tap anywhere to wake; press and hold for one second to save an incident.
+/// Tap anywhere to wake; press and hold for one second to save a clip.
 struct DimmedRecordingView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     @EnvironmentObject var settings: AppSettings
@@ -557,7 +623,7 @@ struct DimmedRecordingView: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Double-tap to wake the screen.")
         .accessibilityAction { wake() }
-        .accessibilityAction(named: "Save incident") { saveIncident() }
+        .accessibilityAction(named: "Save clip") { saveIncident() }
         .accessibilityIdentifier("dimmed.cover")
     }
 
@@ -591,7 +657,7 @@ struct DimmedRecordingView: View {
                         .overlay(Capsule().strokeBorder(Color(white: 0.4), lineWidth: 1))
                 }
             }
-            Text("Buffer \(formatDuration(min(coordinator.bufferedSeconds, TimeInterval(max(1, settings.bufferMinutes) * 60))))")
+            Text("Recent \(formatDuration(coordinator.bufferedSeconds))")
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(Color(white: 0.45))
             if !coordinator.isRecording {
@@ -601,12 +667,12 @@ struct DimmedRecordingView: View {
                     .multilineTextAlignment(.center)
             }
             if coordinator.activeIncident != nil {
-                Label("Securing footage", systemImage: "lock.shield.fill")
+                Label("Saving clip", systemImage: "bookmark.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.orange.opacity(0.85))
             }
             Spacer(minLength: 0)
-            Text("Tap to wake · Hold 1 s to save incident")
+            Text("Tap to wake · Hold 1 s to save clip")
                 .font(.caption2)
                 .foregroundStyle(Color(white: 0.3))
         }
@@ -642,7 +708,7 @@ struct DimmedRecordingView: View {
 
     private func saveIncident() {
         Task {
-            let incident = await coordinator.triggerIncident(source: .manual, note: "Dimmed screen long-press")
+            let incident = await coordinator.triggerIncident(source: .manual, note: "Dimmed screen Save clip")
             if incident != nil { Haptics.success() } else { Haptics.warning() }
         }
     }

@@ -20,6 +20,8 @@ final class AppSettings: ObservableObject {
     private let defaults: UserDefaults
 
     @Published var bufferMinutes: Int { didSet { defaults.set(bufferMinutes, forKey: Keys.bufferMinutes) } }
+    @Published var recentHistoryMinutes: Int { didSet { defaults.set(recentHistoryMinutes, forKey: Keys.recentHistoryMinutes) } }
+    @Published var recentHistoryGigabytes: Int { didSet { defaults.set(recentHistoryGigabytes, forKey: Keys.recentHistoryGigabytes) } }
     @Published var postRollSeconds: Int { didSet { defaults.set(postRollSeconds, forKey: Keys.postRollSeconds) } }
     @Published var audioEnabled: Bool { didSet { defaults.set(audioEnabled, forKey: Keys.audioEnabled) } }
     @Published var quality: VideoQualityTier { didSet { defaults.set(quality.rawValue, forKey: Keys.quality) } }
@@ -39,6 +41,9 @@ final class AppSettings: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         bufferMinutes = defaults.object(forKey: Keys.bufferMinutes) as? Int ?? 5
+        let legacyHours = defaults.object(forKey: Keys.recentHistoryHours) as? Int
+        recentHistoryMinutes = defaults.object(forKey: Keys.recentHistoryMinutes) as? Int ?? legacyHours.map { $0 * 60 } ?? 360
+        recentHistoryGigabytes = defaults.object(forKey: Keys.recentHistoryGigabytes) as? Int ?? 4
         postRollSeconds = defaults.object(forKey: Keys.postRollSeconds) as? Int ?? 60
         audioEnabled = defaults.object(forKey: Keys.audioEnabled) as? Bool ?? true
         quality = VideoQualityTier(rawValue: defaults.string(forKey: Keys.quality) ?? "") ?? .hd1080p30
@@ -60,8 +65,8 @@ final class AppSettings: ObservableObject {
 
     var retentionPolicy: RetentionPolicy {
         RetentionPolicy(
-            targetDuration: TimeInterval(max(1, bufferMinutes) * 60),
-            maxBufferBytes: nil,
+            targetDuration: TimeInterval(max(1, recentHistoryMinutes) * 60),
+            maxBufferBytes: Int64(max(1, recentHistoryGigabytes)) * 1_073_741_824,
             minimumFreeBytes: Int64(max(256, minimumFreeMegabytes)) * 1_048_576
         )
     }
@@ -72,8 +77,21 @@ final class AppSettings: ObservableObject {
 
     var segmentInterval: TimeInterval { TimeInterval(min(max(segmentSeconds, 2), 30)) }
 
+    /// Conservative estimate shown before a drive. The rolling buffer stops growing at whichever
+    /// limit is reached first: the chosen time window, storage budget or free-space floor.
+    var estimatedRecentHistorySeconds: TimeInterval {
+        let bytesPerHour = max(quality.estimatedBytesPerHour(audioEnabled: audioEnabled), 1)
+        let budgetBytes = Int64(max(1, recentHistoryGigabytes)) * 1_073_741_824
+        let hoursFromBudget = Double(budgetBytes) / Double(bytesPerHour)
+        let selectedHours = Double(max(1, recentHistoryMinutes)) / 60
+        return min(selectedHours, hoursFromBudget) * 3_600
+    }
+
     private enum Keys {
         static let bufferMinutes = "settings.bufferMinutes"
+        static let recentHistoryMinutes = "settings.recentHistoryMinutes"
+        static let recentHistoryHours = "settings.recentHistoryHours"
+        static let recentHistoryGigabytes = "settings.recentHistoryGigabytes"
         static let postRollSeconds = "settings.postRollSeconds"
         static let audioEnabled = "settings.audioEnabled"
         static let quality = "settings.quality"

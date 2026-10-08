@@ -37,6 +37,7 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: coordinator.isDimmed)
+        .onOpenURL(perform: handleAutomationURL)
         .fullScreenCover(isPresented: showsOnboarding) {
             OnboardingView()
                 .environmentObject(settings)
@@ -61,5 +62,24 @@ struct RootView: View {
                 if !isPresented { settings.hasCompletedOnboarding = true }
             }
         )
+    }
+
+    private func handleAutomationURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "dashcam" else { return }
+        let action = (url.host ?? url.pathComponents.dropFirst().first ?? "").lowercased()
+        selection = .record
+        Task {
+            switch action {
+            case "start":
+                if !coordinator.state.isActive { await coordinator.start() }
+            case "stop":
+                if coordinator.state.isActive { await coordinator.stop() }
+            case "save":
+                let clip = await coordinator.triggerIncident(source: .manual, note: "Car automation Save clip")
+                if clip != nil { Haptics.success() } else { Haptics.warning() }
+            default:
+                break
+            }
+        }
     }
 }

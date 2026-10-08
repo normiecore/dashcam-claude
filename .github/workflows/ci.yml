@@ -25,9 +25,8 @@ jobs:
           swift test --parallel 2>&1 | tail -40
 
   app-simulator:
-    # Xcode 26.6 and the iOS 26.5 SDK. macOS minutes bill at a multiple on this private repository,
-    # so pull requests run only the Xcode 27 lane below; run this one from the Actions tab when a
-    # change could behave differently on the older SDK.
+    # Xcode 26.6 and the iOS 26.5 SDK. Pull requests use the Xcode 27 lane below;
+    # run this additional lane manually for changes that may behave differently on the older SDK.
     name: App (iOS Simulator, xcodebuild test)
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-26
@@ -53,13 +52,13 @@ jobs:
     name: App (Xcode 27, iOS 27 Simulator)
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write # publishes the screenshots to the simulator-preview branch
     env:
       TEST_FLAGS: >-
         -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300
-        -collect-test-diagnostics never
+        -collect-test-diagnostics never -parallel-testing-enabled NO
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
@@ -166,4 +165,54 @@ jobs:
         with:
           path: ${{ runner.temp }}/Dashcam-unsigned.ipa
           archive: false
+          retention-days: 14
+
+  app-layout-xcode27:
+    name: Layout (${{ matrix.phone }}, portrait and landscape)
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: xcode-27
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        phone: ["iPhone 17e", "iPhone 18 Pro Max"]
+    env:
+      DEVICE_NAME: ${{ matrix.phone }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: cd App && xcodegen generate
+      - name: Boot the layout simulator
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, os, sys
+          devices = json.load(sys.stdin)["devices"]
+          name = os.environ["DEVICE_NAME"]
+          found = sorted((rt, d["udid"]) for rt, ds in devices.items() if ".iOS-27-" in rt for d in ds if d["name"] == name)
+          print(found[0][1] if found else "")')
+          [ -n "$udid" ] || { echo "::error::No available $DEVICE_NAME simulator"; exit 1; }
+          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Build and test portrait and landscape controls
+        run: |
+          set -o pipefail
+          xcodebuild -project App/Dashcam.xcodeproj -scheme Dashcam -destination "id=$SIM_UDID" \
+            -only-testing:DashcamUITests/DashcamUITests/testRecordControlsRemainReachableInPortraitAndLandscape \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never -parallel-testing-enabled NO \
+            -resultBundlePath "$RUNNER_TEMP/Layout.xcresult" \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | grep --line-buffered -v -E '^ {4}(cd |/Applications/|builtin-|export )'
+      - name: Collect layout test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layout-${{ matrix.phone }}
+          path: ${{ runner.temp }}/Layout.xcresult
+          if-no-files-found: ignore
           retention-days: 14
