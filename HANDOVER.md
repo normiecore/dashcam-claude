@@ -2,7 +2,52 @@
 
 Last updated: **2026-10-08, Australia/Perth**.
 
-## Active checkpoint — documentary build uploaded and merged
+## Active checkpoint — library navigation and contrast repair
+
+The owner supplied physical iPhone/TestFlight screenshots showing unreadable text on a
+fixed cream background and oversized portrait thumbnails. This confirms installation
+of a TestFlight app, but the screenshots do not identify its exact build or qualify
+physical recording reliability.
+
+[PR #9](https://github.com/normiecore/dashcam-claude/pull/9), branch
+`codex/clips-navigation-20261008`, fixes the production SwiftUI library: adaptive
+system backgrounds, readable date/title/empty state, compact bounded thumbnails,
+Go to camera, clear tab selection and collapsed secondary clip details.
+Source `f920ca2c1606ee713dc3c1ce8adef2a5e1d78d53` adds light/dark navigation journeys
+and waits for settled landscape geometry before taking rotation screenshots.
+
+[CI 37732544871](https://github.com/normiecore/dashcam-claude/actions/runs/37732544871)
+and [verification 37732544869](https://github.com/normiecore/dashcam-claude/actions/runs/37732544869)
+pass at the verified source above. CI includes 22 production unit tests, all seven UI
+journeys, compact iPhone 17e / large iPhone 18 Pro Max recording-control rotation
+checks, the unsigned Release archive and bundle validation.
+
+Reviewed final light/dark screenshots for empty/populated library, clip actions and
+settings. The explicit date text and teal switch/tab accents are clear. XCTest's
+`app.screenshot()` still exports a cropped portrait-sized image after rotation, even
+though the landscape bounds/reachability assertions pass. Verified the actual light
+and dark landscape layouts in the simulator screen recording (about 188 s / 140 s):
+full title, bounded clip row, safe areas and all three tabs are visible. This is an
+evidence-capture limitation, not an observed layout failure. Preview is on the
+`simulator-preview` branch, README source `f920ca2c1606ee713dc3c1ce8adef2a5e1d78d53`.
+These checks are simulator evidence, not physical recording acceptance.
+
+[TestFlight 37734103032](https://github.com/normiecore/dashcam-claude/actions/runs/37734103032)
+passed Release archive, bundle checks, cloud signing and upload. Apple accepted
+version **0.1.0**, build **20261008.547**, at 13:50 Perth on 8 October.
+Apple processing and installation of this new build are not yet confirmed.
+
+PR #9 remains open. Automatic approval review rejected its squash merge because the
+owner's earlier explicit merge approval applied to PR #8, not this new main-branch
+merge. Do not bypass the rejection; get explicit owner approval for PR #9 before
+merging. The signed upload succeeded independently. Subsequent checkpoint edits are
+documentation only.
+No changes to capture, retention, incident protection or signing configuration.
+Next: obtain explicit approval to merge PR #9 into main. Install build 20261008.547
+once TestFlight processing completes and review on an actual iPhone. Do not repeat
+the successful upload. Do not qualify/tag v0.1.0 before physical acceptance.
+
+## Previous checkpoint — documentary build uploaded and merged
 
 The owner made the repository public on 8 October after exhausting private-repository
 Actions minutes. Hosted runners now execute normally. The documentary implementation

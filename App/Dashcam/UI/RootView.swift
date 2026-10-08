@@ -5,6 +5,7 @@ import DashcamCore
 struct RootView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     @EnvironmentObject var settings: AppSettings
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selection: RootTab = .record
 
     enum RootTab: Hashable {
@@ -20,13 +21,17 @@ struct RootView: View {
                     DashcamView()
                 }
                 Tab("Clips", systemImage: "film.stack", value: RootTab.clips) {
-                    ClipsLibraryView()
+                    ClipsLibraryView(onRecord: { selection = .record })
                 }
                 .badge(pendingClipCount)
                 Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {
                     SettingsView()
                 }
             }
+            .toolbarBackground(selection == .record ? Color.black : Color(uiColor: .systemGroupedBackground), for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .toolbarColorScheme(selection == .record ? .dark : colorScheme, for: .tabBar)
+            .tint(selection == .record ? .white : .teal)
 
             // Dimmed mode covers the whole app, tab bar included; the TabView (and the camera preview in
             // it) stays alive underneath so nothing about the capture session changes.
@@ -36,6 +41,7 @@ struct RootView: View {
                     .zIndex(1)
             }
         }
+        .preferredColorScheme(testAppearance)
         .animation(.easeInOut(duration: 0.25), value: coordinator.isDimmed)
         .onOpenURL(perform: handleAutomationURL)
         .fullScreenCover(isPresented: showsOnboarding) {
@@ -43,6 +49,17 @@ struct RootView: View {
                 .environmentObject(settings)
                 .environmentObject(coordinator)
         }
+    }
+
+    // Only the isolated UI-test process may override the user's system appearance.
+    private var testAppearance: ColorScheme? {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--ui-testing") else { return nil }
+        if arguments.contains("--appearance-dark") { return .dark }
+        if arguments.contains("--appearance-light") { return .light }
+        #endif
+        return nil
     }
 
     /// Incidents still securing or exporting footage.
