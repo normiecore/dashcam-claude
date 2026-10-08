@@ -1,5 +1,14 @@
 # Changelog
 
+## Saved clips navigation repair — 2026-10-08
+
+- Replaced the library's fixed cream background with adaptive light/dark system surfaces; corrected title, date and empty-state contrast.
+- Changed oversized thumbnails into bounded compact clip rows with time, source, duration, save state and a clear playback affordance.
+- Added Go to camera for an empty library, readable native navigation and a restrained teal selected-tab/settings accent.
+- Collapsed event/file metadata so playback, sharing, Photos export and deletion are easier to reach.
+- Added light/dark UI journeys covering empty-state navigation, save/review, compact row bounds, tab/back navigation and settled landscape layout. CI 37732544871 and verification 37732544869 pass at `f920ca2c1606ee713dc3c1ce8adef2a5e1d78d53`, including 22 app unit tests, seven UI journeys, both phone-size checks and Release archive/bundle verification. Light/dark portrait screenshots and landscape simulator video were reviewed. Apple accepted version `0.1.0`, build `20261008.547`, in [TestFlight run 37734103032](https://github.com/normiecore/dashcam-claude/actions/runs/37734103032). Apple processing and installation of this new build remain unconfirmed.
+- PR #9 remains open: automatic approval review blocked its merge because the earlier explicit merge approval covered PR #8. New main-branch merge approval is required; the successful TestFlight upload is unaffected.
+
 ## Documentary TestFlight build and CI repair — 2026-10-08
 
 - Apple accepted version `0.1.0`, build `20261008.408`, from verified source `31ef969d8fccae7f0187f798813b818ad630a238`; [TestFlight run 37725988703](https://github.com/normiecore/dashcam-claude/actions/runs/37725988703) passed signed upload. Apple processing, installation and physical acceptance remain unconfirmed.
