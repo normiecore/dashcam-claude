@@ -5,7 +5,7 @@
 - Apple accepted version `0.1.0`, build `20261008.408`, from verified source `31ef969d8fccae7f0187f798813b818ad630a238`; [TestFlight run 37725988703](https://github.com/normiecore/dashcam-claude/actions/runs/37725988703) passed signed upload. Apple processing, installation and physical acceptance remain unconfirmed.
 - Resumed hosted Actions after the owner made the repository public. Fixed the main simulator job exceeding its time budget by moving compact/large iPhone layout checks to independent jobs, disabling parallel simulator clones, and retaining the full unit/UI/archive gates.
 - [CI 37724913174](https://github.com/normiecore/dashcam-claude/actions/runs/37724913174) passes 61 core tests, 22 production app unit tests, all five UI journeys, both size/orientation checks and the production unsigned Release device archive. [Verification 37724913182](https://github.com/normiecore/dashcam-claude/actions/runs/37724913182) passes C policy checks, 16 alternate-project simulator tests and alternate archive verification.
-- PR #8 remains open: automatic approval review rejected merging into main because explicit merge authorization was missing. Await the owner's permission; the successful upload must not be repeated for this reason.
+- Following the owner's explicit approval, [PR #8](https://github.com/normiecore/dashcam-claude/pull/8) was squash-merged into `main` at `d95aabf4f82c2fd9eaf11595702a54ae1b3cbad5`. The earlier automatic approval block is resolved; the accepted TestFlight build remains unchanged.
 
 ## iPhone documentary workflow implementation — 2026-10-08
 
