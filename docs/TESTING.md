@@ -110,6 +110,40 @@ Prerequisites: the app installed by Route A or B, on iOS 18 or later. Developer 
 12. False positives: turn on Impact detection at Low, drive a normal route with speed bumps and hard stops, and count unwanted incidents. Repeat at Medium. Report the counts and export the log.
 13. Optional: connect and disconnect CarPlay while recording; note any audio route changes or pauses.
 
+## Drive history and recording-status acceptance (0.1.1)
+
+These checks require an actual iPhone/TestFlight build. Simulator results do not establish
+camera access, background execution, CarPlay presentation or a two-hour capture soak.
+
+1. Record for several minutes without tapping Save clip, then Stop. Open Clips > Recent
+   drives and confirm finalized footage appears automatically. Save drive and check
+   playback and sharing; its duration must match captured footage.
+2. Leave the stopped app for at least an hour, relaunch, and confirm the recent drive
+   remains available and can be saved. Idle time alone must not expire the latest window;
+   configured storage limits and new recording can replace unsaved history.
+3. Switch apps during recording, then return quickly and again after a longer pause.
+   Camera capture pauses; foreground resume must start a new run without losing earlier
+   footage or letting the old background flush stop the new writer. No video is claimed
+   across the pause. Repeat with a manual Stop during the transition.
+4. Verify Lock Screen and compact/expanded/minimal Dynamic Island status on supported
+   hardware. REC requires fresh video frames; interruption shows paused. If updates
+   become stale, the card must ask to check Dashcam. Card expiry/dismissal must not stop
+   an otherwise active foreground recording.
+5. On iOS 26+ with compatible CarPlay, inspect the Live Activity's small presentation
+   and readable recording/paused headings. Configure a CarPlay Disconnects Shortcuts
+   automation to open dashcam://disconnect, then confirm Stop/Continue behavior. A native
+   CarPlay app icon and direct connection detector are not included.
+6. On a fresh settings profile, verify the two-hour recent-history default. Existing
+   saved preferences must persist. Record for two hours with adequate power/free storage;
+   inspect actual playable output, gaps, temperature and storage trimming. The byte
+   budget can limit retained duration before two hours, depending on quality.
+7. Apply low-storage pressure and confirm saved clips remain protected, unsaved history
+   can be trimmed, and failures produce a visible message. Record device/OS/app build,
+   test timestamps and exported logs for any failure.
+
+Apple's background-camera eligibility inquiry is pending; this build does not enable
+continuous background video recording.
+
 ## Collecting logs
 
 In the app: Developer tools > View recent log > Prepare log file for export, then Export log file and send it with Mail, Messages or Save to Files. The file holds the last 2 MB with one rotation, and it is the complete record: only notice level and above from the system log persists on the device.

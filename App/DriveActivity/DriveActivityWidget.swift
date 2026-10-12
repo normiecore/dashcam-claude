@@ -57,7 +57,7 @@ private struct DriveStatusView: View {
             HStack {
                 Image(systemName: isStale ? "questionmark.circle" : state.phase == .recording ? "record.circle.fill" : "pause.circle.fill")
                     .foregroundStyle(isStale || state.phase != .recording ? Color.orange : Color.red)
-                Text(title).font(.headline)
+                Text(title).font(.headline).lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 4)
                 if family != .small { Text(duration(state.recordedSeconds)).monospacedDigit() }
             }
@@ -71,6 +71,14 @@ private struct DriveStatusView: View {
 
     private var title: String {
         if isStale { return "Check Dashcam" }
+        if family == .small {
+            switch state.phase {
+            case .recording: return "Recording"
+            case .paused: return "Paused"
+            case .starting: return "Starting"
+            case .stopped, .failed: return "Stopped"
+            }
+        }
         switch state.phase {
         case .recording: return "Recording"
         case .paused: return "Recording paused"

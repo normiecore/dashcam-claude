@@ -11,6 +11,7 @@ struct ClipsLibraryView: View {
     @State private var collection: Collection = .recent
     @State private var savingRun: RunID?
     @State private var playbackPath: [UUID] = []
+    @State private var saveError: String?
 
     private enum Collection: String, CaseIterable {
         case recent = "Recent drives"
@@ -119,6 +120,11 @@ struct ClipsLibraryView: View {
             } message: { incident in
                 Text("The footage from \(incident.triggerTime.formatted(date: .abbreviated, time: .shortened)) will be permanently deleted from this iPhone.")
             }
+            .alert("Could not save drive", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "Please try again.")
+            }
         }
     }
 
@@ -142,6 +148,8 @@ struct ClipsLibraryView: View {
                     if let incident = await coordinator.saveRecentDrive(drive) {
                         collection = .saved
                         playbackPath.append(incident.id)
+                    } else {
+                        saveError = coordinator.lastError?.text ?? "The footage is no longer available."
                     }
                     savingRun = nil
                 }
