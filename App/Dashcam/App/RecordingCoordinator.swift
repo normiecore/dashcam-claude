@@ -484,6 +484,15 @@ final class RecordingCoordinator: ObservableObject {
         let holder = BackgroundTaskHolder(name: "dashcam.save-drive")
         defer { holder.end() }
         await bootstrapIfNeeded()
+        setError(nil)
+        // Export creates a playable copy alongside the retained original. A long drive can
+        // need much more space than a short incident; leave the configured reserve intact.
+        let requiredBytes = drive.bytes + effectiveRetentionPolicy.minimumFreeBytes
+        if let available = try? await store.availableCapacity(), available < requiredBytes {
+            let required = ByteCountFormatter.string(fromByteCount: requiredBytes, countStyle: .file)
+            setError("Free up more space before saving this drive. About \(required) of free space is needed.")
+            return nil
+        }
         do {
             let incident = try await incidentManager.saveRecordedRun(drive.run)
             await refreshIncidents()

@@ -75,6 +75,24 @@ final class RecordingCoordinatorTests: XCTestCase {
     }
 
     @MainActor
+    func testSavingDriveWithInsufficientExportSpaceKeepsOriginalFootage() async throws {
+        let h = CoordinatorHarness(); h.cleanUp(after: self)
+        try await h.startRecording()
+        await h.coordinator.stop()
+        let drive = try XCTUnwrap(h.coordinator.recentDrives.first)
+        let before = await h.mediaSegments()
+        h.settings.minimumFreeMegabytes = 1 << 26
+        let saved = await h.coordinator.saveRecentDrive(drive)
+        XCTAssertNil(saved)
+        XCTAssertTrue(h.coordinator.lastError?.text.contains("free space") ?? false)
+        XCTAssertTrue(h.coordinator.incidents.isEmpty, "A rejected export must not create a phantom clip")
+        let after = await h.mediaSegments()
+        XCTAssertEqual(before, after, "The user can free space and retry using the original footage")
+        h.settings.minimumFreeMegabytes = 256
+        await h.finish()
+    }
+
+    @MainActor
     func testSaveIncidentKeepsPreRollCollectsPostRollAndExportsAPlayableClip() async throws {
         let h = CoordinatorHarness(); h.cleanUp(after: self)
         try await h.startRecording()
