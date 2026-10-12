@@ -57,11 +57,16 @@ public actor RollingBufferManager {
         let segments = await store.segments()
         let protected = await incidents.protectedSegmentIDs()
         let shared = await incidents.sharedStorageSegmentIDs()
+        // Idle time does not consume the rolling footage budget. Keep the latest recorded
+        // window after a stop/background pause; byte and free-space limits still apply.
+        let now = clock.now()
+        let latestMediaEnd = segments.filter { $0.kind == .media }.map(\.endTime).max()
+        let retentionTime = activeRun == nil ? min(now, latestMediaEnd ?? now) : now
         let plan = RollingBufferPlanner.plan(
             segments: segments,
             protected: protected,
             activeRun: activeRun,
-            now: clock.now(),
+            now: retentionTime,
             policy: policy,
             availableBytes: available,
             sharedStorage: shared

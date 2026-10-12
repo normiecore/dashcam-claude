@@ -106,6 +106,36 @@ public actor IncidentManager {
 
     // MARK: Triggering
 
+    /// Preserves the retained footage of one recorded run, even long after capture stopped.
+    /// The window comes from the media, not the save button's wall-clock time. This is a
+    /// closed snapshot: it neither merges with live incidents nor collects future footage.
+    @discardableResult
+    public func saveRecordedRun(_ run: RunID) async throws -> Incident {
+        let available = await store.segments()
+        let media = available.filter { $0.kind == .media && $0.isComplete && $0.id.run == run }.chronological()
+        guard let start = media.map(\.startTime).min(), let end = media.map(\.endTime).max() else {
+            throw DashcamCoreError.invalidState("No retained footage is available for this drive.")
+        }
+        var incident = Incident(
+            id: UUID(),
+            createdAt: clock.now(),
+            triggers: [IncidentTrigger(source: .manual, time: end, note: "Saved drive")],
+            windowStart: start,
+            windowEnd: end,
+            state: .readyToAssemble
+        )
+        try fs.createDirectory(at: partsDirectory(for: incident.id))
+        for segment in media {
+            attach(segment, to: &incident, from: available)
+        }
+        // Persist before publishing so an assembly consumer always sees a recoverable snapshot.
+        try persist(incident)
+        incidents[incident.id] = incident
+        continuation.yield(.readyToAssemble(incident))
+        logger.notice(.incident, "Saved drive \(run) with \(incident.mediaParts.count) retained segments")
+        return incident
+    }
+
     /// The single entry point for every incident source.
     ///
     /// - Parameter occurredAt: When the event happened, if different from now. Apple Crash Detection

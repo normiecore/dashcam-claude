@@ -13,7 +13,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.quality, .hd1080p30)
         XCTAssertEqual(settings.bufferMinutes, 5)
         XCTAssertEqual(settings.incidentPolicy.preRoll, 5 * 60)
-        XCTAssertEqual(settings.retentionPolicy.targetDuration, 6 * 3_600)
+        XCTAssertEqual(settings.retentionPolicy.targetDuration, 2 * 3_600)
         XCTAssertEqual(settings.retentionPolicy.maxBufferBytes, Int64(4) * 1_073_741_824)
     }
 

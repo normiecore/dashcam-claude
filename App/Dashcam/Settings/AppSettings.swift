@@ -42,7 +42,7 @@ final class AppSettings: ObservableObject {
         self.defaults = defaults
         bufferMinutes = defaults.object(forKey: Keys.bufferMinutes) as? Int ?? 5
         let legacyHours = defaults.object(forKey: Keys.recentHistoryHours) as? Int
-        recentHistoryMinutes = defaults.object(forKey: Keys.recentHistoryMinutes) as? Int ?? legacyHours.map { $0 * 60 } ?? 360
+        recentHistoryMinutes = defaults.object(forKey: Keys.recentHistoryMinutes) as? Int ?? legacyHours.map { $0 * 60 } ?? 120
         recentHistoryGigabytes = defaults.object(forKey: Keys.recentHistoryGigabytes) as? Int ?? 4
         postRollSeconds = defaults.object(forKey: Keys.postRollSeconds) as? Int ?? 60
         audioEnabled = defaults.object(forKey: Keys.audioEnabled) as? Bool ?? true

@@ -7,7 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
 
     private let postRollOptions = [30, 60, 120, 180]
-    private let historyMinuteOptions = [60, 180, 360, 720]
+    private let historyMinuteOptions = [60, 120, 180, 360, 720]
     private let historyStorageOptions = [1, 2, 4, 8, 16]
 
     var body: some View {
@@ -64,13 +64,14 @@ struct SettingsView: View {
     private var automationSection: some View {
         Section {
             Toggle("Start recording when the app opens", isOn: $settings.autoStartRecording)
+            LabeledContent("Recording status", value: "Dynamic Island · CarPlay")
             NavigationLink("Set up car automation") {
                 CarAutomationHelpView()
             }
         } header: {
             Text("Car automation")
         } footer: {
-            Text("CarPlay or your car's Bluetooth can open Dashcam through a Personal Automation. Keep the iPhone unlocked and Dashcam in the foreground while it records.")
+            Text("The Live Activity shows recording or paused status in Dynamic Island and, on iOS 26 or later, CarPlay. Allow Live Activities in iPhone Settings. It does not enable background camera recording.")
         }
     }
 
@@ -128,7 +129,7 @@ struct SettingsView: View {
         } header: {
             Text("Storage")
         } footer: {
-            Text("Dashcam keeps recent footage until it reaches the time limit, storage limit or free-space reserve. It deletes the oldest recent footage first. Saved and recovered clips are kept until you delete them.")
+            Text("Footage is stored automatically in Recent drives. The time limit counts recorded history, so waiting after a drive does not erase it. New footage replaces the oldest recent footage at the time/storage limit. The free-space reserve can shorten history. Saved clips stay until you delete them.")
         }
     }
 
@@ -191,10 +192,10 @@ private struct CarAutomationHelpView: View {
             }
             Section("End a drive") {
                 Text("Create a matching Disconnects automation and add Open URLs with:")
-                Text("dashcam://stop")
+                Text("dashcam://disconnect")
                     .font(.body.monospaced())
                     .textSelection(.enabled)
-                Text("Dashcam asks iOS to open, finishes current writes, then stops. Check that the app is stopped before removing the phone.")
+                Text("Dashcam opens and asks whether to finish the drive. Use dashcam://stop instead if you want the automation to stop without asking. Shortcuts controls delivery; the status card alone cannot detect a disconnection.")
                     .foregroundStyle(.secondary)
             }
             Section("Hands-free saving") {

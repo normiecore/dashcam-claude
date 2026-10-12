@@ -7,6 +7,10 @@ struct RootView: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.colorScheme) private var colorScheme
     @State private var selection: RootTab = .record
+    // The pending-clip badge can recreate a tab's contents. Keep navigation above the tabs
+    // so completing an export cannot reset the selected collection or dismiss playback.
+    @State private var libraryCollection: ClipsLibraryView.Collection = .recent
+    @State private var clipPlaybackPath: [UUID] = []
 
     enum RootTab: Hashable {
         case record
@@ -21,7 +25,7 @@ struct RootView: View {
                     DashcamView()
                 }
                 Tab("Clips", systemImage: "film.stack", value: RootTab.clips) {
-                    ClipsLibraryView(onRecord: { selection = .record })
+                    ClipsLibraryView(onRecord: { selection = .record }, collection: $libraryCollection, playbackPath: $clipPlaybackPath)
                 }
                 .badge(pendingClipCount)
                 Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {
@@ -44,6 +48,12 @@ struct RootView: View {
         .preferredColorScheme(testAppearance)
         .animation(.easeInOut(duration: 0.25), value: coordinator.isDimmed)
         .onOpenURL(perform: handleAutomationURL)
+        .confirmationDialog("CarPlay disconnected — finish this drive?", isPresented: $coordinator.showsDisconnectPrompt, titleVisibility: .visible) {
+            Button("Stop recording", role: .destructive) { Task { await coordinator.stop() } }
+            Button("Continue drive", role: .cancel) {}
+        } message: {
+            Text("Recorded footage is already stored in Recent drives. Dashcam must stay open to capture video.")
+        }
         .fullScreenCover(isPresented: showsOnboarding) {
             OnboardingView()
                 .environmentObject(settings)
@@ -91,6 +101,8 @@ struct RootView: View {
                 if !coordinator.state.isActive { await coordinator.start() }
             case "stop":
                 if coordinator.state.isActive { await coordinator.stop() }
+            case "disconnect":
+                coordinator.requestDisconnectConfirmation()
             case "save":
                 let clip = await coordinator.triggerIncident(source: .manual, note: "Car automation Save clip")
                 if clip != nil { Haptics.success() } else { Haptics.warning() }

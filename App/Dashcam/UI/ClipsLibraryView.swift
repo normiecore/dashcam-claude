@@ -3,11 +3,20 @@ import SwiftUI
 import UIKit
 import DashcamCore
 
-/// Saved clips, grouped by day and presented as a quiet local archive.
+/// Automatically retained drives and saved clips, presented as a local archive.
 struct ClipsLibraryView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     var onRecord: () -> Void
     @State private var pendingDelete: Incident? = nil
+    @Binding var collection: Collection
+    @State private var savingRun: RunID?
+    @Binding var playbackPath: [UUID]
+    @State private var saveError: String?
+
+    enum Collection: String, CaseIterable {
+        case recent = "Recent drives"
+        case saved = "Saved clips"
+    }
 
     private struct DayGroup: Identifiable {
         let day: Date
@@ -25,41 +34,85 @@ struct ClipsLibraryView: View {
         }
     }
 
+    private var historyLimitText: String {
+        let minutes = coordinator.settings.recentHistoryMinutes
+        if minutes >= 60, minutes % 60 == 0 {
+            let hours = minutes / 60
+            return "\(hours) hour\(hours == 1 ? "" : "s")"
+        }
+        return "\(minutes) minute\(minutes == 1 ? "" : "s")"
+    }
+
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(groupedIncidents) { group in
-                    Section {
-                        ForEach(group.incidents) { incident in
-                            row(for: incident)
-                                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                                .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
+        NavigationStack(path: $playbackPath) {
+            VStack(spacing: 0) {
+                Picker("Library collection", selection: $collection) {
+                    ForEach(Collection.allCases, id: \.self) { item in
+                        Text(item.rawValue).tag(item)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding()
+                .accessibilityIdentifier("clips.collection")
+
+                List {
+                    if collection == .recent {
+                        Section {
+                            ForEach(coordinator.recentDrives) { drive in
+                                recentRow(for: drive)
+                            }
+                        } footer: {
+                            Text("Footage is stored automatically. Recent drives keep up to \(historyLimitText) within a \(coordinator.settings.recentHistoryGigabytes) GB budget. The oldest footage is removed as limits are reached or space runs low. Save a drive to keep it in Saved clips.")
                         }
-                    } header: {
-                        Text(group.day, format: .dateTime.day().month(.wide).year())
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.primary)
-                            .textCase(nil)
+                    } else {
+                        ForEach(groupedIncidents) { group in
+                            Section {
+                                ForEach(group.incidents) { incident in
+                                    row(for: incident)
+                                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                                        .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
+                                }
+                            } header: {
+                                Text(group.day, format: .dateTime.day().month(.wide).year())
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Color.primary)
+                                    .textCase(nil)
+                            }
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(Color(uiColor: .systemGroupedBackground))
+                .overlay {
+                    if collection == .saved && coordinator.incidents.isEmpty {
+                        emptyState
+                    } else if collection == .recent && coordinator.recentDrives.isEmpty {
+                        ContentUnavailableView {
+                            Label("No recent drives", systemImage: "car")
+                        } description: {
+                            Text("Recorded footage appears here automatically as segments finish. Keep the camera open while driving; switching apps pauses video capture.")
+                        } actions: {
+                            Button("Go to camera", action: onRecord)
+                                .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("clips.goToCamera")
+                        }
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(Color(uiColor: .systemGroupedBackground))
-            .overlay {
-                if coordinator.incidents.isEmpty {
-                    emptyState
-                }
-            }
-            .navigationTitle("Saved clips")
+            .navigationTitle(collection.rawValue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color(uiColor: .systemGroupedBackground), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 ClipDetailView(incidentID: id)
             }
-            .refreshable { await coordinator.refreshIncidents() }
-            .task { await coordinator.refreshIncidents() }
+            .refreshable { await coordinator.refreshIncidents(); await coordinator.refreshStats() }
+            .task {
+                await coordinator.refreshIncidents()
+                await coordinator.refreshStats()
+            }
             .confirmationDialog(
                 "Delete this clip?",
                 isPresented: isConfirmingDelete,
@@ -73,7 +126,51 @@ struct ClipsLibraryView: View {
             } message: { incident in
                 Text("The footage from \(incident.triggerTime.formatted(date: .abbreviated, time: .shortened)) will be permanently deleted from this iPhone.")
             }
+            .alert("Could not save drive", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "Please try again.")
+            }
         }
+    }
+
+    private func recentRow(for drive: RecentDrive) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label {
+                Text(drive.start, format: .dateTime.day().month(.abbreviated).hour().minute())
+                    .font(.headline)
+            } icon: {
+                Image(systemName: "car.fill")
+            }
+            .accessibilityIdentifier("clips.recentDrive")
+            Text("\(formatDuration(drive.duration)) recorded · \(ByteCountFormatter.string(fromByteCount: drive.bytes, countStyle: .file))")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text("Automatically stored · oldest footage is replaced")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button {
+                savingRun = drive.run
+                Task {
+                    if let incident = await coordinator.saveRecentDrive(drive) {
+                        collection = .saved
+                        playbackPath.append(incident.id)
+                    } else {
+                        saveError = coordinator.lastError?.text ?? "The footage is no longer available."
+                    }
+                    savingRun = nil
+                }
+            } label: {
+                HStack {
+                    if savingRun == drive.run { ProgressView() }
+                    Label(coordinator.state.runID == drive.run ? "Save available footage" : "Save drive", systemImage: "square.and.arrow.down")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(savingRun != nil)
+            .accessibilityIdentifier("clips.saveRecentDrive")
+        }
+        .padding(.vertical, 6)
     }
 
     private func canDelete(_ incident: Incident) -> Bool {
