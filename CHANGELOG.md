@@ -1,12 +1,14 @@
 # Changelog
 
-## Drive history and recording status - 2026-10-12
+## Drive history and recording status - 0.1.1 - 2026-10-12
 
-- Expose automatic recent drives separately from saved incident clips; save a closed run using its footage timestamps even after returning later.
-- Preserve the latest rolling footage window while idle, with existing byte/free-space limits; default new installations to two hours.
-- Add a WidgetKit status extension for Dynamic Island, Lock Screen and supported CarPlay Live Activities, with paused/stale status and explicit disconnect confirmation through Shortcuts.
-- Add core and production regression coverage, update saved-clip UI journeys, and verify the embedded extension in archive checks. Swift/Xcode/device checks remain pending; this draft has not been uploaded to TestFlight and does not enable background camera capture.
-- PR #9 is merged into the current main base. Resumed the draft in a working Git checkout; fixed foreground resume racing background flush and excluded incomplete media from saved-drive exports. Hosted validation and TestFlight upload are pending.
+- Expose automatic recent drives separately from saved incident clips; preserve a closed run using its footage timestamps, including when the user returns later.
+- Keep the latest footage window while idle, subject to byte/free-space limits; default new settings to two hours. Preflight export space for long drives and show saving failures without deleting retained originals.
+- Join background flush before foreground resume, exclude incomplete media from saved snapshots, and preserve library collection/playback navigation when pending-clip badges change.
+- Add a WidgetKit status extension for Dynamic Island, Lock Screen and supported CarPlay Live Activities, with fresh-frame recording and paused/stale status. Disconnect confirmation uses Shortcuts.
+- Verified source `801816b84e87e9c46d8fee905e929572921f36f1`: [CI 38209125123](https://github.com/normiecore/dashcam-claude/actions/runs/38209125123) passes 67 core tests, 26 production unit tests, all eight UI journeys, both phone-size/orientation checks and production Release archive/bundle validation. [Verification 38209125130](https://github.com/normiecore/dashcam-claude/actions/runs/38209125130) passes portable policy checks, 16 alternate-project tests and archive checks. Reviewed the automatic-history and saved-drive playback screenshots.
+- Apple accepted version `0.1.1`, build `20261012.604`, in [TestFlight run 38210752423](https://github.com/normiecore/dashcam-claude/actions/runs/38210752423), including app/extension signing. Processing and installation remain unconfirmed; physical acceptance and background-camera eligibility remain pending.
+- PR #10 remains open: automatic approval review blocked its main-branch merge until explicit approval for this PR. Later checkpoint edits are documentation only.
 
 ## Saved clips navigation repair — 2026-10-08
 

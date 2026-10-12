@@ -2,34 +2,50 @@
 
 Last updated: **2026-10-12, Australia/Perth**.
 
-## Active checkpoint - drive history and Live Activity verification
+## Active checkpoint - 0.1.1 accepted by TestFlight; PR #10 merge pending
 
-Resumed **2026-10-12, Australia/Perth**. Recovered the saved draft against main
-`16e0731ea91fdf9f543ba15c9715e283c356d6ba` (PR #9 is merged). Development branch:
-`codex/drive-history-live-activity-20261012`.
+Prepared and verified **2026-10-12, Australia/Perth** on
+`codex/drive-history-live-activity-20261012`, [PR #10](https://github.com/normiecore/dashcam-claude/pull/10).
+Verified application source: `801816b84e87e9c46d8fee905e929572921f36f1`.
+Later checkpoint edits are documentation only and do not change the verified binary.
 
-Changes: Recent drives exposes automatic footage; Save drive preserves a closed run
-using captured timestamps; idle retention keeps the latest window with byte/free-space
-limits; new installs default to two hours. Live Activity shows fresh-frame recording,
-paused and stale status, with supported CarPlay small-family presentation. A Shortcuts
-`dashcam://disconnect` automation prompts to finish. Camera capture remains foreground-only.
-The owner submitted an Apple support eligibility request; no answer/approval received.
+Apple accepted **0.1.1**, build **20261012.604**, at 14:08 Perth in
+[TestFlight run 38210752423](https://github.com/normiecore/dashcam-claude/actions/runs/38210752423).
+Release archive, bundle checks, app/extension signing and upload all passed.
+Apple processing, tester installation and physical-device acceptance are unconfirmed.
+Do not repeat this successful upload just because processing is pending.
 
-Review fixed foreground resume racing background flush, and excluded incomplete media
-from saved-drive snapshots. Added regression tests for delayed saving/reload, empty runs,
-run isolation, incomplete media, protection fallback, storage pressure and foreground
-resume while background flushing. Existing incident UI tests now select Saved clips.
+Implemented: automatic Recent drives, historical Save drive using footage timestamps,
+idle retention of the latest window with existing storage limits, a two-hour default
+for new settings, export-space preflight with visible failure feedback, background
+flush joined before foreground resume, and truthful recording/paused/stale Live Activity
+status for Dynamic Island, Lock Screen and supported CarPlay systems. CarPlay disconnect
+confirmation uses a Shortcuts automation opening `dashcam://disconnect`.
+The extension App ID `com.normiecore.dashcam.activity` signed successfully.
+The owner submitted Apple's camera eligibility inquiry; no answer is available here.
+Capture remains foreground-only, with recorded footage kept across pauses.
 
-Local patch application, whitespace, shell syntax and XcodeGen YAML checks pass. This
-Linux session has no Swift/Xcode installation. Hosted core/app/UI tests, extension
-compilation, layout previews and Release archive/bundle checks are pending. Git clone
-works here; the prior Windows-session publishing restriction must not be treated as a
-current test result. No new TestFlight upload yet. Physical camera/CarPlay/Island testing
-remains required even after simulator checks pass.
+[CI 38209125123](https://github.com/normiecore/dashcam-claude/actions/runs/38209125123) passes
+67 core tests, 26 production app unit tests, all eight UI journeys, compact iPhone 17e
+and large iPhone 18 Pro Max portrait/landscape checks, and production Release
+archive/bundle validation. [Verification 38209125130](https://github.com/normiecore/dashcam-claude/actions/runs/38209125130)
+passes portable policy checks, 16 alternate-project tests and its archive checks.
+Reviewed Recent drives and saved-drive playback screenshots in the successful
+[simulator preview](https://github.com/normiecore/dashcam-claude/tree/simulator-preview).
+UI-test retention is shortened to one minute; this is not the release default.
 
-Next: publish the branch/PR, resolve actual hosted failures, review preview artifacts,
-then upload the verified source through the existing TestFlight workflow. The embedded
-extension uses App ID `com.normiecore.dashcam.activity`; signing is not yet verified.
+The first complete UI run caught inherited save-button identifiers and library
+selection/navigation resetting when pending-clip badges changed. These are fixed;
+the entire UI suite passes after the fix. No failing tests were disabled.
+
+**Main is unchanged.** Automatic approval review rejected squash-merging PR #10:
+it changes the default branch and the conversation lacks direct authorization for
+this specific PR. Do not bypass that rejection. The upload succeeded independently.
+Next: obtain explicit approval to merge PR #10, then merge with an expected-head
+check. Install build 20261012.604 after processing and follow the 0.1.1 checklist
+in `docs/TESTING.md`: actual capture/playback, an hour-later save, rapid app
+switch/resume/Stop, two-hour recording/storage, and Island/CarPlay presentations.
+Do not describe simulator tests as physical recording or background-camera approval.
 
 ## Active checkpoint — library navigation and contrast repair
 
