@@ -7,6 +7,10 @@ struct RootView: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.colorScheme) private var colorScheme
     @State private var selection: RootTab = .record
+    // The pending-clip badge can recreate a tab's contents. Keep navigation above the tabs
+    // so completing an export cannot reset the selected collection or dismiss playback.
+    @State private var libraryCollection: ClipsLibraryView.Collection = .recent
+    @State private var clipPlaybackPath: [UUID] = []
 
     enum RootTab: Hashable {
         case record
@@ -21,7 +25,7 @@ struct RootView: View {
                     DashcamView()
                 }
                 Tab("Clips", systemImage: "film.stack", value: RootTab.clips) {
-                    ClipsLibraryView(onRecord: { selection = .record })
+                    ClipsLibraryView(onRecord: { selection = .record }, collection: $libraryCollection, playbackPath: $clipPlaybackPath)
                 }
                 .badge(pendingClipCount)
                 Tab("Settings", systemImage: "gearshape", value: RootTab.settings) {

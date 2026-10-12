@@ -33,6 +33,7 @@ final class DashcamUITests: XCTestCase {
 
         app.tabBars.buttons["Clips"].tap()
         app.segmentedControls.buttons["Saved clips"].tap()
+        XCTAssertTrue(app.navigationBars["Saved clips"].waitForExistence(timeout: 10), "The chosen collection survives pending-clip badge updates")
         let row = element(app, "clips.row")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "the incident is listed")
         XCTAssertTrue(row.wait(labelContaining: "Manual", timeout: 5), row.label)
@@ -94,6 +95,7 @@ final class DashcamUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 15), "the simulated crash creates an incident")
         XCTAssertTrue(row.wait(labelContaining: "Developer simulation", timeout: 5), row.label)
         XCTAssertTrue(row.wait(labelContaining: "Saved", timeout: 60), "the clip finishes exporting: \(row.label)")
+        XCTAssertTrue(app.navigationBars["Saved clips"].exists, "Finishing the pending clip must not reset the collection")
 
         app.tabBars.buttons["Record"].tap()
         stopRecording(app)

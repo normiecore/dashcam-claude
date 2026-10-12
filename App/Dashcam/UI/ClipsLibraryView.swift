@@ -8,12 +8,12 @@ struct ClipsLibraryView: View {
     @EnvironmentObject var coordinator: RecordingCoordinator
     var onRecord: () -> Void
     @State private var pendingDelete: Incident? = nil
-    @State private var collection: Collection = .recent
+    @Binding var collection: Collection
     @State private var savingRun: RunID?
-    @State private var playbackPath: [UUID] = []
+    @Binding var playbackPath: [UUID]
     @State private var saveError: String?
 
-    private enum Collection: String, CaseIterable {
+    enum Collection: String, CaseIterable {
         case recent = "Recent drives"
         case saved = "Saved clips"
     }
@@ -32,6 +32,15 @@ struct ClipsLibraryView: View {
         return groups.keys.sorted(by: >).map { day in
             DayGroup(day: day, incidents: groups[day, default: []].sorted { $0.triggerTime > $1.triggerTime })
         }
+    }
+
+    private var historyLimitText: String {
+        let minutes = coordinator.settings.recentHistoryMinutes
+        if minutes >= 60, minutes % 60 == 0 {
+            let hours = minutes / 60
+            return "\(hours) hour\(hours == 1 ? "" : "s")"
+        }
+        return "\(minutes) minute\(minutes == 1 ? "" : "s")"
     }
 
     var body: some View {
@@ -53,7 +62,7 @@ struct ClipsLibraryView: View {
                                 recentRow(for: drive)
                             }
                         } footer: {
-                            Text("Footage is stored automatically. Recent drives keep up to \(coordinator.settings.recentHistoryMinutes) minutes within a \(coordinator.settings.recentHistoryGigabytes) GB budget. The oldest footage is removed as limits are reached or space runs low. Save a drive to keep it in Saved clips.")
+                            Text("Footage is stored automatically. Recent drives keep up to \(historyLimitText) within a \(coordinator.settings.recentHistoryGigabytes) GB budget. The oldest footage is removed as limits are reached or space runs low. Save a drive to keep it in Saved clips.")
                         }
                     } else {
                         ForEach(groupedIncidents) { group in
@@ -103,9 +112,6 @@ struct ClipsLibraryView: View {
             .task {
                 await coordinator.refreshIncidents()
                 await coordinator.refreshStats()
-                if coordinator.recentDrives.isEmpty && !coordinator.incidents.isEmpty {
-                    collection = .saved
-                }
             }
             .confirmationDialog(
                 "Delete this clip?",
@@ -136,6 +142,7 @@ struct ClipsLibraryView: View {
             } icon: {
                 Image(systemName: "car.fill")
             }
+            .accessibilityIdentifier("clips.recentDrive")
             Text("\(formatDuration(drive.duration)) recorded · \(ByteCountFormatter.string(fromByteCount: drive.bytes, countStyle: .file))")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -164,7 +171,6 @@ struct ClipsLibraryView: View {
             .accessibilityIdentifier("clips.saveRecentDrive")
         }
         .padding(.vertical, 6)
-        .accessibilityIdentifier("clips.recentDrive")
     }
 
     private func canDelete(_ incident: Incident) -> Bool {
