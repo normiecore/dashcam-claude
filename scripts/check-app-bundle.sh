@@ -24,6 +24,15 @@ family="$(plutil -extract UIDeviceFamily json -o - "$plist" 2>/dev/null | tr -d 
 [ "$family" = "[1]" ] || fail "UIDeviceFamily is $family, expected [1] (iPhone only)"
 plutil -extract UILaunchScreen json -o - "$plist" >/dev/null 2>&1 || fail "UILaunchScreen is missing (ITMS-90870)"
 [ -f "$app/PrivacyInfo.xcprivacy" ] || fail "PrivacyInfo.xcprivacy is not in the bundle"
+[ "$(value NSSupportsLiveActivities)" = "true" ] || fail "Live Activities are not enabled"
+extension="$app/PlugIns/DriveActivity.appex"
+[ -f "$extension/Info.plist" ] || fail "Recording-status extension is not embedded"
+if [ -f "$extension/Info.plist" ]; then
+  point=$(plutil -extract NSExtension.NSExtensionPointIdentifier raw -o - "$extension/Info.plist")
+  [ "$point" = "com.apple.widgetkit-extension" ] || fail "Incorrect Live Activity extension point"
+  extension_build=$(plutil -extract CFBundleVersion raw -o - "$extension/Info.plist")
+  [ "$extension_build" = "$(value CFBundleVersion)" ] || fail "Extension and app build numbers differ"
+fi
 ls "$app"/*.debug.dylib >/dev/null 2>&1 && fail "A debug dylib is in the bundle: this is not a Release build"
 
 version="$(value CFBundleShortVersionString)"

@@ -64,6 +64,9 @@ final class RecordingCoordinator: ObservableObject {
     @Published private(set) var bufferSegmentCount = 0
     @Published private(set) var storage: StorageStatus?
     @Published private(set) var incidents: [Incident] = []
+    /// All finalized recent media is saved automatically, whether or not Save clip was tapped.
+    @Published private(set) var recentDrives: [RecentDrive] = []
+    @Published var showsDisconnectPrompt = false
     @Published private(set) var lastError: Banner?
     @Published private(set) var statusMessage: Banner?
     @Published private(set) var pressureLevel: AVCaptureDevice.SystemPressureState.Level = .nominal
@@ -136,6 +139,8 @@ final class RecordingCoordinator: ObservableObject {
     private var runAngle: CGFloat = 0
     private var rotationCheck: Task<Void, Never>?
     private var runTeardown: Task<Void, Never>?
+    /// Foreground work must join the background flush before it can arm another writer.
+    private var backgroundFlush: Task<Void, Never>?
     /// Developer tool: makes the coordinator treat the session as interrupted for a few seconds.
     private var simulatedInterruption = false
     private var ingestContinuation: AsyncStream<IngestItem>.Continuation?
@@ -151,6 +156,7 @@ final class RecordingCoordinator: ObservableObject {
     private var statusClearTask: Task<Void, Never>?
 
     private let storageLocations: StorageLocations
+    private let driveActivity: DriveActivityController
 
     /// - Parameters:
     ///   - capture: The camera. Defaults to the real `CameraCaptureService`; tests inject a fake.
@@ -160,6 +166,7 @@ final class RecordingCoordinator: ObservableObject {
         self.logger = logger
         self.memoryLog = memoryLog
         self.storageLocations = storage
+        self.driveActivity = DriveActivityController(enabled: storage.isAppDefault)
         let fileSystem = DefaultFileSystem()
         store = SegmentStore(rootURL: storage.buffer, fileSystem: fileSystem, logger: logger)
         incidentManager = IncidentManager(rootURL: storage.incidents, store: store, fileSystem: fileSystem, policy: settings.incidentPolicy, logger: logger)
@@ -273,6 +280,7 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: Session control
 
     func start() async {
+        await backgroundFlush?.value
         // A failed session tears itself down asynchronously; a restart must not race that teardown.
         if let teardown = failTeardown { await teardown.value }
         guard !state.isActive, beginTransition() else { return }
@@ -329,6 +337,7 @@ final class RecordingCoordinator: ObservableObject {
         // Intent is recorded before the guard: a Stop tapped during a pause/resume must win over the
         // automatic resume that would otherwise follow.
         userWantsRecording = false
+        await backgroundFlush?.value
         guard beginTransition() else {
             stopRequested = true
             logger.notice(.recorder, "Stop requested during a transition; will stop when it ends")
@@ -376,7 +385,11 @@ final class RecordingCoordinator: ObservableObject {
         defer { if task != .invalid { UIApplication.shared.endBackgroundTask(task) } }
         await bootstrapIfNeeded()
         do {
-            var incident = try await incidentManager.trigger(source: source, note: note, occurredAt: occurredAt)
+            // After a drive, Save clip must look back from the last captured frame, not from a tap
+            // made an hour later. Explicit crash-event timestamps retain their original meaning.
+            let media = await store.segments().filter { $0.kind == .media }
+            let saveTime = occurredAt ?? (source == .manual && !isRecording ? media.map(\.endTime).max() : nil)
+            var incident = try await incidentManager.trigger(source: source, note: note, occurredAt: saveTime)
             saveMotionTrace(for: incident)
             if incident.state == .collecting, !state.isActive {
                 // Nothing is recording, so no post-roll can ever arrive: close the incident with the
@@ -464,6 +477,26 @@ final class RecordingCoordinator: ObservableObject {
 
     func refreshIncidents() async {
         incidents = await incidentManager.allIncidents()
+    }
+
+    /// Pins a historical run using its recorded dates; never extends into an idle/background gap.
+    func saveRecentDrive(_ drive: RecentDrive) async -> Incident? {
+        let holder = BackgroundTaskHolder(name: "dashcam.save-drive")
+        defer { holder.end() }
+        await bootstrapIfNeeded()
+        do {
+            let incident = try await incidentManager.saveRecordedRun(drive.run)
+            await refreshIncidents()
+            return incident
+        } catch {
+            setError("Could not save drive: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    func requestDisconnectConfirmation() {
+        guard state.isActive else { return }
+        showsDisconnectPrompt = true
     }
 
     // MARK: Permissions
@@ -566,7 +599,7 @@ final class RecordingCoordinator: ObservableObject {
     /// Runs after every transition and on every watchdog tick: acts on intent recorded during a
     /// transition and on the session's real state, so nothing is lost to ordering.
     private func reconcile() {
-        guard !isTransitioning else { return }
+        guard !isTransitioning, backgroundFlush == nil else { return }
         if stopRequested {
             stopRequested = false
             if state.isActive { Task { await stop() } }
@@ -751,6 +784,7 @@ final class RecordingCoordinator: ObservableObject {
     /// audio coming or going. Costs a sub-second gap at the run boundary; an incident spanning it
     /// simply gets two clip parts.
     private func rotateRun(reason: String, reconfigure: Bool = false) async {
+        await backgroundFlush?.value
         guard isRecording else { return }
         guard beginTransition() else {
             pendingRotation = (reason, reconfigure || (pendingRotation?.reconfigure ?? false))
@@ -870,6 +904,7 @@ final class RecordingCoordinator: ObservableObject {
     }
 
     private func resumeAfterInterruption() async {
+        await backgroundFlush?.value
         guard case .interrupted = state, userWantsRecording, beginTransition() else { return }
         defer { endTransition() }
         await performResume()
@@ -899,6 +934,7 @@ final class RecordingCoordinator: ObservableObject {
     /// session, and resume after a short pause. Holds the transition slot throughout so nothing can
     /// arm a writer against a session that is about to be torn down.
     private func recover(from error: Error, mediaServicesReset: Bool) async {
+        await backgroundFlush?.value
         guard state.isActive else { return }
         guard beginTransition() else {
             // Recorded, not dropped: reconcile() runs it when the current transition ends. A reset is
@@ -977,13 +1013,28 @@ final class RecordingCoordinator: ObservableObject {
     /// The system interrupts the camera on backgrounding; make sure the writer has flushed its last
     /// segment and the index has it before the process is suspended, then release the background task.
     /// The camera interruption notification may arrive before or after this; both orders end here.
-    private func handleDidEnterBackground() async {
+    func handleDidEnterBackground() async {
+        if let flush = backgroundFlush { await flush.value; return }
         guard state.isActive else { endBackgroundTask(); return }
+        let flush = Task { @MainActor in await self.finishBackgroundRun() }
+        backgroundFlush = flush
+        await flush.value
+        backgroundFlush = nil
+        reconcile()
+    }
+
+    private func finishBackgroundRun() async {
+        updateDriveActivity()
         logger.notice(.recorder, "Entering background; finishing current run")
         await waitForTransition(upTo: 2)
         await pauseForInterruption("app in background")
         await endRun()          // joins an in-flight teardown started by the interruption path
         await drainIngest()
+        // No more frames can arrive while backgrounded. Finalize open clips now and leave automatic
+        // history available for the next launch; keep user intent so foregrounding can resume.
+        do { try await buffer.endRun() } catch { setError("Could not finish the drive: \(error.localizedDescription)") }
+        await refreshStats()
+        await driveActivity.flush()
         endBackgroundTask()
     }
 
@@ -995,6 +1046,7 @@ final class RecordingCoordinator: ObservableObject {
     }
 
     private func handleDidBecomeActive() async {
+        await backgroundFlush?.value
         endBackgroundTask()
         refreshPermissions()
         if case .interrupted = state, userWantsRecording, !isTransitioning, !sessionInterrupted {
@@ -1047,6 +1099,7 @@ final class RecordingCoordinator: ObservableObject {
     private func watchdogTick() {
         videoFrames = router.videoFrames
         droppedFrames = router.droppedFrames
+        updateDriveActivity()
         guard !isTransitioning else { return }
         let inBackground = UIApplication.shared.applicationState == .background
         // The audio flag has no "ended" guarantee either: clear it once the session is no longer
@@ -1215,6 +1268,7 @@ final class RecordingCoordinator: ObservableObject {
 
     func refreshStats() async {
         bufferedSeconds = await buffer.bufferedDuration()
+        recentDrives = RecentDrive.grouped(from: await store.segments())
         bufferSegmentCount = await store.count
         // While recording, retention measured free space for the segment just indexed; reuse that rather
         // than run a second, possibly slow, query for every segment.
@@ -1227,6 +1281,7 @@ final class RecordingCoordinator: ObservableObject {
         let bufferBytes = await store.totalBytes
         let incidentBytes = AppPaths.directorySize(storageLocations.incidents)
         storage = StorageStatus.evaluate(availableBytes: available, bufferBytes: bufferBytes, incidentBytes: incidentBytes, policy: effectiveRetentionPolicy)
+        updateDriveActivity()
     }
 
     private var effectiveRetentionPolicy: RetentionPolicy {
@@ -1277,10 +1332,41 @@ final class RecordingCoordinator: ObservableObject {
         if let next = RecorderStateMachine.reduce(state, event) {
             logger.debug(.recorder, "State \(state) --\(event)--> \(next)")
             state = next
+            updateDriveActivity()
             if case .interrupted = next { interruptedAt = Date() } else { interruptedAt = nil }
         } else {
             logger.warning(.recorder, "Ignored event \(event) in state \(state)")
         }
+    }
+
+    private func updateDriveActivity() {
+        let phase: DriveActivityAttributes.ContentState.Phase
+        let detail: String
+        switch state {
+        case .recording:
+            // Never advertise REC without fresh camera frames, or after entering the background.
+            if UIApplication.shared.applicationState == .background || !videoFramesFlowing {
+                phase = .paused
+                detail = "Camera paused. Return to Dashcam."
+            } else {
+                phase = .recording
+                detail = "Recent footage saves automatically"
+            }
+        case .starting:
+            phase = .starting
+            detail = "Waiting for camera frames"
+        case .interrupted:
+            phase = .paused
+            detail = "Return to Dashcam to resume. Footage is kept."
+        case .idle, .stopping:
+            phase = .stopped
+            detail = "Recorded footage is in Recent drives"
+        case .failed:
+            phase = .failed
+            detail = "Open Dashcam to check the camera"
+        }
+        driveActivity.update(.init(phase: phase, recordedSeconds: Int(bufferedSeconds), detail: detail, updatedAt: Date()),
+                             startedAt: sessionStartedAt ?? Date())
     }
 
     /// Unrecoverable failure: publish it, then tear the session down completely so no writer is left

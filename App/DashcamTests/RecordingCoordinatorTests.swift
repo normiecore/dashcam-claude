@@ -56,6 +56,25 @@ final class RecordingCoordinatorTests: XCTestCase {
     // MARK: Incidents
 
     @MainActor
+    func testRecentDriveIsAvailableWithoutSaveTapAndCanBePreservedAfterStop() async throws {
+        let h = CoordinatorHarness(); h.cleanUp(after: self)
+        try await h.startRecording()
+        try await h.waitForMediaSegments(2)
+        await h.coordinator.stop()
+        await h.coordinator.refreshStats()
+        XCTAssertTrue(h.coordinator.incidents.isEmpty, "No manual save was needed to store recent footage")
+        let drive = try XCTUnwrap(h.coordinator.recentDrives.first)
+        XCTAssertGreaterThan(drive.duration, 0)
+        let saved = await h.coordinator.saveRecentDrive(drive)
+        let incident = try XCTUnwrap(saved)
+        try await h.waitUntil("recent drive playable", timeout: 45) { h.incident(incident.id)?.state == .complete }
+        let complete = try XCTUnwrap(h.incident(incident.id))
+        XCTAssertEqual(complete.footageDuration, drive.duration, accuracy: 0.6)
+        XCTAssertFalse(h.coordinator.clipURLs(for: complete).isEmpty)
+        await h.finish()
+    }
+
+    @MainActor
     func testSaveIncidentKeepsPreRollCollectsPostRollAndExportsAPlayableClip() async throws {
         let h = CoordinatorHarness(); h.cleanUp(after: self)
         try await h.startRecording()
@@ -206,6 +225,28 @@ final class RecordingCoordinatorTests: XCTestCase {
     }
 
     // MARK: Interruptions
+
+    @MainActor
+    func testForegroundResumeJoinsBackgroundFlushAndLeavesNewWriterActive() async throws {
+        let h = CoordinatorHarness(); h.cleanUp(after: self)
+        try await h.startRecording()
+        let runsBefore = await h.runs()
+        let triggered = await h.coordinator.triggerIncident(source: .manual)
+        let saved = try XCTUnwrap(triggered)
+        h.fake.beginCameraInterruption()
+        let flush = Task { @MainActor in await h.coordinator.handleDidEnterBackground() }
+        await Task.yield()
+        h.fake.endInterruption()
+        await flush.value
+        try await h.waitUntil("foreground resume after flush") { h.coordinator.isRecording }
+        try await h.waitForFootageInANewRun(besides: runsBefore)
+        let activeRun = await h.coordinator.buffer.activeRun
+        XCTAssertEqual(activeRun, h.coordinator.state.runID, "The old flush must not close the newly resumed run")
+        try await h.waitUntil("paused drive clip exported", timeout: 45) { h.incident(saved.id)?.state == .complete }
+        await h.coordinator.stop()
+        XCTAssertFalse(h.coordinator.recentDrives.isEmpty)
+        await h.finish()
+    }
 
     @MainActor
     func testCameraInterruptionPausesAndResumesInANewRun() async throws {

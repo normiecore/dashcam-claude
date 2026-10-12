@@ -1,5 +1,13 @@
 # Changelog
 
+## Drive history and recording status - 2026-10-12
+
+- Expose automatic recent drives separately from saved incident clips; save a closed run using its footage timestamps even after returning later.
+- Preserve the latest rolling footage window while idle, with existing byte/free-space limits; default new installations to two hours.
+- Add a WidgetKit status extension for Dynamic Island, Lock Screen and supported CarPlay Live Activities, with paused/stale status and explicit disconnect confirmation through Shortcuts.
+- Add core and production regression coverage, update saved-clip UI journeys, and verify the embedded extension in archive checks. Swift/Xcode/device checks remain pending; this draft has not been uploaded to TestFlight and does not enable background camera capture.
+- PR #9 is merged into the current main base. Resumed the draft in a working Git checkout; fixed foreground resume racing background flush and excluded incomplete media from saved-drive exports. Hosted validation and TestFlight upload are pending.
+
 ## Saved clips navigation repair — 2026-10-08
 
 - Replaced the library's fixed cream background with adaptive light/dark system surfaces; corrected title, date and empty-state contrast.

@@ -1,6 +1,35 @@
 # Dashcam project — read first
 
-Last updated: **2026-10-08, Australia/Perth**.
+Last updated: **2026-10-12, Australia/Perth**.
+
+## Active checkpoint - drive history and Live Activity verification
+
+Resumed **2026-10-12, Australia/Perth**. Recovered the saved draft against main
+`16e0731ea91fdf9f543ba15c9715e283c356d6ba` (PR #9 is merged). Development branch:
+`codex/drive-history-live-activity-20261012`.
+
+Changes: Recent drives exposes automatic footage; Save drive preserves a closed run
+using captured timestamps; idle retention keeps the latest window with byte/free-space
+limits; new installs default to two hours. Live Activity shows fresh-frame recording,
+paused and stale status, with supported CarPlay small-family presentation. A Shortcuts
+`dashcam://disconnect` automation prompts to finish. Camera capture remains foreground-only.
+The owner submitted an Apple support eligibility request; no answer/approval received.
+
+Review fixed foreground resume racing background flush, and excluded incomplete media
+from saved-drive snapshots. Added regression tests for delayed saving/reload, empty runs,
+run isolation, incomplete media, protection fallback, storage pressure and foreground
+resume while background flushing. Existing incident UI tests now select Saved clips.
+
+Local patch application, whitespace, shell syntax and XcodeGen YAML checks pass. This
+Linux session has no Swift/Xcode installation. Hosted core/app/UI tests, extension
+compilation, layout previews and Release archive/bundle checks are pending. Git clone
+works here; the prior Windows-session publishing restriction must not be treated as a
+current test result. No new TestFlight upload yet. Physical camera/CarPlay/Island testing
+remains required even after simulator checks pass.
+
+Next: publish the branch/PR, resolve actual hosted failures, review preview artifacts,
+then upload the verified source through the existing TestFlight workflow. The embedded
+extension uses App ID `com.normiecore.dashcam.activity`; signing is not yet verified.
 
 ## Active checkpoint — library navigation and contrast repair
 

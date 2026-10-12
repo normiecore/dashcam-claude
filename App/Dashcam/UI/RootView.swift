@@ -44,6 +44,12 @@ struct RootView: View {
         .preferredColorScheme(testAppearance)
         .animation(.easeInOut(duration: 0.25), value: coordinator.isDimmed)
         .onOpenURL(perform: handleAutomationURL)
+        .confirmationDialog("CarPlay disconnected — finish this drive?", isPresented: $coordinator.showsDisconnectPrompt, titleVisibility: .visible) {
+            Button("Stop recording", role: .destructive) { Task { await coordinator.stop() } }
+            Button("Continue drive", role: .cancel) {}
+        } message: {
+            Text("Recorded footage is already stored in Recent drives. Dashcam must stay open to capture video.")
+        }
         .fullScreenCover(isPresented: showsOnboarding) {
             OnboardingView()
                 .environmentObject(settings)
@@ -91,6 +97,8 @@ struct RootView: View {
                 if !coordinator.state.isActive { await coordinator.start() }
             case "stop":
                 if coordinator.state.isActive { await coordinator.stop() }
+            case "disconnect":
+                coordinator.requestDisconnectConfirmation()
             case "save":
                 let clip = await coordinator.triggerIncident(source: .manual, note: "Car automation Save clip")
                 if clip != nil { Haptics.success() } else { Haptics.warning() }

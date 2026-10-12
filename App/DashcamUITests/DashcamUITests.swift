@@ -32,6 +32,7 @@ final class DashcamUITests: XCTestCase {
         stopRecording(app)
 
         app.tabBars.buttons["Clips"].tap()
+        app.segmentedControls.buttons["Saved clips"].tap()
         let row = element(app, "clips.row")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "the incident is listed")
         XCTAssertTrue(row.wait(labelContaining: "Manual", timeout: 5), row.label)
@@ -88,6 +89,7 @@ final class DashcamUITests: XCTestCase {
         crash.tap()
 
         app.tabBars.buttons["Clips"].tap()
+        app.segmentedControls.buttons["Saved clips"].tap()
         let row = element(app, "clips.row")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "the simulated crash creates an incident")
         XCTAssertTrue(row.wait(labelContaining: "Developer simulation", timeout: 5), row.label)
@@ -95,6 +97,30 @@ final class DashcamUITests: XCTestCase {
 
         app.tabBars.buttons["Record"].tap()
         stopRecording(app)
+    }
+
+    @MainActor
+    func testAutomaticRecentDriveSurvivesAnAppSwitchAndSavesWithoutAnEarlierSaveTap() throws {
+        let app = launch()
+        startRecording(app)
+        // Let finalized media reach the automatic history before backgrounding.
+        XCTAssertTrue(app.buttons["record.saveIncident"].wait(for: \.isEnabled, toEqual: true, timeout: 15))
+        app.tabBars.buttons["Clips"].tap()
+        let recent = element(app, "clips.recentDrive")
+        XCTAssertTrue(recent.waitForExistence(timeout: 20))
+        snapshot(app, "17 Automatically recorded drive")
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        app.tabBars.buttons["Record"].tap()
+        XCTAssertTrue(state(app).wait(labelContaining: "Recording", timeout: 20), "The same drive intent resumes after foregrounding")
+        stopRecording(app)
+        app.tabBars.buttons["Clips"].tap()
+        app.segmentedControls.buttons["Recent drives"].tap()
+        let save = app.buttons["clips.saveRecentDrive"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 15))
+        save.tap()
+        XCTAssertTrue(app.buttons["clip.share"].waitForExistence(timeout: 60), "Automatically stored footage can be preserved and played")
+        snapshot(app, "18 Saved automatic drive")
     }
 
     // MARK: Permissions
@@ -168,6 +194,7 @@ final class DashcamUITests: XCTestCase {
         XCTAssertTrue(card.waitForNonExistence(timeout: 60))
         stopRecording(app)
         app.tabBars.buttons["Clips"].tap()
+        app.segmentedControls.buttons["Saved clips"].tap()
         let row = element(app, "clips.row")
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         XCTAssertTrue(row.wait(labelContaining: "Saved", timeout: 60))

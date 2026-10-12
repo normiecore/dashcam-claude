@@ -41,13 +41,17 @@ targets:
       - path: Dashcam
         excludes:
           - "**/*.md"
+      - path: Shared
     dependencies:
       - package: DashcamCore
         product: DashcamCore
+      - target: DriveActivity
+        embed: true
     info:
       path: Dashcam/Info.plist
       properties:
         CFBundleDisplayName: Dashcam
+        NSSupportsLiveActivities: true
         # Filled in at build time from MARKETING_VERSION and CURRENT_PROJECT_VERSION below, so CI can
         # give every TestFlight upload a new build number.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
@@ -83,13 +87,36 @@ targets:
         # XcodeGen's iOS preset sets "1,2" at the target level, which overrides the project-wide "1"
         # and would build an iPad app that fails App Store Connect's iPad orientation rules.
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "0.1.1"
         CURRENT_PROJECT_VERSION: "1"
     scheme:
       testTargets:
         - DashcamTests
         - DashcamUITests
       gatherCoverageData: true
+
+  DriveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DriveActivity
+      - path: Shared
+    info:
+      path: DriveActivity/Info.plist
+      properties:
+        CFBundleDisplayName: Dashcam status
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.normiecore.dashcam.activity
+        MARKETING_VERSION: "0.1.1"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
 
   DashcamTests:
     type: bundle.unit-test
