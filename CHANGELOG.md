@@ -1,3 +1,8 @@
+# Hassy Natural addition — 2026-10-15
+
+- Added an isolated native iPhone photo application under `NaturalColor/` and its dedicated hosted Xcode/TestFlight workflow. Uses the owner's existing signing secret names with a separate app identity. Original-file import, camera capture and full-resolution export are implemented; hosted verification is pending.
+- Continuing evidence-backed HNCS reconstruction; no finished iPhone HNCS equivalence is claimed. Dashcam behavior is unchanged.
+
 # Changelog
 
 ## Drive history and recording status - 0.1.1 - 2026-10-12
@@ -335,3 +340,4 @@ physical-device validation pass is complete.
   undocumented; Apple's AVCam treats it as a whole-session interruption. The code handles both:
   frames flowing means a video-only run, frames stopped means a pause that resumes after the call.
   Confirm on a device (checklist step 5).
+

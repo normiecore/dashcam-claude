@@ -1,0 +1,28 @@
+{
+  "status": "pass",
+  "method": "Own C++ versus recovered Python fragment translation plus explicit phone matrix bridge",
+  "runs": [
+    {
+      "table": "synthetic",
+      "pixels": 2118,
+      "max_absolute_linear_rgb_error": 2.5205224849500496e-06,
+      "tolerance": 3e-05
+    },
+    {
+      "table": "reference",
+      "pixels": 2118,
+      "max_absolute_linear_rgb_error": 3.011114312334584e-07,
+      "tolerance": 3e-05
+    },
+    {
+      "table": "reference_with_native_domain_standard_film",
+      "pixels": 2118,
+      "max_absolute_linear_rgb_error": 6.013363599777222e-05,
+      "tolerance": 0.0001,
+      "precision_note": "Floor lookup can differ by one16-bit entry when float32 and float64 inputs straddle an integer boundary"
+    }
+  ],
+  "boundary_controls": "lower and exact upper grid; invalid dimensions/scale; exactblack zero",
+  "black_policy": "Original gray computation undefined at exactblack; application explicitly returnszero",
+  "limitations": "Arithmetic parity does not establish Phocus output or iPhone sensor calibration equivalence"
+}

@@ -1,0 +1,11 @@
+**/*.xcodeproj/
+**/DerivedData/
+**/build/
+**/*.xcresult/
+**/*.ipa
+**/*.xcarchive/
+**/*.p8
+**/*.p12
+**/*.mobileprovision
+.DS_Store
+verification/*.so

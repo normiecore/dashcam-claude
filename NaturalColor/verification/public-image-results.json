@@ -1,0 +1,210 @@
+{
+  "method": "Fixed portable C++ recovered chroma + native-domain Standard floorLUT + explicit gamma/nativeRGB bridge, no fitting or new registration",
+  "profile_id": "fx77eloqamxuqijs5plh",
+  "table_sha256": "fda3ed04def318ecd71ac23aecfc61e683e3083d4b51ebb120b2c6914e4986de",
+  "native_scale": 1.0,
+  "strength": 1.0,
+  "cube_approximation": false,
+  "limitations": [
+    "Published companion processing/settings are undocumented; some carry Photoshop metadata",
+    "LibRaw independent sensor calibration and WB differ from Phocus",
+    "Previously registered downsampled sRGB baseline is decoded back to linear; resampling/8bit rounding predate this run",
+    "Fallback2007 Hasselblad chroma profile is not an identified camera-specific phone or modern Hasselblad calibration",
+    "Standard gamma decoding and Bradford bridge are explicit application integration choices",
+    "DeltaE76 is descriptive appearance residual, not chart ground truth or HNCS equivalence"
+  ],
+  "results": [
+    {
+      "pair_id": "x1d-II-sample-02",
+      "input_npz_sha256": "544e9026273c964d3ada44c454a186388ae37116c8582ecaa59fb61b80faf31e",
+      "reference": {
+        "declared_color_space": 65535,
+        "color_management": "embedded ICC converted to sRGB through LittleCMS",
+        "software": "Adobe Photoshop CC 2019 (Macintosh)",
+        "model": "Hasselblad X1DM2-50c",
+        "credit": "Mathias Elmeskog",
+        "limitation": "Official companion with Photoshop metadata; no pure default-Phocus attribution."
+      },
+      "baseline": {
+        "grayscale_correlation": 0.9125218402073846,
+        "rgb_mae_8bit_levels": 37.05844497680664,
+        "rgb_rmse_8bit_levels": 46.58393859863281,
+        "comparison_shape": [
+          576,
+          768,
+          3
+        ],
+        "smooth_interior_pixel_count": 267119,
+        "color_space_established": true,
+        "descriptive_deltaE76_D50": {
+          "median": 15.16443854475882,
+          "p95": 32.423456812352924,
+          "mean": 16.928869946413204,
+          "scope": "Rendered appearance residual on smooth aligned pixels; no chart truth, no HNCS-equivalence threshold"
+        },
+        "lab_residual_components": {
+          "mean_signed_deltaL": -12.949705962076271,
+          "median_absolute_deltaL": 12.586348037740056,
+          "median_ab_vector_distance": 7.283897978428175,
+          "p95_ab_vector_distance": 12.619025788912111,
+          "interpretation": "Lab lightness and a/b residuals, not physically isolated tone/color stages"
+        }
+      },
+      "recovered": {
+        "grayscale_correlation": 0.9221602956480617,
+        "rgb_mae_8bit_levels": 28.628965377807617,
+        "rgb_rmse_8bit_levels": 37.06904602050781,
+        "comparison_shape": [
+          576,
+          768,
+          3
+        ],
+        "smooth_interior_pixel_count": 267119,
+        "color_space_established": true,
+        "descriptive_deltaE76_D50": {
+          "median": 10.87859260156994,
+          "p95": 25.31341816306834,
+          "mean": 12.803372744845236,
+          "scope": "Rendered appearance residual on smooth aligned pixels; no chart truth, no HNCS-equivalence threshold"
+        },
+        "lab_residual_components": {
+          "mean_signed_deltaL": -8.207332816469192,
+          "median_absolute_deltaL": 7.817306539114753,
+          "median_ab_vector_distance": 7.24692731716681,
+          "p95_ab_vector_distance": 11.554098851937793,
+          "interpretation": "Lab lightness and a/b residuals, not physically isolated tone/color stages"
+        }
+      },
+      "linear_components_clipped_at_export_fraction": 0.0,
+      "panel": "verification/public-comparisons/x1d-II-sample-02-published-baseline-recovered.jpg"
+    },
+    {
+      "pair_id": "x1d-II-sample-06",
+      "input_npz_sha256": "cd67147f29cdbbdb47e6361d87ade6544b3e8e3d0494e3f04779251fa28d1fc6",
+      "reference": {
+        "declared_color_space": 1,
+        "color_management": "embedded ICC converted to sRGB through LittleCMS",
+        "software": "Adobe Photoshop CC 2019 (Macintosh)",
+        "model": "X1D II 50C",
+        "credit": "",
+        "limitation": "Official companion with Photoshop metadata; no pure default-Phocus attribution."
+      },
+      "baseline": {
+        "grayscale_correlation": 0.9781787329964394,
+        "rgb_mae_8bit_levels": 50.25678634643555,
+        "rgb_rmse_8bit_levels": 54.919586181640625,
+        "comparison_shape": [
+          576,
+          768,
+          3
+        ],
+        "smooth_interior_pixel_count": 262327,
+        "color_space_established": true,
+        "descriptive_deltaE76_D50": {
+          "median": 23.30798705034878,
+          "p95": 24.280063048257862,
+          "mean": 23.218074581970807,
+          "scope": "Rendered appearance residual on smooth aligned pixels; no chart truth, no HNCS-equivalence threshold"
+        },
+        "lab_residual_components": {
+          "mean_signed_deltaL": -22.308030668947605,
+          "median_absolute_deltaL": 22.54726130900066,
+          "median_ab_vector_distance": 5.932961504607415,
+          "p95_ab_vector_distance": 8.83159094397124,
+          "interpretation": "Lab lightness and a/b residuals, not physically isolated tone/color stages"
+        }
+      },
+      "recovered": {
+        "grayscale_correlation": 0.9798057558820621,
+        "rgb_mae_8bit_levels": 36.57377624511719,
+        "rgb_rmse_8bit_levels": 40.68747329711914,
+        "comparison_shape": [
+          576,
+          768,
+          3
+        ],
+        "smooth_interior_pixel_count": 262327,
+        "color_space_established": true,
+        "descriptive_deltaE76_D50": {
+          "median": 16.661480999975407,
+          "p95": 17.38920926444032,
+          "mean": 16.68038454894678,
+          "scope": "Rendered appearance residual on smooth aligned pixels; no chart truth, no HNCS-equivalence threshold"
+        },
+        "lab_residual_components": {
+          "mean_signed_deltaL": -13.067331689158774,
+          "median_absolute_deltaL": 13.102478608123931,
+          "median_ab_vector_distance": 10.334065785870417,
+          "p95_ab_vector_distance": 11.457823081991185,
+          "interpretation": "Lab lightness and a/b residuals, not physically isolated tone/color stages"
+        }
+      },
+      "linear_components_clipped_at_export_fraction": 0.0005975417148919753,
+      "panel": "verification/public-comparisons/x1d-II-sample-06-published-baseline-recovered.jpg"
+    },
+    {
+      "pair_id": "x1d-ii-xcd45p-01",
+      "input_npz_sha256": "2430772041474c26b12503829aa04c6be722ed5e9ac16362b151846386bbc2a1",
+      "reference": {
+        "declared_color_space": 1,
+        "color_management": "EXIF ColorSpace=1 declares sRGB",
+        "software": "",
+        "model": "Hasselblad X1D II 50C",
+        "credit": "Mads Alexander Selvig",
+        "limitation": "Official companion; exact processing application/version/settings are undocumented, so default-Phocus attribution is unverified."
+      },
+      "baseline": {
+        "grayscale_correlation": 0.9913691412605699,
+        "rgb_mae_8bit_levels": 17.750381469726562,
+        "rgb_rmse_8bit_levels": 20.544118881225586,
+        "comparison_shape": [
+          768,
+          576,
+          3
+        ],
+        "smooth_interior_pixel_count": 260509,
+        "color_space_established": true,
+        "descriptive_deltaE76_D50": {
+          "median": 9.29260854412954,
+          "p95": 15.959844588175924,
+          "mean": 9.672350312601505,
+          "scope": "Rendered appearance residual on smooth aligned pixels; no chart truth, no HNCS-equivalence threshold"
+        },
+        "lab_residual_components": {
+          "mean_signed_deltaL": 2.734447474199107,
+          "median_absolute_deltaL": 8.058762688930052,
+          "median_ab_vector_distance": 2.9883165169083576,
+          "p95_ab_vector_distance": 13.324068246283277,
+          "interpretation": "Lab lightness and a/b residuals, not physically isolated tone/color stages"
+        }
+      },
+      "recovered": {
+        "grayscale_correlation": 0.9955424436376578,
+        "rgb_mae_8bit_levels": 8.916733741760254,
+        "rgb_rmse_8bit_levels": 10.849224090576172,
+        "comparison_shape": [
+          768,
+          576,
+          3
+        ],
+        "smooth_interior_pixel_count": 260509,
+        "color_space_established": true,
+        "descriptive_deltaE76_D50": {
+          "median": 4.916926276367306,
+          "p95": 9.055875578457599,
+          "mean": 5.134976311038369,
+          "scope": "Rendered appearance residual on smooth aligned pixels; no chart truth, no HNCS-equivalence threshold"
+        },
+        "lab_residual_components": {
+          "mean_signed_deltaL": 3.5918921751480335,
+          "median_absolute_deltaL": 3.5111745227167717,
+          "median_ab_vector_distance": 2.8598147347171436,
+          "p95_ab_vector_distance": 5.607589345466956,
+          "interpretation": "Lab lightness and a/b residuals, not physically isolated tone/color stages"
+        }
+      },
+      "linear_components_clipped_at_export_fraction": 0.011314863040123456,
+      "panel": "verification/public-comparisons/x1d-ii-xcd45p-01-published-baseline-recovered.jpg"
+    }
+  ]
+}

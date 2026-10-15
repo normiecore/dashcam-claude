@@ -1,5 +1,13 @@
 # Dashcam project — read first
 
+## Hassy Natural development — 2026-10-15, Australia/Perth
+
+The owner requested a separate native HNCS research/photo app and explicitly selected this repository because its Apple signing secrets are configured. Work is isolated under `NaturalColor/`, branch `codex/natural-color-ios-20261015`, with a dedicated Hassy Natural workflow and bundle ID `com.normiecore.hassynatural`. Dashcam capture code and app identity are unchanged. Do not use the ordinary Dashcam `testflight` label for this app.
+
+Native app source includes camera/ProRAW capability checks, original-file import, Core Image previews, comparison, exposure/strength controls and full-resolution export. Recovered HNCS color/profile/Standard film stages are being integrated with provenance; no complete phone equivalence is claimed. Hosted Xcode build/tests and a separate signed upload are pending. Existing signing secrets are referenced by name only. New App Store Connect identity/record must be established independently from Dashcam.
+
+Next: run the Hassy Natural hosted checks, fix failures, verify color stages and public-image comparisons, then use the dedicated `natural-testflight` workflow/label when the separate app is ready. Do not change Dashcam's existing release checkpoint below.
+
 Last updated: **2026-10-12, Australia/Perth**.
 
 ## Active checkpoint - 0.1.1 accepted by TestFlight; PR #10 merge pending
@@ -364,3 +372,4 @@ results, commit/run identifiers and unverified limits before ending the session.
 Suggested new-session prompt: **“Read AGENTS.md and HANDOVER.md first, inspect the
 current branch, and resume the dashcam project with [Android / iPhone]. Preserve
 existing work and verify changes as you go.”**
+

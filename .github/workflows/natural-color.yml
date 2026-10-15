@@ -1,0 +1,112 @@
+name: Hassy Natural
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'NaturalColor/**'
+      - '.github/workflows/natural-color.yml'
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload this verified build to Hassy Natural TestFlight
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: natural-color-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.event.action != 'labeled' || github.event.label.name == 'natural-testflight'
+    runs-on: macos-26
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: NaturalColor/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode and project generator
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+      - name: Choose an available iPhone simulator
+        run: |
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Build and exercise image processing and UI
+        run: |
+          set -o pipefail
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural \
+            -destination "id=$SIM_UDID" -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/NaturalTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/natural-tests.log" 2>&1 || \
+            { tail -150 "$RUNNER_TEMP/natural-tests.log"; exit 1; }
+          tail -35 "$RUNNER_TEMP/natural-tests.log"
+      - name: Compile production iPhone archive
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/HassyNatural.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO archive > "$RUNNER_TEMP/natural-archive.log" 2>&1 || \
+            { tail -120 "$RUNNER_TEMP/natural-archive.log"; exit 1; }
+          python3 scripts/check_bundle.py "$RUNNER_TEMP/HassyNatural.xcarchive/Products/Applications/HassyNatural.app"
+      - name: Signing configuration presence
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            if [ -n "${!name}" ]; then echo "$name: configured"; else echo "$name: missing"; fi
+          done
+      - name: Simulator screenshot
+        if: always()
+        run: xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/natural-preview.png" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: natural-color-verification
+          path: |
+            ${{ runner.temp }}/NaturalTests.xcresult
+            ${{ runner.temp }}/natural-*.log
+            ${{ runner.temp }}/natural-preview.png
+          retention-days: 14
+  testflight:
+    needs: verify
+    if: inputs.upload == true || (github.event.action == 'labeled' && github.event.label.name == 'natural-testflight')
+    runs-on: macos-26
+    timeout-minutes: 35
+    concurrency:
+      group: natural-testflight
+      cancel-in-progress: false
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    defaults:
+      run:
+        working-directory: NaturalColor/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check configuration
+        run: |
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || { echo "::error::Missing $name"; exit 1; }
+          done
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+      - name: Archive and upload the separate Hassy Natural app
+        run: bash scripts/upload_testflight.sh
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: natural-color-upload-logs
+          path: ${{ runner.temp }}/natural-upload.log
+          retention-days: 7
