@@ -4,7 +4,7 @@ import ImageIO
 @testable import HassyNatural
 
 final class PhotoEngineTests: XCTestCase {
-    func testPublicIPhone17ProRAWActuallyRenders() async throws {
+    func testPublicIPhone17ProRAWActuallyRendersAndExportsFullResolution() async throws {
         guard let url = Bundle(for: Self.self).url(forResource: "Public17Pro", withExtension: "dng", subdirectory: "Fixtures") else {
             throw XCTSkip("Run scripts/acquire_test_raw.py for the public RAW fixture; hosted CI requires this download")
         }
@@ -15,6 +15,20 @@ final class PhotoEngineTests: XCTestCase {
         let rendered = try await engine.preview(photo: photo, settings: .init())
         XCTAssertGreaterThan(rendered.width, 1000)
         XCTAssertGreaterThan(rendered.height, 1000)
+        // Exercise the actual 48 MP graph and concrete JPEG writer, rather
+        // than inferring full-resolution export from a small synthetic image.
+        let exported = try await engine.export(photo: photo, settings: .init())
+        defer { try? FileManager.default.removeItem(at: exported) }
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(exported as CFURL, nil))
+        let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        XCTAssertEqual((properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue, Int(photo.image.extent.width))
+        XCTAssertEqual((properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue, Int(photo.image.extent.height))
+        let thumbnail = try XCTUnwrap(CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: 256
+        ] as CFDictionary))
+        XCTAssertGreaterThan(thumbnail.width, 100)
+        XCTAssertGreaterThan(thumbnail.height, 100)
     }
     func testOriginalAndFullSizeExportAreDecodable() async throws {
         let engine = PhotoEngine()
