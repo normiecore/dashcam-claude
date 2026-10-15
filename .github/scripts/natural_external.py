@@ -1,19 +1,31 @@
 """Inspect the requested app's public beta setup without exposing contacts."""
-import json,os,sys,time,urllib.request,urllib.error,urllib.parse
+import json,os,re,sys,time,urllib.request,urllib.error,urllib.parse
 from pathlib import Path
 sys.path.insert(0,str(Path('NaturalColor/ios/scripts').resolve()))
 from apple_identity import BUNDLE,token
 BASE='https://api.appstoreconnect.apple.com/v1/'
+PRIVATE_VALUES=set()
 def call(path,body=None,method=None):
     request=urllib.request.Request(BASE+path,data=None if body is None else json.dumps(body).encode(),method=method,
         headers={'Authorization':'Bearer '+token(),'Content-Type':'application/json'})
     try:
         with urllib.request.urlopen(request,timeout=45) as response:
-            data=response.read();return json.loads(data) if data else {}
+            data=response.read();result=json.loads(data) if data else {}
+            entries=result.get('data',[]) if isinstance(result,dict) else []
+            if isinstance(entries,dict):entries=[entries]
+            for entry in entries:
+                for key,value in entry.get('attributes',{}).items():
+                    if key in ('contactFirstName','contactLastName','contactEmail','contactPhone','feedbackEmail') and value:
+                        PRIVATE_VALUES.add(str(value))
+            return result
     except urllib.error.HTTPError as e:
-        try: detail=', '.join(x.get('code','')+' '+x.get('title','') for x in json.loads(e.read()).get('errors',[]))
+        try:
+            detail='; '.join(x.get('code','')+' '+x.get('detail',x.get('title','')) for x in json.loads(e.read()).get('errors',[]))
+            for value in sorted(PRIVATE_VALUES,key=len,reverse=True):detail=detail.replace(value,'[private]')
+            detail=re.sub(r'[A-Za-z0-9_.+%-]+@[A-Za-z0-9.-]+','[email]',detail)
+            detail=re.sub(r'\+?\d[\d ()-]{7,}\d','[number]',detail)
         except Exception:detail=''
-        raise RuntimeError(f'Apple HTTP {e.code} on {request.method} {path.split("?")[0]}: {detail}') from None
+        raise RuntimeError(f'Apple HTTP {e.code} on {request.get_method()} {path.split("?")[0]}: {detail}') from None
 
 def main():
     apps=call('apps?'+urllib.parse.urlencode({'filter[bundleId]':BUNDLE}))['data']
@@ -82,6 +94,14 @@ def distribute():
     if review['attributes'].get('demoAccountRequired'):
         call('betaAppReviewDetails/'+review['id'],{'data':{'type':'betaAppReviewDetails','id':review['id'],
             'attributes':{'demoAccountRequired':False,'notes':'No login is needed. Import a photo or allow camera access, edit, and export.'}}},'PATCH')
+    beta=call(f'builds/{build["id"]}/buildBetaDetail')['data']
+    call('buildBetaDetails/'+beta['id'],{'data':{'type':'buildBetaDetails','id':beta['id'],'attributes':{'autoNotifyEnabled':True}}},'PATCH')
+    assigned=call(f'betaGroups/{group["id"]}/builds?limit=200')['data']
+    if not any(b['id']==build['id'] for b in assigned):
+        try:
+            call('betaGroups/'+group['id']+'/relationships/builds',{'data':[{'type':'builds','id':build['id']}]})
+            print('External build assigned to the existing public group',flush=True)
+        except RuntimeError as error:print('Group assignment status:',error,flush=True)
     state=call(f'builds/{build["id"]}/buildBetaDetail')['data']['attributes']['externalBuildState']
     print('External testing state before submission:',state,flush=True)
     if state=='READY_FOR_BETA_SUBMISSION':
