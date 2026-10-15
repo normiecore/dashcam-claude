@@ -1,3 +1,8 @@
+# Hassy Natural review-contact entry — 2026-10-15
+
+- Rechecked the existing public build; Apple still rejects submission for missing data, with review contact and feedback fields blank. Requested the real contact values rather than fabricating them.
+- Prepared encrypted metadata entry so the owner can provide details here without publishing them in GitHub source/logs. Validated encryption and payload mapping with a throwaway key and dummy data; no live contact metadata was changed.
+
 # Hassy Natural external beta — 2026-10-15
 
 - Enabled the owner's BetaX public link: https://testflight.apple.com/join/Ws45PaMV.

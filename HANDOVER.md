@@ -1,5 +1,13 @@
 # Dashcam project — read first
 
+## Hassy Natural remaining review-contact entry — 2026-10-15, Australia/Perth
+
+The owner asked to finish the external beta. Fresh distribution retry of run 38747500724 at 14:26 UTC still returns HTTP 422 MISSING_REQUIRED_DATA, with contactFirstName/contactLastName/contactPhone/contactEmail/feedbackEmail empty. The accepted external build remains 20261015.1353, VALID and assigned to BetaX; do not upload again. A concise async question asks for the actual contact name, country-code phone, review email and tester-feedback email (visible to testers). No answer has been supplied yet; do not invent these values.
+
+Prepared `.github/workflows/natural-review-contact.yml` and `.github/scripts/natural_review_contact.py`. Successful setup run 38751858452 exposed only the public encryption recipient; no private key or contact was exported and no live metadata changed. Recipient public key is locally saved at `/workspace/review-contact-recipient-public.b64`. `/tmp/encrypt_natural_contact.py` encrypts a five-field contact JSON using ephemeral P-256 ECDH, HKDF-SHA256 and AES-GCM, authenticated to the Hassy Natural context and recipient fingerprint. The runner alone decrypts with its CI-bound private key. A throwaway-key/dummy-data round-trip verified recipient compatibility and API payload mapping without live Apple calls. No plaintext contact details may be committed or logged.
+
+When the user supplies the missing information, privately write a chmod-600 temporary JSON with those five exact field names; encrypt it using the saved recipient into `.github/review-contact.enc.json`, remove the plaintext, then commit only the encrypted envelope. This triggers the contact workflow to fill Apple review/contact and feedback metadata and submit the EXISTING external build. Review contact API errors are redacted. Confirm actual Apple review state, and report public availability separately from successful submission. Remove the encrypted envelope after use so future runs do not replay it. The public link is https://testflight.apple.com/join/Ws45PaMV; it currently does not accept public testers. Main/application implementation remains unchanged.
+
 ## Hassy Natural public beta — 2026-10-15, Australia/Perth
 
 The owner requested an external/public TestFlight build and created external group BetaX, ID `76b8c463-84c1-4657-952f-a2888903563e`. Public link enabled: https://testflight.apple.com/join/Ws45PaMV. At inspection, the public page says the beta is not accepting testers because no external build is available. The existing accepted 0.1.0 build 20261015.842 is INTERNAL_ONLY and cannot serve this group.
