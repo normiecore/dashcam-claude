@@ -1,3 +1,10 @@
+# Hassy Natural external beta — 2026-10-15
+
+- Enabled the owner's BetaX public link: https://testflight.apple.com/join/Ws45PaMV.
+- Uploaded and processed external-eligible 0.1.0 build `20261015.1353`, using the unchanged, previously verified application. Assigned it to BetaX and enabled automatic tester notification.
+- Apple beta-review submission returned HTTP 422 `ENTITY_UNPROCESSABLE.MISSING_REQUIRED_DATA`; review contact and feedback email are blank. Public installation remains unavailable pending completion and submission. The link exists and is shareable; do not describe it as accepting testers yet.
+- Added a dedicated external upload/distribution workflow with explicit upload triggers so metadata retries cannot upload duplicate builds. Internal-only export remains the default for the existing internal workflow.
+
 # Hassy Natural addition — 2026-10-15
 
 - Added a separate native iPhone app under `NaturalColor/`, with camera/ProRAW, original-file import, compare, exposure/strength, Photos saving and full-resolution sharing. Camera originals persist in Files.
