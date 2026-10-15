@@ -1,0 +1,22 @@
+name: Hassy Natural external beta
+on:
+  push:
+    branches: ['codex/natural-color-ios-20261015']
+    paths:
+      - '.github/workflows/natural-external.yml'
+      - '.github/scripts/natural_external.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/natural_external.py
