@@ -5,6 +5,7 @@ key="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
 trap 'rm -f "$key"' EXIT
 printf '%s\n' "$ASC_KEY_P8" > "$key"
 build_number="$(date -u +%Y%m%d).$((10#$(date -u +%H%M)))"
+if [ -n "${GITHUB_OUTPUT:-}" ]; then printf 'build_number=%s\n' "$build_number" >> "$GITHUB_OUTPUT"; fi
 archive="$RUNNER_TEMP/HassyNatural.xcarchive"
 xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$archive" \
@@ -16,7 +17,7 @@ import os,plistlib
 from pathlib import Path
 options={'method':'app-store-connect','destination':'upload','teamID':os.environ['APPLE_TEAM_ID'],
          'signingStyle':'automatic','manageAppVersionAndBuildNumber':False,
-         'testFlightInternalTestingOnly':True,'uploadSymbols':True}
+         'testFlightInternalTestingOnly':os.environ.get('NATURAL_EXTERNAL_TESTING') != '1','uploadSymbols':True}
 Path(os.environ['RUNNER_TEMP'],'NaturalExportOptions.plist').write_bytes(plistlib.dumps(options))
 PY
 xcodebuild -exportArchive -archivePath "$archive" \
