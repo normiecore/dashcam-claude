@@ -6,6 +6,12 @@ The app imports original JPEG/HEIC/RAW files, captures full-resolution JPEG or P
 
 The app renderer combines recovered chroma arithmetic, an explicit native fallback profile and the recovered Standard film curve, with a documented linear-sRGB phone adapter. A custom Metal Core Image kernel evaluates the 2D chroma and 1D film tables directly, avoiding RGB cube resampling. These are independently verified stages, not proof of an end-to-end Phocus or iPhone color match. The earlier web app’s independent treatment is not the selected native renderer. Resource manifests preserve hashes and provenance. Details and executed comparisons live in the research workspace.
 
+## Install the internal beta
+
+Open TestFlight using the explicitly enrolled Apple account, select **Hassy Natural**, and install **0.1.0 (20261015.842)**. Apple processing is complete and the build is in internal beta testing. Start with ProRAW when the camera supports it. Hold the photo to compare, then Save to Photos or Share the edited JPEG. Captured originals are available in Files → On My iPhone → Hassy Natural → Originals.
+
+Release application source: `a29eab0c81a3649fd79c114ee3841e953719b241`. [Upload verification](https://github.com/normiecore/dashcam-claude/actions/runs/38705206450) and [Apple processing/group-access confirmation](https://github.com/normiecore/dashcam-claude/actions/runs/38705678511) passed. Later tests/status/documentation do not modify that application implementation. [Additional 48 MP ProRAW export verification](https://github.com/normiecore/dashcam-claude/actions/runs/38708246055) also passes. Accept the invitation email to make the app appear in TestFlight. Physical camera acceptance remains a user check.
+
 ## Build
 
 On a Mac: `cd ios && brew install xcodegen && xcodegen generate`, then open `HassyNatural.xcodeproj`. The GitHub Actions Hassy Natural workflow performs simulator tests and an unsigned production device archive on hosted macOS; no local Mac is required.

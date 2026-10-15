@@ -2,8 +2,10 @@
 
 - Added a separate native iPhone app under `NaturalColor/`, with camera/ProRAW, original-file import, compare, exposure/strength, Photos saving and full-resolution sharing. Camera originals persist in Files.
 - Integrated recovered chroma/Standard stages through a direct Metal kernel and documented phone bridge; profile/resource provenance and public comparisons are included. Full HNCS equivalence remains unproven.
-- Added dedicated hosted Xcode and TestFlight workflows, separate app identity/record and requested internal tester enrollment. Hosted run 38703565784 passed all seven unit/image tests (including direct GPU/portable parity and real ProRAW rendering), both UI journeys, and the production Release archive/bundle check. Signed upload remains pending.
+- Added dedicated hosted Xcode and TestFlight workflows, separate app identity/record and requested internal tester enrollment. Hosted run 38703565784 passed all seven unit/image tests (including direct GPU/portable parity and real ProRAW rendering), both UI journeys, and the production Release archive/bundle check. Signing and upload subsequently passed (see release details below).
 - Fixed the concrete JPEG rendering path, explicit float fixtures, lookup-texture row ordering and cream-button text contrast. Dashcam application behavior and release history remain unchanged.
+- Apple accepted 0.1.0 build `20261015.842` in [upload run 38705206450](https://github.com/normiecore/dashcam-claude/actions/runs/38705206450), from application source `a29eab0c81a3649fd79c114ee3841e953719b241`. [Status run 38705678511](https://github.com/normiecore/dashcam-claude/actions/runs/38705678511) confirms processing VALID, internal-group access and IN_BETA_TESTING. The requested tester is enrolled. The owner received and accepted the TestFlight invitation. Physical camera acceptance remains unconfirmed; do not duplicate the upload.
+- [Verification run 38708246055](https://github.com/normiecore/dashcam-claude/actions/runs/38708246055) additionally passes actual 48 MP ProRAW full-resolution JPEG export/decoding, all seven unit/image tests, both UI journeys and the production archive, using unchanged application code.
 
 # Changelog
 
