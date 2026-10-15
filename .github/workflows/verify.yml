@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   core:
+    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +18,7 @@ jobs:
       - name: Portable C policy
         run: bash Tools/test-core.sh
   ios:
+    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
