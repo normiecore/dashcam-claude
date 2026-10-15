@@ -7,6 +7,10 @@ final class HassyNaturalUITests: XCTestCase {
         XCTAssertTrue(app.buttons["openCamera"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["openLibrary"].exists)
         XCTAssertTrue(app.buttons["openFiles"].exists)
+        let welcome = XCTAttachment(screenshot: app.screenshot())
+        welcome.name = "Hassy Natural welcome"
+        welcome.lifetime = .keepAlways
+        add(welcome)
         app.buttons["About Hassy Natural"].tap()
         XCTAssertTrue(app.staticTexts["An independent camera and photo editor exploring natural colour rendering."].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
@@ -30,5 +34,9 @@ final class HassyNaturalUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["+0.0 EV"].exists)
         XCTAssertTrue(app.buttons["saveButton"].isEnabled)
         XCTAssertTrue(app.buttons["shareButton"].isEnabled)
+        let editor = XCTAttachment(screenshot: app.screenshot())
+        editor.name = "Hassy Natural editor"
+        editor.lifetime = .keepAlways
+        add(editor)
     }
 }

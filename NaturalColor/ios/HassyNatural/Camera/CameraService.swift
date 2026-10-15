@@ -80,6 +80,7 @@ final class CameraService: NSObject, ObservableObject {
                     session.addOutput(output)
                 }
                 if output.isAppleProRAWSupported { output.isAppleProRAWEnabled = true }
+                output.maxPhotoQualityPrioritization = .quality
                 if let dimensions = lens.device.activeFormat.supportedMaxPhotoDimensions.max(by: { Int64($0.width) * Int64($0.height) < Int64($1.width) * Int64($1.height) }) {
                     output.maxPhotoDimensions = dimensions
                 }
@@ -133,7 +134,7 @@ final class CameraService: NSObject, ObservableObject {
                 settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
             }
             settings.maxPhotoDimensions = output.maxPhotoDimensions
-            settings.photoQualityPrioritization = .balanced
+            settings.photoQualityPrioritization = .quality
             if let connection = output.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
                 connection.videoRotationAngle = 90
             }
@@ -155,7 +156,10 @@ private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
         if let error { result = .failure(error); return }
         guard let data = photo.fileDataRepresentation() else { result = .failure(CameraFailure.capture); return }
         do {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("Capture-\(UUID().uuidString).\(photo.isRawPhoto ? "dng" : "jpg")")
+            let originals = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Originals", isDirectory: true)
+            try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
+            let url = originals.appendingPathComponent("Capture-\(UUID().uuidString).\(photo.isRawPhoto ? "dng" : "jpg")")
             try data.write(to: url, options: .atomic)
             result = .success(url)
         } catch { result = .failure(error) }

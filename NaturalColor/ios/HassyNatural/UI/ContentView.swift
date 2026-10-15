@@ -118,6 +118,7 @@ struct ContentView: View {
                     Text("Reference rendering uses recovered chroma processing and the Standard film curve. Its adaptation to phone images is experimental and has not been validated as a complete HNCS match. This independent app is not affiliated with Hasselblad.")
                     Text("RAW files are decoded through Apple’s RAW support. Unsupported originals show an error instead of substituting their embedded preview. Exports are full-resolution sRGB JPEGs; your original files remain unchanged.")
                     Text("Photos stay on this device. No account or upload is required.")
+                    Text("Camera originals are preserved in Files → On My iPhone → Hassy Natural → Originals. Save creates an edited copy in Photos.")
                 }.padding(24)
             }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { about = false } } }

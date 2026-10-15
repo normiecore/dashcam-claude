@@ -3,8 +3,8 @@ import CoreImage
 import CoreGraphics
 @testable import HassyNatural
 
-/// Exercises the actual Core Image color-space, input shaper and cube pipeline.
-/// The reference evaluates the recovered operator directly, without a cube.
+/// Exercises actual Core Image color handling and the direct Metal operator.
+/// Expected values come from the separately verified portable C++ core.
 final class RecoveredRenderingTests: XCTestCase {
     private struct Profile: Decodable {
         let width: Int
@@ -41,9 +41,19 @@ final class RecoveredRenderingTests: XCTestCase {
     }
 
     private func photo(_ samples: [[Float]]) -> LoadedPhoto {
-        let rgba = samples.flatMap { $0 + [1] }
-        let data = rgba.withUnsafeBytes { Data($0) }
-        let image = CIImage(bitmapData: data, bytesPerRow: samples.count * 4 * MemoryLayout<Float>.size,
+        var rgba: [Float] = []
+        rgba.reserveCapacity(samples.count * 4)
+        for pixel in samples {
+            precondition(pixel.count == 3)
+            rgba.append(contentsOf: pixel)
+            rgba.append(Float(1))
+        }
+        let rowBytes = samples.count * 4 * MemoryLayout<Float>.stride
+        let data = rgba.withUnsafeBufferPointer { buffer in
+            Data(bytes: buffer.baseAddress!, count: buffer.count * MemoryLayout<Float>.stride)
+        }
+        precondition(data.count == rowBytes, "Float patch buffer length must match the bitmap row")
+        let image = CIImage(bitmapData: data, bytesPerRow: rowBytes,
                             size: CGSize(width: CGFloat(samples.count), height: 1), format: .RGBAf, colorSpace: linear)
         return LoadedPhoto(image: image, name: "Linear reference patches", isRaw: false)
     }

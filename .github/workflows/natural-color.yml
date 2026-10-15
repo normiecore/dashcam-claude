@@ -18,6 +18,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    permissions:
+      contents: read
+      issues: write
     concurrency:
       group: natural-verify-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -29,6 +32,10 @@ jobs:
         working-directory: NaturalColor/ios
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare the dedicated upload trigger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create natural-testflight --repo "$GITHUB_REPOSITORY" --color D4BC8C --description 'Upload verified Hassy Natural build' --force
       - name: Apple app identity
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
