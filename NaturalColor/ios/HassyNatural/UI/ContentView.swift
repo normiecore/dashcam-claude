@@ -90,7 +90,7 @@ struct ContentView: View {
             Image(systemName: "camera.aperture").font(.system(size: 60, weight: .ultraLight)).foregroundStyle(Color.accentColor)
             VStack(spacing: 10) {
                 Text("A considered take\non natural colour.").font(.system(size: 32, weight: .light, design: .serif)).multilineTextAlignment(.center)
-                Text("Capture a photo or open an original to begin.")
+                Text("Capture a photo or open an original to begin. Start with ProRAW for the closest reference rendering.")
                     .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             Spacer()

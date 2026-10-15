@@ -15,7 +15,7 @@ final class CameraService: NSObject, ObservableObject {
     @Published var ready = false
     @Published var capturing = false
     @Published var supportsRaw = false
-    @Published var useRaw = false
+    @Published var useRaw = true
     @Published var error: String?
     var onCapture: ((URL) -> Void)?
     private let queue = DispatchQueue(label: "com.hassynatural.camera")

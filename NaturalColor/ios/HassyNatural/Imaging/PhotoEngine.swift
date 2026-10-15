@@ -56,7 +56,16 @@ actor PhotoEngine {
         let image: CIImage?
         if raw {
             // A RAW must decode actual sensor data. Never silently substitute its preview.
-            image = CIRAWFilter(imageURL: url)?.outputImage
+            if let decoder = CIRAWFilter(imageURL: url) {
+                // Apple defaults to adding its global tone curve. Disable
+                // creative tone processing before the recovered Standard stage.
+                decoder.boostAmount = 0
+                decoder.boostShadowAmount = 0
+                if decoder.isLocalToneMapSupported { decoder.localToneMapAmount = 0 }
+                decoder.isGamutMappingEnabled = false
+                decoder.exposure = 0
+                image = decoder.outputImage
+            } else { image = nil }
         } else {
             image = CIImage(contentsOf: url, options: [.applyOrientationProperty: true])
         }
@@ -98,14 +107,23 @@ actor PhotoEngine {
 
     func export(photo: LoadedPhoto, settings: EditSettings) throws -> URL {
         let image = try filtered(photo.image, settings: settings)
-        // Rendering directly to an encoded file avoids retaining a second full-resolution bitmap.
+        // Bound rendering to a concrete RGBA8 raster before ImageIO encoding.
+        // CIContext's tiled JPEG writer can request an unbounded intermediate
+        // for generated/filter graphs, even when the visible extent is finite.
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = photo.name.replacingOccurrences(of: "/", with: "-")
         let url = directory.appendingPathComponent("\(name)-natural-\(UUID().uuidString.prefix(6)).jpg")
-        try context.writeJPEGRepresentation(of: image, to: url, colorSpace: display, options: [
-            CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.96
-        ])
+        guard let raster = context.createCGImage(image, from: image.extent,
+                format: .RGBA8, colorSpace: display),
+              let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
+            throw PhotoError.encoding
+        }
+        CGImageDestinationAddImage(destination, raster, [
+            kCGImageDestinationLossyCompressionQuality: 0.96,
+            kCGImagePropertyOrientation: 1
+        ] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw PhotoError.encoding }
         return url
     }
 }

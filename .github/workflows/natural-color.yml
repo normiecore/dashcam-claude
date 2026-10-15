@@ -18,6 +18,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    concurrency:
+      group: natural-verify-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     if: github.event.action != 'labeled' || github.event.label.name == 'natural-testflight'
     runs-on: macos-26
     timeout-minutes: 35
