@@ -14,7 +14,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: natural-color-${{ github.ref }}
+  group: natural-color-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 jobs:
   verify:
@@ -26,10 +26,18 @@ jobs:
         working-directory: NaturalColor/ios
     steps:
       - uses: actions/checkout@v4
+      - name: Apple app identity
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: python3 scripts/apple_identity.py
       - name: Xcode and project generator
         run: |
           xcodebuild -version
           brew install xcodegen
+          python3 scripts/acquire_test_raw.py
           xcodegen generate
       - name: Choose an available iPhone simulator
         run: |
@@ -103,7 +111,9 @@ jobs:
           brew install xcodegen
           xcodegen generate
       - name: Archive and upload the separate Hassy Natural app
-        run: bash scripts/upload_testflight.sh
+        run: |
+          python3 scripts/apple_identity.py --require-app
+          bash scripts/upload_testflight.sh
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -35,11 +35,9 @@ actor PhotoEngine {
     private let display = CGColorSpace(name: CGColorSpace.sRGB)!
     private lazy var context = CIContext(options: [
         .workingColorSpace: linear, .outputColorSpace: display,
-        .cacheIntermediates: false
+        .cacheIntermediates: false, .workingFormat: CIFormat.RGBAf.rawValue
     ])
-    private var cachedStrength: Float?
-    private var cachedDimension: Int?
-    private var cachedCube: Data?
+    private var recoveredKernel: RecoveredKernel?
     private var reference: ReferenceAssets?
 
     func demoPhoto() -> LoadedPhoto {
@@ -71,51 +69,22 @@ actor PhotoEngine {
         return LoadedPhoto(image: image.transformed(by: origin), name: url.deletingPathExtension().lastPathComponent, isRaw: raw)
     }
 
-    private func filtered(_ image: CIImage, settings: EditSettings, dimension: Int = 65) throws -> CIImage {
+    private func filtered(_ image: CIImage, settings: EditSettings) throws -> CIImage {
         let exposure = CIFilter.exposureAdjust()
         exposure.inputImage = image
         exposure.ev = settings.exposure
         guard let exposed = exposure.outputImage else { throw PhotoError.rendering }
         if settings.strength <= 0 { return exposed }
-        if cachedStrength != settings.strength || cachedDimension != dimension || cachedCube == nil {
-            let assets: ReferenceAssets
-            if let reference { assets = reference } else {
-                assets = try ReferenceAssets.load()
-                reference = assets
-            }
-            let count = dimension*dimension*dimension*4
-            var cube = [Float](repeating: 0, count: count)
-            let made = cube.withUnsafeMutableBufferPointer { buffer in
-                assets.chroma.withUnsafeBufferPointer { table in
-                    assets.film.withUnsafeBufferPointer { film in
-                        hn_make_reference_cube_shaped(buffer.baseAddress, buffer.count, UInt32(dimension), settings.strength,
-                            table.baseAddress, assets.profile.width, assets.profile.height,
-                            assets.profile.start[0], assets.profile.start[1], assets.profile.divisor,
-                            1, film.baseAddress, film.count, 2)
-                    }
-                }
-            }
-            guard made == 1 else { throw PhotoError.rendering }
-            cachedCube = cube.withUnsafeBytes { Data($0) }
-            cachedStrength = settings.strength
-            cachedDimension = dimension
+        if recoveredKernel == nil {
+            let assets = try ReferenceAssets.load()
+            reference = assets
+            recoveredKernel = try RecoveredKernel(chroma: assets.chroma, film: assets.film,
+                width: assets.profile.width, height: assets.profile.height,
+                cbStart: assets.profile.start[0], crStart: assets.profile.start[1],
+                divisor: assets.profile.divisor, nativeScale: 1)
         }
-        // A square-root input shaper gives the cube more precision in shadows.
-        // Its inverse (q*q) is baked into the independently tested C++ cube.
-        let clamp = CIFilter.colorClamp()
-        clamp.inputImage = exposed
-        clamp.minComponents = CIVector(x: 0, y: 0, z: 0, w: 0)
-        clamp.maxComponents = CIVector(x: 1, y: 1, z: 1, w: 1)
-        let shaper = CIFilter.gammaAdjust()
-        shaper.inputImage = clamp.outputImage
-        shaper.power = 0.5
-        guard let filter = CIFilter(name: "CIColorCubeWithColorSpace") else { throw PhotoError.rendering }
-        filter.setValue(shaper.outputImage, forKey: kCIInputImageKey)
-        filter.setValue(dimension, forKey: "inputCubeDimension")
-        filter.setValue(cachedCube, forKey: "inputCubeData")
-        filter.setValue(linear, forKey: "inputColorSpace")
-        guard let result = filter.outputImage else { throw PhotoError.rendering }
-        return result.cropped(to: image.extent)
+        guard let recoveredKernel else { throw PhotoError.rendering }
+        return try recoveredKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
     }
 
     func preview(photo: LoadedPhoto, settings: EditSettings, original: Bool = false) throws -> CGImage {
@@ -128,7 +97,7 @@ actor PhotoEngine {
     }
 
     func export(photo: LoadedPhoto, settings: EditSettings) throws -> URL {
-        let image = try filtered(photo.image, settings: settings, dimension: 128)
+        let image = try filtered(photo.image, settings: settings)
         // Rendering directly to an encoded file avoids retaining a second full-resolution bitmap.
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

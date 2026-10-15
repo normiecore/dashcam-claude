@@ -4,6 +4,18 @@ import ImageIO
 @testable import HassyNatural
 
 final class PhotoEngineTests: XCTestCase {
+    func testPublicIPhone17ProRAWActuallyRenders() async throws {
+        guard let url = Bundle(for: Self.self).url(forResource: "Public17Pro", withExtension: "dng", subdirectory: "Fixtures") else {
+            throw XCTSkip("Run scripts/acquire_test_raw.py for the public RAW fixture; hosted CI requires this download")
+        }
+        let engine = PhotoEngine()
+        let photo = try await engine.load(url: url)
+        XCTAssertTrue(photo.isRaw)
+        XCTAssertEqual(Int(photo.image.extent.width * photo.image.extent.height), 6048*8064)
+        let rendered = try await engine.preview(photo: photo, settings: .init())
+        XCTAssertGreaterThan(rendered.width, 1000)
+        XCTAssertGreaterThan(rendered.height, 1000)
+    }
     func testOriginalAndFullSizeExportAreDecodable() async throws {
         let engine = PhotoEngine()
         let photo = await engine.demoPhoto()

@@ -29,6 +29,9 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_OBJC_BRIDGING_HEADER: HassyNatural/Core/BridgingHeader.h
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MTL_COMPILER_FLAGS: "$(inherited) -fcikernel"
+        MTL_LINKER_FLAGS: "$(inherited) -cikernel"
+        MTL_FAST_MATH: NO
     info:
       path: HassyNatural/Resources/Info.plist
       properties:
@@ -54,6 +57,11 @@ targets:
     platform: iOS
     sources:
       - path: HassyNaturalTests
+        excludes:
+          - Fixtures
+      - path: HassyNaturalTests/Fixtures
+        type: folder
+        optional: true
     dependencies:
       - target: HassyNatural
     settings:

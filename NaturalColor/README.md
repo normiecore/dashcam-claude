@@ -4,7 +4,7 @@ Native SwiftUI/AVFoundation/Core Image application developed alongside the HNCS 
 
 The app imports original JPEG/HEIC/RAW files, captures full-resolution JPEG or ProRAW when the physical camera supports it, compares edits, and exports full-resolution sRGB JPEG copies. Photos are processed on the phone. The camera release is portrait-only.
 
-The app renderer combines recovered chroma arithmetic, an explicit native fallback profile and the recovered Standard film curve, with a documented linear-sRGB phone adapter. A 65-point RGB cube approximates this operator for Core Image. These are independently verified stages, not proof of an end-to-end Phocus or iPhone color match. The original independent Natural treatment remains a comparison baseline and is not the selected app renderer. Resource manifests preserve hashes and provenance. Details and executed comparisons live in the research workspace.
+The app renderer combines recovered chroma arithmetic, an explicit native fallback profile and the recovered Standard film curve, with a documented linear-sRGB phone adapter. A custom Metal Core Image kernel evaluates the 2D chroma and 1D film tables directly, avoiding RGB cube resampling. These are independently verified stages, not proof of an end-to-end Phocus or iPhone color match. The earlier web app’s independent treatment is not the selected native renderer. Resource manifests preserve hashes and provenance. Details and executed comparisons live in the research workspace.
 
 ## Build
 
