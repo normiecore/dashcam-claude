@@ -17,6 +17,19 @@ concurrency:
   group: natural-color-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 jobs:
+  tester:
+    if: github.event.action != 'labeled' || github.event.label.name == 'natural-testflight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare the requested internal tester before upload
+        run: python3 NaturalColor/ios/scripts/enroll_tester.py
   verify:
     permissions:
       contents: read
@@ -61,7 +74,7 @@ jobs:
             -maximum-test-execution-time-allowance 180 -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/NaturalTests.xcresult" \
             CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/natural-tests.log" 2>&1 || \
-            { tail -150 "$RUNNER_TEMP/natural-tests.log"; exit 1; }
+            { grep -m 45 -E "error:|failed:" "$RUNNER_TEMP/natural-tests.log" || true; tail -35 "$RUNNER_TEMP/natural-tests.log"; exit 1; }
           tail -35 "$RUNNER_TEMP/natural-tests.log"
       - name: Compile production iPhone archive
         run: |
@@ -80,9 +93,9 @@ jobs:
           for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
             if [ -n "${!name}" ]; then echo "$name: configured"; else echo "$name: missing"; fi
           done
-      - name: Simulator screenshot
+      - name: Export UI screenshots
         if: always()
-        run: xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/natural-preview.png" || true
+        run: xcrun xcresulttool export attachments --path "$RUNNER_TEMP/NaturalTests.xcresult" --output-path "$RUNNER_TEMP/natural-ui" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -90,10 +103,10 @@ jobs:
           path: |
             ${{ runner.temp }}/NaturalTests.xcresult
             ${{ runner.temp }}/natural-*.log
-            ${{ runner.temp }}/natural-preview.png
+            ${{ runner.temp }}/natural-ui
           retention-days: 14
   testflight:
-    needs: verify
+    needs: [verify, tester]
     if: inputs.upload == true || (github.event.action == 'labeled' && github.event.label.name == 'natural-testflight')
     runs-on: macos-26
     timeout-minutes: 35

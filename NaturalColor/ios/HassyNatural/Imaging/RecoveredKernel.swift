@@ -32,8 +32,11 @@ final class RecoveredKernel {
         func texture(_ values: [Float], width: Int, height: Int, components: Int) -> CIImage {
             var rgba = [Float](repeating: 0, count: width*height*4)
             for i in 0..<(width*height) {
-                rgba[i*4] = values[i*components]
-                if components == 2 { rgba[i*4+1] = values[i*2+1] }
+                // Bitmap rows enter Core Image from the top. The recovered
+                // tables use y=0 for their first row, so reverse upload rows.
+                let source = ((height - 1 - i / width) * width + i % width) * components
+                rgba[i*4] = values[source]
+                if components == 2 { rgba[i*4+1] = values[source+1] }
                 rgba[i*4+3] = 1
             }
             let data = rgba.withUnsafeBytes { Data($0) }
