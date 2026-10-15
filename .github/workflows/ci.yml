@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') }}
     branches: [main]
   pull_request:
   workflow_dispatch:
