@@ -54,7 +54,7 @@ struct EditorView: View {
                     }.accessibilityIdentifier("shareButton")
                     Button { Task { await model.export(saveToPhotos: true) } } label: {
                         Label("Save", systemImage: "arrow.down.to.line")
-                    }.buttonStyle(.borderedProminent).accessibilityIdentifier("saveButton")
+                    }.buttonStyle(.borderedProminent).foregroundStyle(.black).accessibilityIdentifier("saveButton")
                 }
                 .disabled(model.exporting || model.busy)
                 if model.exporting { ProgressView("Rendering full resolution…").font(.caption) }

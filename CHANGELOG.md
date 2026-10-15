@@ -1,7 +1,9 @@
 # Hassy Natural addition — 2026-10-15
 
-- Added an isolated native iPhone photo application under `NaturalColor/` and its dedicated hosted Xcode/TestFlight workflow. Uses the owner's existing signing secret names with a separate app identity. Original-file import, camera capture and full-resolution export are implemented; hosted verification is pending.
-- Continuing evidence-backed HNCS reconstruction; no finished iPhone HNCS equivalence is claimed. Dashcam behavior is unchanged.
+- Added a separate native iPhone app under `NaturalColor/`, with camera/ProRAW, original-file import, compare, exposure/strength, Photos saving and full-resolution sharing. Camera originals persist in Files.
+- Integrated recovered chroma/Standard stages through a direct Metal kernel and documented phone bridge; profile/resource provenance and public comparisons are included. Full HNCS equivalence remains unproven.
+- Added dedicated hosted Xcode and TestFlight workflows, separate app identity/record and requested internal tester enrollment. Hosted run 38703565784 passed all seven unit/image tests (including direct GPU/portable parity and real ProRAW rendering), both UI journeys, and the production Release archive/bundle check. Signed upload remains pending.
+- Fixed the concrete JPEG rendering path, explicit float fixtures, lookup-texture row ordering and cream-button text contrast. Dashcam application behavior and release history remain unchanged.
 
 # Changelog
 

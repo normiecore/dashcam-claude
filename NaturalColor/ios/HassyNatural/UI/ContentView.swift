@@ -97,7 +97,7 @@ struct ContentView: View {
             VStack(spacing: 14) {
                 Button { camera = true } label: {
                     Label("Open camera", systemImage: "camera").frame(maxWidth: .infinity).padding(8)
-                }.buttonStyle(.borderedProminent).accessibilityIdentifier("openCamera")
+                }.buttonStyle(.borderedProminent).foregroundStyle(.black).accessibilityIdentifier("openCamera")
                 PhotosPicker(selection: $pickerItem, matching: .images, preferredItemEncoding: .current) {
                     Label("Photo library", systemImage: "photo.on.rectangle").frame(maxWidth: .infinity).padding(8)
                 }.buttonStyle(.bordered).accessibilityIdentifier("openLibrary")
