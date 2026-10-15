@@ -1,0 +1,28 @@
+name: Hassy Natural review information
+on:
+  push:
+    branches: ['codex/natural-color-ios-20261015']
+    paths:
+      - '.github/workflows/natural-review-contact.yml'
+      - '.github/scripts/natural_review_contact.py'
+      - '.github/review-contact.enc.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contact-and-submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --quiet cryptography
+      - name: Apply encrypted review information and submit the existing build
+        run: python3 .github/scripts/natural_review_contact.py
