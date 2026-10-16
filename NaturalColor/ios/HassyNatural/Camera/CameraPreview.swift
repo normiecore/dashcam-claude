@@ -50,6 +50,7 @@ struct CameraView: View {
     let onAbout: () -> Void
     @State private var gridVisible = false
     @State private var controls = false
+    @State private var showAboutAfterControls = false
     @State private var focusPoint: CGPoint?
     @State private var focusID = UUID()
 
@@ -93,7 +94,9 @@ struct CameraView: View {
             try? await Task.sleep(for: .milliseconds(1400))
             if !Task.isCancelled { withAnimation { focusPoint = nil } }
         }
-        .sheet(isPresented: $controls) { controlScreen }
+        .sheet(isPresented: $controls, onDismiss: {
+            if showAboutAfterControls { showAboutAfterControls = false; onAbout() }
+        }) { controlScreen }
         .alert("Unable to capture", isPresented: Binding(get: { camera.error != nil }, set: { if !$0 { camera.error = nil } })) {
             Button("OK", role: .cancel) { }
         } message: { Text(camera.error ?? "") }
@@ -115,6 +118,7 @@ struct CameraView: View {
                     .font(.system(size: 11, weight: .semibold)).tracking(1)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(CameraTheme.rule))
+                    .frame(minHeight: 44).contentShape(Rectangle())
             }
             .accessibilityLabel("Capture format").accessibilityValue(camera.useRaw && camera.supportsRaw ? "RAW" : "JPEG").accessibilityIdentifier("captureFormat")
             .disabled(!camera.ready || camera.capturing)
@@ -171,9 +175,9 @@ struct CameraView: View {
                 if camera.ready {
                     VStack {
                         HStack {
-                            Text("AF").font(.system(size: 10, weight: .semibold)).padding(5).background(.black.opacity(0.45))
+                            Text(camera.focusModeLabel).font(.system(size: 10, weight: .semibold)).padding(5).background(.black.opacity(0.45))
                             Spacer()
-                            Text("AWB").font(.system(size: 10, weight: .medium))
+                            Text("AWB").font(.system(size: 10, weight: .medium)).padding(5).background(.black.opacity(0.45))
                         }
                         Spacer()
                         HStack(spacing: 6) {
@@ -207,7 +211,7 @@ struct CameraView: View {
             Text(name).font(.system(size: 8, weight: .medium)).tracking(1.7).foregroundStyle(.white.opacity(0.45))
             Text(value).font(.system(size: 23, weight: .light, design: .rounded)).monospacedDigit()
                 .lineLimit(1).minimumScaleFactor(0.7)
-        }.frame(maxWidth: .infinity)
+        }.frame(maxWidth: .infinity).accessibilityElement(children: .combine)
     }
 
     private var exposureScale: some View {
@@ -228,7 +232,7 @@ struct CameraView: View {
                 }.frame(height: 14)
                 Text(String(format: "%+.1f EV", camera.exposureBias)).font(.system(size: 11, weight: .medium)).monospacedDigit().frame(width: 60, alignment: .trailing)
             }
-        }.frame(height: 44).foregroundStyle(.white).accessibilityLabel("Exposure compensation").accessibilityIdentifier("cameraExposureControl")
+        }.frame(height: 44).foregroundStyle(.white).accessibilityLabel("Exposure compensation").accessibilityValue(String(format: "%+.1f EV", camera.exposureBias)).accessibilityIdentifier("cameraExposureControl")
     }
 
     private var captureControls: some View {
@@ -266,7 +270,8 @@ struct CameraView: View {
 
     private var controlScreen: some View {
         NavigationStack {
-            VStack(spacing: 24) {
+            ScrollView {
+                VStack(spacing: 24) {
                 readouts.padding(.top, 16)
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -284,9 +289,9 @@ struct CameraView: View {
                 } else { Text("JPEG capture · ProRAW is unavailable on this camera.").font(.caption).foregroundStyle(.secondary) }
                 Text("ISO, shutter and aperture are live readings. Exposure compensation changes the camera’s auto exposure.")
                     .font(.caption).foregroundStyle(.secondary)
-                Button("About Hassy Natural") { controls = false; onAbout() }.font(.footnote)
-                Spacer(minLength: 0)
-            }.padding(24).background(CameraTheme.panel)
+                Button("About Hassy Natural") { showAboutAfterControls = true; controls = false }.font(.footnote)
+                }.padding(24)
+            }.background(CameraTheme.panel)
                 .navigationTitle("Camera controls").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { controls = false } } }
         }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)

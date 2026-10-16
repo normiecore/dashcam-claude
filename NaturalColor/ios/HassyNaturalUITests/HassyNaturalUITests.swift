@@ -50,6 +50,13 @@ final class HassyNaturalUITests: XCTestCase {
         app.buttons["Done"].tap()
         XCTAssertTrue(grid.waitForExistence(timeout: 5))
         XCTAssertEqual(grid.value as? String, "On")
+        app.buttons["cameraControls"].tap()
+        let about = app.buttons["About Hassy Natural"]
+        if !about.isHittable { app.swipeUp() }
+        about.tap()
+        XCTAssertTrue(app.staticTexts["An independent camera and photo editor exploring natural colour rendering."].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(grid.waitForExistence(timeout: 5))
     }
 
     func testDeniedCameraStillOffersSettingsAndImport() {

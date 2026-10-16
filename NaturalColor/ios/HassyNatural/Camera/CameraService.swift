@@ -23,6 +23,7 @@ final class CameraService: NSObject, ObservableObject {
     @Published var shutterSeconds: Double = 0
     @Published var aperture: Float = 0
     @Published var exposureBias: Float = 0
+    @Published var focusModeLabel = "AF"
     let isInterfaceTest: Bool
     private var device: AVCaptureDevice?
     private var meterTask: Task<Void, Never>?
@@ -51,6 +52,7 @@ final class CameraService: NSObject, ObservableObject {
         configurationID = startup
         permissionDenied = false
         unavailableReason = nil
+        iso = 0; shutterSeconds = 0; aperture = 0
         if isInterfaceTest {
             if ProcessInfo.processInfo.arguments.contains("--camera-denied-ui-testing") {
                 permissionDenied = true
@@ -102,6 +104,7 @@ final class CameraService: NSObject, ObservableObject {
         let token = UUID()
         configurationID = token
         ready = false
+        iso = 0; shutterSeconds = 0; aperture = 0
         device = nil
         meterTask?.cancel()
         queue.async { [self] in
@@ -137,6 +140,7 @@ final class CameraService: NSObject, ObservableObject {
                     selectedLens = id
                     supportsRaw = raw
                     device = captureDevice
+                    focusModeLabel = captureDevice.isFocusModeSupported(.autoFocus) ? "AF" : "FIXED"
                     ready = true
                     startMetering(captureDevice, token: token)
                 }
@@ -153,6 +157,7 @@ final class CameraService: NSObject, ObservableObject {
         active = false
         configurationID = UUID()
         ready = false
+        iso = 0; shutterSeconds = 0; aperture = 0
         device = nil
         meterTask?.cancel()
         meterTask = nil
@@ -178,6 +183,8 @@ final class CameraService: NSObject, ObservableObject {
         if isInterfaceTest { exposureBias = min(max(value, -2), 2); return }
         guard let device else { return }
         let bias = min(max(value, max(-2, device.minExposureTargetBias)), min(2, device.maxExposureTargetBias))
+        // This is the requested compensation; metering reconciles the device value.
+        exposureBias = bias
         queue.async {
             do {
                 try device.lockForConfiguration()
@@ -190,17 +197,18 @@ final class CameraService: NSObject, ObservableObject {
     }
 
     func focus(at point: CGPoint) {
-        guard ready, let device else { return }
+        guard ready, let device, point.x.isFinite, point.y.isFinite else { return }
+        let selectedPoint = CGPoint(x: min(max(point.x, 0), 1), y: min(max(point.y, 0), 1))
         queue.async {
             do {
                 try device.lockForConfiguration()
                 defer { device.unlockForConfiguration() }
                 if device.isFocusPointOfInterestSupported {
-                    device.focusPointOfInterest = point
+                    device.focusPointOfInterest = selectedPoint
                     if device.isFocusModeSupported(.autoFocus) { device.focusMode = .autoFocus }
                 }
                 if device.isExposurePointOfInterestSupported {
-                    device.exposurePointOfInterest = point
+                    device.exposurePointOfInterest = selectedPoint
                     if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
                 }
             } catch {
