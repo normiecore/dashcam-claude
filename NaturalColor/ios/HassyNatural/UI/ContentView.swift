@@ -34,7 +34,7 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
             CameraView(model: model,
                 active: !reviewing && !picking && !importing && !about && !fetching && scenePhase == .active,
-                onCapture: { url in cancelPicker(); model.load(url: url) },
+                onCapture: { url, ratio, mode in cancelPicker(); model.captured(url: url, ratio: ratio, mode: mode) },
                 onReview: { reviewing = true },
                 onLibrary: { picking = true },
                 onFiles: { importing = true },
@@ -100,7 +100,7 @@ struct ContentView: View {
                     Text("Reference rendering uses recovered chroma processing and the Standard film curve. Its adaptation to phone images is experimental and has not been validated as a complete HNCS match. This independent app is not affiliated with Hasselblad.")
                     Text("RAW files are decoded through Apple’s RAW support. Unsupported originals show an error instead of substituting their embedded preview. Exports are full-resolution sRGB JPEGs; your original files remain unchanged.")
                     Text("Photos stay on this device. No account or upload is required.")
-                    Text("Camera originals are preserved in Files → On My iPhone → Hassy Natural → Originals. Save creates an edited copy in Photos.")
+                    Text("Captures automatically save the original and processed result to Photos by default. On supported cameras the original is Apple ProRAW; other cameras capture JPEG. Choose what to save in Camera controls. Originals also remain in Files → On My iPhone → Hassy Natural → Originals. Native framing keeps every source pixel; optional ratios crop only the processed result.")
                 }.padding(24)
             }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { about = false } } }

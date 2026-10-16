@@ -9,7 +9,7 @@ struct CameraPreview: UIViewRepresentable {
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
         view.videoPreviewLayer.session = session
-        view.videoPreviewLayer.videoGravity = .resizeAspect
+        view.videoPreviewLayer.videoGravity = .resizeAspectFill
         view.addGestureRecognizer(UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tap(_:))))
         return view
     }
@@ -43,18 +43,23 @@ struct CameraView: View {
     @StateObject private var camera: CameraService
     @ObservedObject var model: EditorModel
     let active: Bool
-    let onCapture: (URL) -> Void
+    let onCapture: (URL, PhotoAspectRatio, PhotoSaveMode) -> Void
     let onReview: () -> Void
     let onLibrary: () -> Void
     let onFiles: () -> Void
     let onAbout: () -> Void
+    @AppStorage("advancedCamera") private var advanced = false
+    @AppStorage("photoAspectRatio") private var ratio: PhotoAspectRatio = .native
+    @AppStorage("photoSaveMode") private var saveMode: PhotoSaveMode = .both
+    @State private var shotRatio: PhotoAspectRatio = .native
+    @State private var shotSaveMode: PhotoSaveMode = .both
     @State private var gridVisible = false
     @State private var controls = false
     @State private var showAboutAfterControls = false
     @State private var focusPoint: CGPoint?
     @State private var focusID = UUID()
 
-    init(model: EditorModel, active: Bool, onCapture: @escaping (URL) -> Void,
+    init(model: EditorModel, active: Bool, onCapture: @escaping (URL, PhotoAspectRatio, PhotoSaveMode) -> Void,
          onReview: @escaping () -> Void, onLibrary: @escaping () -> Void,
          onFiles: @escaping () -> Void, onAbout: @escaping () -> Void) {
         self.model = model; self.active = active; self.onCapture = onCapture
@@ -66,18 +71,23 @@ struct CameraView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let framed = ratio.cropRect(in: CGRect(origin: .zero, size: camera.nativePhotoSize))
+            let aspect = framed.width / max(1, framed.height)
+            let availableHeight = max(180, geometry.size.height - (advanced ? 270 : 190))
             VStack(spacing: 0) {
                 header.frame(height: 44)
                 Spacer(minLength: 0)
                 viewfinder
-                    .frame(width: min(geometry.size.width, max(180, geometry.size.height - 270) * 0.75),
-                           height: min(geometry.size.width * 4 / 3, max(180, geometry.size.height - 270)))
+                    .frame(width: min(geometry.size.width, availableHeight * aspect),
+                           height: min(geometry.size.width / aspect, availableHeight))
                     .frame(maxWidth: .infinity)
                 Spacer(minLength: 0)
-                readouts.padding(.top, 8).padding(.bottom, 6)
-                exposureScale.padding(.horizontal, 28)
+                if advanced {
+                    readouts.padding(.top, 8).padding(.bottom, 6)
+                    exposureScale.padding(.horizontal, 28)
+                }
                 captureControls.padding(.top, 6).padding(.bottom, 4)
-                Text(model.busy ? "Developing capture…" : "Originals saved in Files · Review to edit")
+                Text(model.savingCaptures > 0 ? "Saving to Photos…" : model.captureStatus)
                     .font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
                     .padding(.bottom, 8)
             }
@@ -86,10 +96,13 @@ struct CameraView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("cameraScreen")
         .task(id: active) {
-            camera.onCapture = onCapture
+            camera.onCapture = { url in onCapture(url, shotRatio, shotSaveMode) }
             if active { await camera.start() } else { camera.stop() }
         }
         .onDisappear { camera.stop() }
+        .onChange(of: advanced) { _, enabled in
+            if !enabled { camera.setExposureBias(0) }
+        }
         .task(id: focusID) {
             try? await Task.sleep(for: .milliseconds(1400))
             if !Task.isCancelled { withAnimation { focusPoint = nil } }
@@ -103,12 +116,13 @@ struct CameraView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("NATURAL").font(.system(size: 14, weight: .semibold)).tracking(3)
                 Text("PHOTO").font(.system(size: 8, weight: .medium)).tracking(2).foregroundStyle(CameraTheme.accent)
             }
             Spacer()
+            if advanced {
             Menu {
                 Button { camera.useRaw = true } label: { Label("Apple ProRAW", systemImage: camera.useRaw ? "checkmark" : "circle") }
                     .disabled(!camera.supportsRaw)
@@ -128,10 +142,21 @@ struct CameraView: View {
             .frame(width: 44, height: 44)
             .accessibilityLabel("Composition grid").accessibilityValue(gridVisible ? "On" : "Off")
             .accessibilityIdentifier("cameraGrid")
+            }
+            Menu {
+                ForEach(PhotoAspectRatio.allCases) { option in
+                    Button { ratio = option } label: {
+                        Label(option.rawValue, systemImage: ratio == option ? "checkmark" : "crop")
+                    }
+                }
+            } label: {
+                Text(ratio.rawValue.uppercased()).font(.system(size: 11, weight: .semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+            }.accessibilityLabel("Photo aspect ratio").accessibilityValue(ratio.rawValue).accessibilityIdentifier("cameraRatio")
             Button { controls = true } label: { Image(systemName: "slider.horizontal.3") }
                 .frame(width: 44, height: 44).accessibilityLabel("Camera controls").accessibilityIdentifier("cameraControls")
         }
-        .foregroundStyle(.white).padding(.horizontal, 22)
+        .foregroundStyle(.white).padding(.horizontal, 12)
     }
 
     private var viewfinder: some View {
@@ -147,7 +172,7 @@ struct CameraView: View {
                         focusPoint = screenPoint; focusID = UUID()
                     }
                 }
-                if gridVisible {
+                if advanced && gridVisible {
                     ThirdsGrid().stroke(.white.opacity(0.3), lineWidth: 0.5).allowsHitTesting(false)
                 }
                 if let point = focusPoint {
@@ -174,10 +199,11 @@ struct CameraView: View {
                 }
                 if camera.ready {
                     VStack {
-                        HStack {
+                        if advanced { HStack {
                             Text(camera.focusModeLabel).font(.system(size: 10, weight: .semibold)).padding(5).background(.black.opacity(0.45))
                             Spacer()
                             Text("AWB").font(.system(size: 10, weight: .medium)).padding(5).background(.black.opacity(0.45))
+                        }
                         }
                         Spacer()
                         HStack(spacing: 6) {
@@ -248,7 +274,7 @@ struct CameraView: View {
                     .overlay(RoundedRectangle(cornerRadius: 5).stroke(CameraTheme.rule))
             }.frame(maxWidth: .infinity).disabled(model.busy)
                 .accessibilityLabel(model.photo == nil ? "Photo library" : "Review last photo").accessibilityIdentifier("reviewCapture")
-            Button { camera.capture() } label: {
+            Button { shotRatio = ratio; shotSaveMode = saveMode; camera.capture() } label: {
                 ZStack {
                     Circle().stroke(.white.opacity(camera.canCapture ? 1 : 0.3), lineWidth: 2).frame(width: 76, height: 76)
                     Circle().fill(.white.opacity(camera.canCapture ? 1 : 0.3)).frame(width: 62, height: 62)
@@ -272,6 +298,17 @@ struct CameraView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                Toggle("Advanced mode", isOn: $advanced).accessibilityIdentifier("advancedMode")
+                Text(advanced ? "Live exposure readings, composition grid and capture format." : "Just frame, focus and shoot. Auto exposure handles the rest.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Picker("Save to Camera Roll", selection: $saveMode) {
+                    ForEach(PhotoSaveMode.allCases) { mode in Text(mode.rawValue).tag(mode) }
+                }.accessibilityIdentifier("saveMode")
+                Text("Both saves the untouched original and a separate processed JPEG. The original is ProRAW where available, otherwise JPEG. Allow Photos access on your first capture.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Native uses the camera’s maximum supported photo dimensions without cropping or upscaling. Standard ratios crop the processed copy only.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if advanced {
                 readouts.padding(.top, 16)
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -289,12 +326,13 @@ struct CameraView: View {
                 } else { Text("JPEG capture · ProRAW is unavailable on this camera.").font(.caption).foregroundStyle(.secondary) }
                 Text("ISO, shutter and aperture are live readings. Exposure compensation changes the camera’s auto exposure.")
                     .font(.caption).foregroundStyle(.secondary)
+                }
                 Button("About Hassy Natural") { showAboutAfterControls = true; controls = false }.font(.footnote)
                 }.padding(24)
             }.background(CameraTheme.panel)
                 .navigationTitle("Camera controls").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { controls = false } } }
-        }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+        }.presentationDetents([.large]).presentationDragIndicator(.visible)
     }
 }
 

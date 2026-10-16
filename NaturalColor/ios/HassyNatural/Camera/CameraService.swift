@@ -23,6 +23,7 @@ final class CameraService: NSObject, ObservableObject {
     @Published var shutterSeconds: Double = 0
     @Published var aperture: Float = 0
     @Published var exposureBias: Float = 0
+    @Published var nativePhotoSize = CGSize(width: 3024, height: 4032)
     @Published var focusModeLabel = "AF"
     let isInterfaceTest: Bool
     private var device: AVCaptureDevice?
@@ -132,6 +133,7 @@ final class CameraService: NSObject, ObservableObject {
                 if let dimensions = captureDevice.activeFormat.supportedMaxPhotoDimensions.max(by: { Int64($0.width) * Int64($0.height) < Int64($1.width) * Int64($1.height) }) {
                     output.maxPhotoDimensions = dimensions
                 }
+                let dimensions = output.maxPhotoDimensions
                 session.commitConfiguration()
                 if !session.isRunning { session.startRunning() }
                 let raw = output.isAppleProRAWSupported && output.availableRawPhotoPixelFormatTypes.contains(where: { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) })
@@ -139,6 +141,7 @@ final class CameraService: NSObject, ObservableObject {
                     guard active, configurationID == token else { return }
                     selectedLens = id
                     supportsRaw = raw
+                    nativePhotoSize = CGSize(width: Int(min(dimensions.width, dimensions.height)), height: Int(max(dimensions.width, dimensions.height)))
                     device = captureDevice
                     focusModeLabel = captureDevice.isFocusModeSupported(.autoFocus) ? "AF" : "FIXED"
                     ready = true

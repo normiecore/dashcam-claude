@@ -48,7 +48,7 @@ targets:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Hassy Natural uses the camera to take photos you choose to edit.
-        NSPhotoLibraryAddUsageDescription: Save edited copies to your photo library. Your originals are preserved.
+        NSPhotoLibraryAddUsageDescription: Automatically save your original and processed captures to your photo library. Choose which copies to save in Camera controls.
     scheme:
       testTargets:
         - HassyNaturalTests

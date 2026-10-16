@@ -1,5 +1,7 @@
 # Camera-first capture UI — 0.1.1 — 2026-10-16
 
+- Default to Simple mode, with opt-in Advanced controls and remembered preferences. Save original + processed automatically to Photos; offer either copy alone and retain files if saving fails.
+- Preserve native maximum capture dimensions by default. Offer source-pixel 4:3, 3:2, 16:9 and square crops on the processed copy only.
 - Open directly to capture with a Hasselblad/Phocus-influenced black instrument panel, amber controls, large viewfinder and live ISO/shutter/aperture readings.
 - Add tap-to-focus, real exposure compensation, composition grid and accessible RAW/JPEG/physical-lens controls. Keep shooting after a capture; open review from the thumbnail and return directly to the camera.
 - Stop camera sessions during review/import/about and app backgrounding; retain imports when camera access is denied or no camera exists.

@@ -12,6 +12,8 @@ final class EditorModel: ObservableObject {
     @Published var error: String?
     @Published var notice: String?
     @Published var shareURL: URL?
+    @Published var savingCaptures = 0
+    @Published var captureStatus = "Native resolution · Auto-save to Photos"
     private let engine = PhotoEngine()
     private var loadTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
@@ -31,7 +33,7 @@ final class EditorModel: ObservableObject {
         busy = false
     }
 
-    func load(url: URL) {
+    func load(url: URL, initialSettings: EditSettings = .init()) {
         loadTask?.cancel()
         previewTask?.cancel()
         let token = UUID()
@@ -50,11 +52,11 @@ final class EditorModel: ObservableObject {
                     return destination
                 }.value
                 let loaded = try await engine.load(url: local)
-                let original = try await engine.preview(photo: loaded, settings: EditSettings(), original: true)
-                let edited = try await engine.preview(photo: loaded, settings: EditSettings())
+                let original = try await engine.preview(photo: loaded, settings: initialSettings, original: true)
+                let edited = try await engine.preview(photo: loaded, settings: initialSettings)
                 guard !Task.isCancelled, generation == token else { return }
                 photo = loaded
-                settings = EditSettings()
+                settings = initialSettings
                 originalPreview = original
                 preview = edited
                 busy = false
@@ -62,6 +64,49 @@ final class EditorModel: ObservableObject {
                 guard !Task.isCancelled, generation == token else { return }
                 self.error = error.localizedDescription
                 busy = false
+            }
+        }
+    }
+
+    /// Each capture owns its save task. Reviewing/importing another image cannot cancel it.
+    func captured(url: URL, ratio: PhotoAspectRatio, mode: PhotoSaveMode) {
+        let edit = EditSettings(aspectRatio: ratio)
+        load(url: url, initialSettings: edit)
+        savingCaptures += 1
+        captureStatus = "Saving to Photos…"
+        Task {
+            let background = UIApplication.shared.beginBackgroundTask(withName: "Save capture", expirationHandler: nil)
+            defer {
+                savingCaptures -= 1
+                if background != .invalid { UIApplication.shared.endBackgroundTask(background) }
+            }
+            var processed: URL?
+            do {
+                if mode != .original {
+                    let loaded = try await engine.load(url: url)
+                    let rendered = try await engine.export(photo: loaded, settings: edit)
+                    // Keep a durable recovery copy until Photos confirms the transaction.
+                    let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        .appendingPathComponent("Processed", isDirectory: true)
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    let destination = directory.appendingPathComponent(rendered.lastPathComponent)
+                    try FileManager.default.moveItem(at: rendered, to: destination)
+                    processed = destination
+                }
+                let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+                guard status == .authorized || status == .limited else { throw PhotoError.photoAccess }
+                let resources = mode.resources(original: url, processed: processed)
+                try await PHPhotoLibrary.shared().performChanges {
+                    for resource in resources {
+                        let request = PHAssetCreationRequest.forAsset()
+                        request.addResource(with: .photo, fileURL: resource, options: nil)
+                    }
+                }
+                if let processed { try? FileManager.default.removeItem(at: processed) }
+                captureStatus = mode == .both ? "Original + processed saved to Photos" : "Photo saved to Photos"
+            } catch {
+                captureStatus = "Save incomplete · Copies kept in Files"
+                self.error = "Camera Roll save failed. Your original is safe in Files → Hassy Natural → Originals. Any developed copy is in Processed. " + error.localizedDescription
             }
         }
     }
@@ -86,7 +131,7 @@ final class EditorModel: ObservableObject {
     }
 
     func reset() {
-        settings = EditSettings()
+        settings = EditSettings(aspectRatio: settings.aspectRatio)
         updatePreview()
     }
 

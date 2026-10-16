@@ -27,7 +27,7 @@ final class HassyNaturalUITests: XCTestCase {
 
     func testCaptureInterfaceGridFormatAndExposureControls() {
         let app = XCUIApplication()
-        app.launchArguments = ["--camera-ui-testing"]
+        app.launchArguments = ["--camera-ui-testing", "-advancedCamera", "YES", "-photoAspectRatio", "Native"]
         app.launch()
         XCTAssertTrue(app.staticTexts["INTERFACE PREVIEW"].waitForExistence(timeout: 10))
         // The simulator fixture must never pretend that it can capture photos.
@@ -43,6 +43,7 @@ final class HassyNaturalUITests: XCTestCase {
         app.buttons["cameraControls"].tap()
         let exposure = app.sliders["cameraExposureSlider"]
         XCTAssertTrue(exposure.waitForExistence(timeout: 5))
+        if !exposure.isHittable { app.swipeUp() }
         exposure.adjust(toNormalizedSliderPosition: 0.75)
         let value = (exposure.value as? String ?? "").replacingOccurrences(of: " EV", with: "")
         XCTAssertEqual(Float(value) ?? -100, 1, accuracy: 0.2)
@@ -57,6 +58,33 @@ final class HassyNaturalUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["An independent camera and photo editor exploring natural colour rendering."].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         XCTAssertTrue(grid.waitForExistence(timeout: 5))
+    }
+
+    func testSimpleDefaultsRatiosAndAdvancedToggle() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--camera-ui-testing", "-advancedCamera", "NO", "-photoAspectRatio", "Native", "-photoSaveMode", "Original + processed"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["INTERFACE PREVIEW"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["cameraGrid"].exists)
+        XCTAssertFalse(app.buttons["captureFormat"].exists)
+        XCTAssertFalse(app.buttons["cameraExposureControl"].exists)
+        XCTAssertEqual(app.buttons["cameraRatio"].value as? String, "Native")
+        attach(app, name: "Simple camera native framing")
+        app.buttons["cameraRatio"].tap()
+        app.buttons["1:1"].tap()
+        XCTAssertEqual(app.buttons["cameraRatio"].value as? String, "1:1")
+        attach(app, name: "Simple camera square crop")
+        app.buttons["cameraControls"].tap()
+        XCTAssertTrue(app.staticTexts["Original + processed"].exists)
+        app.switches["advancedMode"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["cameraGrid"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["cameraExposureControl"].exists)
+        app.buttons["cameraControls"].tap()
+        app.switches["advancedMode"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertFalse(app.buttons["cameraGrid"].exists)
+        XCTAssertTrue(app.buttons["cameraShutter"].exists)
     }
 
     func testDeniedCameraStillOffersSettingsAndImport() {

@@ -44,6 +44,33 @@ final class PhotoEngineTests: XCTestCase {
         XCTAssertEqual(image.height, 900)
     }
 
+    func testStandardRatiosCropWithoutResamplingAndPreserveNative() async throws {
+        let engine = PhotoEngine()
+        let photo = await engine.demoPhoto()
+        for (ratio, width, height) in [(PhotoAspectRatio.native, 1200, 900), (.fourThirds, 1200, 900),
+                                      (.threeTwo, 1200, 800), (.sixteenNine, 1200, 675), (.square, 900, 900)] {
+            let url = try await engine.export(photo: photo, settings: .init(strength: 0, aspectRatio: ratio))
+            defer { try? FileManager.default.removeItem(at: url) }
+            let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+            let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+            XCTAssertEqual(image.width, width, ratio.rawValue)
+            XCTAssertEqual(image.height, height, ratio.rawValue)
+        }
+        XCTAssertEqual(photo.image.extent.size, CGSize(width: 1200, height: 900))
+        let portrait = PhotoAspectRatio.sixteenNine.cropRect(in: CGRect(x: 0, y: 0, width: 6048, height: 8064))
+        XCTAssertEqual(portrait.size, CGSize(width: 4536, height: 8064))
+        XCTAssertEqual(portrait.midX, 3024)
+    }
+
+    func testSaveModesKeepOriginalAndProcessedSeparate() {
+        let original = URL(fileURLWithPath: "/original.dng")
+        let processed = URL(fileURLWithPath: "/processed.jpg")
+        XCTAssertEqual(PhotoSaveMode.both.resources(original: original, processed: processed), [original, processed])
+        XCTAssertEqual(PhotoSaveMode.original.resources(original: original, processed: nil), [original])
+        XCTAssertEqual(PhotoSaveMode.processed.resources(original: original, processed: processed), [processed])
+        XCTAssertEqual(EditSettings().aspectRatio, .native)
+    }
+
     func testUnreadableRAWIsRejectedWithoutUsingPreview() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".dng")
         try Data("invalid raw".utf8).write(to: url)

@@ -8,6 +8,7 @@ import CryptoKit
 struct EditSettings: Equatable, Sendable {
     var strength: Float = 1
     var exposure: Float = 0
+    var aspectRatio: PhotoAspectRatio = .native
 }
 
 enum PhotoError: LocalizedError {
@@ -96,17 +97,23 @@ actor PhotoEngine {
         return try recoveredKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
     }
 
+    private func crop(_ image: CIImage, ratio: PhotoAspectRatio) -> CIImage {
+        let rect = ratio.cropRect(in: image.extent)
+        return image.cropped(to: rect).transformed(by: .init(translationX: -rect.minX, y: -rect.minY))
+    }
+
     func preview(photo: LoadedPhoto, settings: EditSettings, original: Bool = false) throws -> CGImage {
         try Task.checkCancellation()
-        let scale = min(1, 1600 / max(photo.image.extent.width, photo.image.extent.height))
-        let small = photo.image.transformed(by: .init(scaleX: scale, y: scale))
+        let framed = crop(photo.image, ratio: settings.aspectRatio)
+        let scale = min(1, 1600 / max(framed.extent.width, framed.extent.height))
+        let small = framed.transformed(by: .init(scaleX: scale, y: scale))
         let image = original ? small : try filtered(small, settings: settings)
         guard let result = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: display) else { throw PhotoError.rendering }
         return result
     }
 
     func export(photo: LoadedPhoto, settings: EditSettings) throws -> URL {
-        let image = try filtered(photo.image, settings: settings)
+        let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
         // Bound rendering to a concrete RGBA8 raster before ImageIO encoding.
         // CIContext's tiled JPEG writer can request an unbounded intermediate
         // for generated/filter graphs, even when the visible extent is finite.
