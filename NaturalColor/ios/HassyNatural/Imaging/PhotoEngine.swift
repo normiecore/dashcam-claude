@@ -112,6 +112,12 @@ actor PhotoEngine {
         return result
     }
 
+    // One actor turn keeps repeated full-resolution captures from accumulating
+    // decoded RAW images while waiting for their corresponding exports.
+    func exportCapture(url: URL, settings: EditSettings) throws -> URL {
+        try export(photo: load(url: url), settings: settings)
+    }
+
     func export(photo: LoadedPhoto, settings: EditSettings) throws -> URL {
         let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
         // Bound rendering to a concrete RGBA8 raster before ImageIO encoding.

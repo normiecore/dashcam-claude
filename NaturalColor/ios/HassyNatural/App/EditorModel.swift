@@ -83,8 +83,7 @@ final class EditorModel: ObservableObject {
             var processed: URL?
             do {
                 if mode != .original {
-                    let loaded = try await engine.load(url: url)
-                    let rendered = try await engine.export(photo: loaded, settings: edit)
+                    let rendered = try await engine.exportCapture(url: url, settings: edit)
                     // Keep a durable recovery copy until Photos confirms the transaction.
                     let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                         .appendingPathComponent("Processed", isDirectory: true)
