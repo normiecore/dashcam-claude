@@ -27,7 +27,7 @@ final class HassyNaturalUITests: XCTestCase {
 
     func testCaptureInterfaceGridFormatAndExposureControls() {
         let app = XCUIApplication()
-        app.launchArguments = ["--camera-ui-testing", "-advancedCamera", "YES", "-photoAspectRatio", "Native"]
+        app.launchArguments = ["--camera-ui-testing", "--advanced-ui-testing"]
         app.launch()
         XCTAssertTrue(app.staticTexts["INTERFACE PREVIEW"].waitForExistence(timeout: 10))
         // The simulator fixture must never pretend that it can capture photos.
@@ -62,7 +62,7 @@ final class HassyNaturalUITests: XCTestCase {
 
     func testSimpleDefaultsRatiosAndAdvancedToggle() {
         let app = XCUIApplication()
-        app.launchArguments = ["--camera-ui-testing", "-advancedCamera", "NO", "-photoAspectRatio", "Native", "-photoSaveMode", "Original + processed"]
+        app.launchArguments = ["--camera-ui-testing"]
         app.launch()
         XCTAssertTrue(app.staticTexts["INTERFACE PREVIEW"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["cameraGrid"].exists)

@@ -100,6 +100,9 @@ struct CameraView: View {
             if active { await camera.start() } else { camera.stop() }
         }
         .onDisappear { camera.stop() }
+        .onChange(of: camera.ready) { _, ready in
+            if ready && !advanced { camera.setExposureBias(0) }
+        }
         .onChange(of: advanced) { _, enabled in
             if !enabled { camera.setExposureBias(0) }
         }
