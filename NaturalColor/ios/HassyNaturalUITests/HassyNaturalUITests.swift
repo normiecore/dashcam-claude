@@ -1,6 +1,14 @@
 import XCTest
 
 final class HassyNaturalUITests: XCTestCase {
+    override func setUpWithError() throws {
+        // Hosted iOS 26 accessibility/launch operations sometimes take over
+        // two minutes even with every assertion passing. Keep this allowance
+        // specific to UI automation; image/unit checks retain their own limit.
+        executionTimeAllowance = 240
+        continueAfterFailure = false
+    }
+
     private func attach(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

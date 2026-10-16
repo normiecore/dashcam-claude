@@ -71,7 +71,7 @@ jobs:
           xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural \
             -destination "id=$SIM_UDID" -parallel-testing-enabled NO \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 120 \
-            -maximum-test-execution-time-allowance 180 -collect-test-diagnostics never \
+            -maximum-test-execution-time-allowance 300 -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/NaturalTests.xcresult" \
             CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/natural-tests.log" 2>&1 || \
             { grep -m 45 -E "error:|failed:" "$RUNNER_TEMP/natural-tests.log" || true; tail -35 "$RUNNER_TEMP/natural-tests.log"; exit 1; }
