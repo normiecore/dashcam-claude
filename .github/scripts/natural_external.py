@@ -79,7 +79,7 @@ def distribute():
     else:
         call('betaAppLocalizations',{'data':{'type':'betaAppLocalizations','attributes':{'locale':'en-AU','description':description},
             'relationships':{'app':{'data':{'type':'apps','id':app}}}}})
-    notes=('Please test camera capture and ProRAW where available, original-file imports, hold-to-compare, exposure and strength, '
+    notes=('Camera opens in Simple mode. Captures automatically save the original plus processed JPEG to Photos by default; the original is ProRAW where supported, otherwise JPEG. Please allow Photos access on first capture. Test Native full-resolution framing, optional standard crops, save-both or either-copy preferences, Advanced mode, repeated captures, thumbnail review, returning to capture, tap-to-focus, lenses, exposure compensation and grid. Also test original-file imports, compare, exposure and strength, '
         'Save to Photos and full-resolution JPEG sharing. Camera originals are in Files > On My iPhone > Hassy Natural > Originals. '
         'Colour rendering is experimental; report crashes, export failures and unexpected colour shifts through TestFlight. No account is required.')
     existing=call(f'builds/{build["id"]}/betaBuildLocalizations?limit=200')['data']
@@ -104,6 +104,13 @@ def distribute():
         except RuntimeError as error:print('Group assignment status:',error,flush=True)
     state=call(f'builds/{build["id"]}/buildBetaDetail')['data']['attributes']['externalBuildState']
     print('External testing state before submission:',state,flush=True)
+    if missing:
+        updated=call('betaGroups/'+group['id'],{'data':{'type':'betaGroups','id':group['id'],'attributes':{'publicLinkEnabled':True}}},'PATCH')['data']
+        print('Public invitation link:',updated['attributes'].get('publicLink'),flush=True)
+        print('Public Beta App Review is not submitted: awaiting user-provided review contact and feedback information.',flush=True)
+        from natural_status import main as confirm_internal_access
+        confirm_internal_access()
+        return
     if state=='READY_FOR_BETA_SUBMISSION':
         call('betaAppReviewSubmissions',{'data':{'type':'betaAppReviewSubmissions','relationships':{'build':{'data':{'type':'builds','id':build['id']}}}}})
         print('Submitted the external build for Apple Beta App Review',flush=True)
@@ -116,6 +123,8 @@ def distribute():
     updated=call('betaGroups/'+group['id'],{'data':{'type':'betaGroups','id':group['id'],'attributes':{'publicLinkEnabled':True}}},'PATCH')['data']
     print('Public invitation link:',updated['attributes'].get('publicLink'),flush=True)
     print('Apple must approve the external beta before public testers can install it',flush=True)
+    from natural_status import main as confirm_internal_access
+    confirm_internal_access()
 if __name__=='__main__':
     distribute() if len(sys.argv)>1 and sys.argv[1]=='distribute' else main()
 
