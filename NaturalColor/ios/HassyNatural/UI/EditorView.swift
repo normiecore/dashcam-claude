@@ -31,7 +31,10 @@ struct EditorView: View {
                             .font(.caption).foregroundStyle(.white.opacity(0.5))
                     }
                     Spacer(minLength: 10)
-                    Button { comparing.toggle() } label: { Image(systemName: "square.on.square") }
+                    Button { comparing.toggle() } label: {
+                        Image(systemName: "square.on.square").frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                        .disabled(model.busy || model.preview == nil)
                         .accessibilityLabel("Compare original")
                         .accessibilityValue(comparing ? "Original" : "Edited")
                         .accessibilityIdentifier("compareButton")
