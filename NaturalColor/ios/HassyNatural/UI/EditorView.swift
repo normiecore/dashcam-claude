@@ -18,7 +18,7 @@ struct EditorView: View {
                 }
                 Text(comparing ? "ORIGINAL" : "NATURAL")
                     .font(.caption2.weight(.bold)).tracking(2)
-                    .padding(10).background(.black.opacity(0.65), in: Capsule())
+                    .padding(.horizontal, 10).padding(.vertical, 6).background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 3))
                     .padding(16)
             }
             .frame(minHeight: 180, maxHeight: .infinity)
@@ -28,7 +28,7 @@ struct EditorView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(model.photo?.name ?? "Photo").font(.subheadline.weight(.medium)).lineLimit(1)
                         Text("\(model.photo?.dimensions ?? "") · \(model.photo?.isRaw == true ? "RAW decoded" : "Rendered image")")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(.white.opacity(0.5))
                     }
                     Spacer(minLength: 10)
                     Button { comparing.toggle() } label: { Image(systemName: "square.on.square") }
@@ -37,12 +37,12 @@ struct EditorView: View {
                         .accessibilityIdentifier("compareButton")
                 }
                 VStack(spacing: 5) {
-                    HStack { Text("Strength"); Spacer(); Text("\(Int(model.settings.strength * 100))% ").monospacedDigit() }
+                    HStack { Text("STRENGTH").font(.system(size: 10, weight: .medium)).tracking(1.5); Spacer(); Text("\(Int(model.settings.strength * 100))% ").monospacedDigit().foregroundStyle(CameraTheme.accent) }
                     Slider(value: $model.settings.strength, in: 0...1)
                         .accessibilityLabel("Strength").accessibilityIdentifier("strengthSlider")
                 }
                 VStack(spacing: 5) {
-                    HStack { Text("Exposure"); Spacer(); Text(String(format: "%+.1f EV", model.settings.exposure)).monospacedDigit() }
+                    HStack { Text("EXPOSURE").font(.system(size: 10, weight: .medium)).tracking(1.5); Spacer(); Text(String(format: "%+.1f EV", model.settings.exposure)).monospacedDigit().foregroundStyle(CameraTheme.accent) }
                     Slider(value: $model.settings.exposure, in: -2...2, step: 0.05)
                         .accessibilityLabel("Exposure").accessibilityIdentifier("exposureSlider")
                 }
@@ -54,16 +54,16 @@ struct EditorView: View {
                     }.accessibilityIdentifier("shareButton")
                     Button { Task { await model.export(saveToPhotos: true) } } label: {
                         Label("Save", systemImage: "arrow.down.to.line")
-                    }.buttonStyle(.borderedProminent).foregroundStyle(.black).accessibilityIdentifier("saveButton")
+                    }.buttonStyle(.borderedProminent).buttonBorderShape(.roundedRectangle(radius: 4)).foregroundStyle(.black).accessibilityIdentifier("saveButton")
                 }
                 .disabled(model.exporting || model.busy)
                 if model.exporting { ProgressView("Rendering full resolution…").font(.caption) }
                 Text("Hold the photo to compare with the original.")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(.white.opacity(0.5))
             }
             .font(.subheadline)
             .padding(20)
-            .background(Color(white: 0.075))
+            .background(CameraTheme.panel)
         }
         .onChange(of: model.settings) { _, _ in model.updatePreview() }
     }

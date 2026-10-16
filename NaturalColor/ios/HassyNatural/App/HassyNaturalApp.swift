@@ -6,7 +6,7 @@ struct HassyNaturalApp: App {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(.dark)
-                .tint(Color(red: 0.91, green: 0.83, blue: 0.67))
+                .tint(CameraTheme.accent)
         }
     }
 }

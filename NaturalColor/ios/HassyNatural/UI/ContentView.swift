@@ -19,8 +19,10 @@ private struct ImportedPhoto: Transferable {
 
 struct ContentView: View {
     @StateObject private var model = EditorModel()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var pickerItem: PhotosPickerItem?
-    @State private var camera = false
+    @State private var reviewing = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+    @State private var picking = false
     @State private var importing = false
     @State private var about = false
     @State private var fetching = false
@@ -28,85 +30,65 @@ struct ContentView: View {
     @State private var pickerGeneration = UUID()
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                if model.photo != nil { EditorView(model: model) } else { welcome }
-                if model.busy || fetching {
-                    ZStack {
-                        Color.black.opacity(0.65).ignoresSafeArea()
-                        ProgressView("Opening original photo…").padding(24).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    }
-                    .accessibilityIdentifier("importProgress")
-                }
+        ZStack {
+            Color.black.ignoresSafeArea()
+            CameraView(model: model,
+                active: !reviewing && !picking && !importing && !about && !fetching && scenePhase == .active,
+                onCapture: { url in cancelPicker(); model.load(url: url) },
+                onReview: { reviewing = true },
+                onLibrary: { picking = true },
+                onFiles: { importing = true },
+                onAbout: { about = true })
+                .accessibilityHidden(reviewing).allowsHitTesting(!reviewing)
+            if reviewing { reviewScreen }
+            if fetching || (model.busy && reviewing) {
+                ZStack {
+                    Color.black.opacity(0.8).ignoresSafeArea()
+                    ProgressView("Opening original photo…").font(.caption)
+                }.accessibilityIdentifier("importProgress")
             }
-            .navigationTitle("Hassy Natural")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { about = true } label: { Image(systemName: "info.circle") }.accessibilityLabel("About Hassy Natural")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Camera", systemImage: "camera") { camera = true }
-                        Button("Import file", systemImage: "folder") { importing = true }
-                    } label: { Image(systemName: "plus") }.accessibilityLabel("Add photo")
-                }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if model.photo != nil {
-                    PhotosPicker(selection: $pickerItem, matching: .images, preferredItemEncoding: .current) {
-                        Label("Open another photo", systemImage: "photo.on.rectangle")
-                            .font(.footnote).padding(12).frame(maxWidth: .infinity)
-                    }.background(Color(white: 0.04))
-                }
-            }
-            .sheet(isPresented: $camera) { CameraView { cancelPicker(); model.load(url: $0) } }
-            .sheet(isPresented: $about) { aboutView }
-            .sheet(isPresented: Binding(get: { model.shareURL != nil }, set: { if !$0 { model.shareURL = nil } })) {
-                if let url = model.shareURL { ShareSheet(url: url) }
-            }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.image, .rawImage], allowsMultipleSelection: false) { result in
-                do {
-                    if let url = try result.get().first { cancelPicker(); model.load(url: url) }
-                } catch { model.error = error.localizedDescription }
-            }
-            .onChange(of: pickerItem) { _, item in importSelection(item) }
-            .task {
-                if ProcessInfo.processInfo.arguments.contains("--ui-testing") { await model.loadDemo() }
-            }
-            .alert("Unable to complete", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
-                Button("OK", role: .cancel) { }
-            } message: { Text(model.error ?? "") }
-            .alert("Saved", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
-                Button("OK", role: .cancel) { }
-            } message: { Text(model.notice ?? "") }
         }
+        .photosPicker(isPresented: $picking, selection: $pickerItem, matching: .images, preferredItemEncoding: .current)
+        .sheet(isPresented: $about) { aboutView }
+        .sheet(isPresented: Binding(get: { model.shareURL != nil }, set: { if !$0 { model.shareURL = nil } })) {
+            if let url = model.shareURL { ShareSheet(url: url) }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.image, .rawImage], allowsMultipleSelection: false) { result in
+            do {
+                if let url = try result.get().first { cancelPicker(); reviewing = true; model.load(url: url) }
+            } catch { model.error = error.localizedDescription }
+        }
+        .onChange(of: pickerItem) { _, item in importSelection(item) }
+        .task {
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing") { await model.loadDemo() }
+        }
+        .alert("Unable to complete", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: { Text(model.error ?? "") }
+        .alert("Saved", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: { Text(model.notice ?? "") }
     }
 
-    private var welcome: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "camera.aperture").font(.system(size: 60, weight: .ultraLight)).foregroundStyle(Color.accentColor)
-            VStack(spacing: 10) {
-                Text("A considered take\non natural colour.").font(.system(size: 32, weight: .light, design: .serif)).multilineTextAlignment(.center)
-                Text("Capture a photo or open an original to begin. Start with ProRAW for the closest reference rendering.")
-                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            }
-            Spacer()
-            VStack(spacing: 14) {
-                Button { camera = true } label: {
-                    Label("Open camera", systemImage: "camera").frame(maxWidth: .infinity).padding(8)
-                }.buttonStyle(.borderedProminent).foregroundStyle(.black).accessibilityIdentifier("openCamera")
-                PhotosPicker(selection: $pickerItem, matching: .images, preferredItemEncoding: .current) {
-                    Label("Photo library", systemImage: "photo.on.rectangle").frame(maxWidth: .infinity).padding(8)
-                }.buttonStyle(.bordered).accessibilityIdentifier("openLibrary")
-                Button("Import JPEG, HEIC or DNG from Files") { importing = true }
-                    .font(.footnote).padding(8).accessibilityIdentifier("openFiles")
-            }
-            Text("Experimental colour rendering · Originals stay untouched")
-                .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
-        }.padding(28)
+    private var reviewScreen: some View {
+        NavigationStack {
+            EditorView(model: model).background(.black)
+                .navigationTitle("Review").navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.black, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { reviewing = false } label: { Label("Camera", systemImage: "chevron.left") }
+                            .accessibilityIdentifier("backToCamera")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button("Photo library", systemImage: "photo.on.rectangle") { picking = true }
+                            Button("Import from Files", systemImage: "folder") { importing = true }
+                            Button("About Hassy Natural", systemImage: "info.circle") { about = true }
+                        } label: { Image(systemName: "ellipsis") }.accessibilityLabel("Review options")
+                    }
+                }
+        }
     }
 
     private var aboutView: some View {
@@ -136,6 +118,7 @@ struct ContentView: View {
         cancelPicker()
         let token = pickerGeneration
         fetching = true
+        reviewing = true
         pickerTask = Task { @MainActor in
             do {
                 guard let imported = try await item.loadTransferable(type: ImportedPhoto.self) else { throw PhotoError.unreadable }

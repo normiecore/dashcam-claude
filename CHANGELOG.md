@@ -1,3 +1,10 @@
+# Camera-first capture UI — 0.1.1 — 2026-10-16
+
+- Open directly to capture with a Hasselblad/Phocus-influenced black instrument panel, amber controls, large viewfinder and live ISO/shutter/aperture readings.
+- Add tap-to-focus, real exposure compensation, composition grid and accessible RAW/JPEG/physical-lens controls. Keep shooting after a capture; open review from the thumbnail and return directly to the camera.
+- Stop camera sessions during review/import/about and app backgrounding; retain imports when camera access is denied or no camera exists.
+- Keep the recovered colour operator and full-resolution export intact. Expand hosted UI coverage for capture entry, controls, denied access and the review round trip. Hosted validation is pending.
+
 # Hassy Natural review-contact entry — 2026-10-15
 
 - Rechecked the existing public build; Apple still rejects submission for missing data, with review contact and feedback fields blank. Requested the real contact values rather than fabricating them.
@@ -356,4 +363,5 @@ physical-device validation pass is complete.
   undocumented; Apple's AVCam treats it as a whole-session interruption. The code handles both:
   frames flowing means a video-only run, frames stopped means a pause that resumes after the call.
   Confirm on a device (checklist step 5).
+
 

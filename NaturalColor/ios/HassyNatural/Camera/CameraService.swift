@@ -4,7 +4,7 @@ import SwiftUI
 struct CameraLens: Identifiable {
     let id: String
     let title: String
-    let device: AVCaptureDevice
+    let device: AVCaptureDevice?
 }
 
 @MainActor
@@ -17,6 +17,26 @@ final class CameraService: NSObject, ObservableObject {
     @Published var supportsRaw = false
     @Published var useRaw = true
     @Published var error: String?
+    @Published var permissionDenied = false
+    @Published var unavailableReason: String?
+    @Published var iso: Float = 0
+    @Published var shutterSeconds: Double = 0
+    @Published var aperture: Float = 0
+    @Published var exposureBias: Float = 0
+    let isInterfaceTest: Bool
+    private var device: AVCaptureDevice?
+    private var meterTask: Task<Void, Never>?
+
+    init(interfaceTest: Bool = false) {
+        isInterfaceTest = interfaceTest
+        super.init()
+    }
+
+    var canCapture: Bool { ready && !capturing && !isInterfaceTest }
+    var shutterText: String {
+        guard shutterSeconds.isFinite, shutterSeconds > 0 else { return "—" }
+        return shutterSeconds < 1 ? "1/\(Int((1 / shutterSeconds).rounded()))" : String(format: "%.1f s", shutterSeconds)
+    }
     var onCapture: ((URL) -> Void)?
     private let queue = DispatchQueue(label: "com.hassynatural.camera")
     private let output = AVCapturePhotoOutput()
@@ -25,43 +45,68 @@ final class CameraService: NSObject, ObservableObject {
     private var configurationID = UUID()
 
     func start() async {
+        guard !active else { return }
         active = true
+        let startup = UUID()
+        configurationID = startup
+        permissionDenied = false
+        unavailableReason = nil
+        if isInterfaceTest {
+            if ProcessInfo.processInfo.arguments.contains("--camera-denied-ui-testing") {
+                permissionDenied = true
+                unavailableReason = "Camera access is off"
+                return
+            }
+            lenses = [CameraLens(id: "wide", title: "Wide", device: nil), CameraLens(id: "tele", title: "Tele", device: nil)]
+            selectedLens = "wide"
+            supportsRaw = true
+            iso = 125; shutterSeconds = 1 / 125; aperture = 1.78
+            ready = true
+            return
+        }
+        let devices = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInUltraWideCamera, .builtInWideAngleCamera, .builtInTelephotoCamera], mediaType: .video, position: .back).devices
+        guard !devices.isEmpty else {
+            unavailableReason = "Camera unavailable"
+            return
+        }
         let authorized: Bool
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: authorized = true
         case .notDetermined: authorized = await AVCaptureDevice.requestAccess(for: .video)
         default: authorized = false
         }
-        guard active else { return }
+        guard active, configurationID == startup, !Task.isCancelled else { return }
         guard authorized else {
-            error = "Allow camera access in Settings, or import a photo from your library."
+            permissionDenied = true
+            unavailableReason = "Camera access is off"
             return
         }
-        let devices = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInUltraWideCamera, .builtInWideAngleCamera, .builtInTelephotoCamera], mediaType: .video, position: .back).devices
         lenses = devices.map { device in
             let title: String
             switch device.deviceType {
-            case .builtInUltraWideCamera: title = "Ultra wide"
-            case .builtInTelephotoCamera: title = "Telephoto"
+            case .builtInUltraWideCamera: title = "Ultra"
+            case .builtInTelephotoCamera: title = "Tele"
             default: title = "Wide"
             }
             return CameraLens(id: device.uniqueID, title: title, device: device)
         }
-        guard let device = devices.first(where: { $0.deviceType == .builtInWideAngleCamera }) ?? devices.first else {
-            error = "No rear camera is available. You can still import photos."
-            return
-        }
-        switchLens(device.uniqueID)
+        let preferred = devices.first(where: { $0.uniqueID == selectedLens })
+            ?? devices.first(where: { $0.deviceType == .builtInWideAngleCamera }) ?? devices[0]
+        switchLens(preferred.uniqueID)
     }
 
     func switchLens(_ id: String) {
         guard active, let lens = lenses.first(where: { $0.id == id }) else { return }
+        if isInterfaceTest { selectedLens = id; return }
+        guard let captureDevice = lens.device else { return }
         let token = UUID()
         configurationID = token
         ready = false
+        device = nil
+        meterTask?.cancel()
         queue.async { [self] in
             do {
-                let input = try AVCaptureDeviceInput(device: lens.device)
+                let input = try AVCaptureDeviceInput(device: captureDevice)
                 session.beginConfiguration()
                 session.sessionPreset = .photo
                 let previous = session.inputs
@@ -81,7 +126,7 @@ final class CameraService: NSObject, ObservableObject {
                 }
                 if output.isAppleProRAWSupported { output.isAppleProRAWEnabled = true }
                 output.maxPhotoQualityPrioritization = .quality
-                if let dimensions = lens.device.activeFormat.supportedMaxPhotoDimensions.max(by: { Int64($0.width) * Int64($0.height) < Int64($1.width) * Int64($1.height) }) {
+                if let dimensions = captureDevice.activeFormat.supportedMaxPhotoDimensions.max(by: { Int64($0.width) * Int64($0.height) < Int64($1.width) * Int64($1.height) }) {
                     output.maxPhotoDimensions = dimensions
                 }
                 session.commitConfiguration()
@@ -91,8 +136,9 @@ final class CameraService: NSObject, ObservableObject {
                     guard active, configurationID == token else { return }
                     selectedLens = id
                     supportsRaw = raw
-                    if !raw { useRaw = false }
+                    device = captureDevice
                     ready = true
+                    startMetering(captureDevice, token: token)
                 }
             } catch {
                 Task { @MainActor in
@@ -107,13 +153,66 @@ final class CameraService: NSObject, ObservableObject {
         active = false
         configurationID = UUID()
         ready = false
+        device = nil
+        meterTask?.cancel()
+        meterTask = nil
         queue.async { [session] in if session.isRunning { session.stopRunning() } }
     }
 
+    private func startMetering(_ device: AVCaptureDevice, token: UUID) {
+        meterTask?.cancel()
+        meterTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.active, self.configurationID == token else { return }
+                self.iso = device.iso
+                self.shutterSeconds = CMTimeGetSeconds(device.exposureDuration)
+                self.aperture = device.lensAperture
+                self.exposureBias = device.exposureTargetBias
+                try? await Task.sleep(for: .milliseconds(400))
+            }
+        }
+    }
+
+    func setExposureBias(_ value: Float) {
+        guard value.isFinite, ready else { return }
+        if isInterfaceTest { exposureBias = min(max(value, -2), 2); return }
+        guard let device else { return }
+        let bias = min(max(value, max(-2, device.minExposureTargetBias)), min(2, device.maxExposureTargetBias))
+        queue.async {
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+                device.setExposureTargetBias(bias, completionHandler: nil)
+            } catch {
+                Task { @MainActor [weak self] in self?.error = error.localizedDescription }
+            }
+        }
+    }
+
+    func focus(at point: CGPoint) {
+        guard ready, let device else { return }
+        queue.async {
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = point
+                    if device.isFocusModeSupported(.autoFocus) { device.focusMode = .autoFocus }
+                }
+                if device.isExposurePointOfInterestSupported {
+                    device.exposurePointOfInterest = point
+                    if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
+                }
+            } catch {
+                Task { @MainActor [weak self] in self?.error = error.localizedDescription }
+            }
+        }
+    }
+
     func capture() {
-        guard ready, !capturing else { return }
+        guard canCapture else { return }
         capturing = true
-        let rawRequested = useRaw
+        let rawRequested = useRaw && supportsRaw
         let delegate = PhotoCaptureDelegate { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }

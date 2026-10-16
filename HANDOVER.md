@@ -1,5 +1,11 @@
 # Dashcam project — read first
 
+## Hassy Natural camera-first UI — 2026-10-16, Australia/Perth
+
+The owner requested a capture UI influenced by Hasselblad cameras and Phocus, opening directly to the camera. Version 0.1.1 implements a camera-first root, black/amber instrument styling, portrait 4:3 preview, actual ISO/shutter/aperture readings, exposure compensation, tap-to-focus, available physical lenses, RAW/JPEG selection and composition grid. Captures keep the camera open; the thumbnail opens review and a Camera button returns directly. Imports and review pause the capture session; background/inactive states stop it. Denied/unavailable camera states retain photo/Files import. Existing colour math/resources and full-resolution export remain unchanged.
+
+Reference sources and design decisions are in NaturalColor/verification/UI-DESIGN-REFERENCE.md. Downloaded official reference images/PDF are inspection-only and are not published. Four UI journeys cover normal launch without hardware, explicitly labelled/disabled-capture UI fixtures, permission recovery, and review/edit/back-to-camera navigation. Hosted compilation and tests are pending; do not claim physical capture acceptance or that the UI update has been uploaded yet. External beta still requires the real review-contact/feedback information described below; the current UI task is independent of that missing input.
+
 ## Hassy Natural remaining review-contact entry — 2026-10-15, Australia/Perth
 
 The owner asked to finish the external beta. Fresh distribution retry of run 38747500724 at 14:26 UTC still returns HTTP 422 MISSING_REQUIRED_DATA, with contactFirstName/contactLastName/contactPhone/contactEmail/feedbackEmail empty. The accepted external build remains 20261015.1353, VALID and assigned to BetaX; do not upload again. A concise async question asks for the actual contact name, country-code phone, review email and tester-feedback email (visible to testers). No answer has been supplied yet; do not invent these values.
@@ -392,4 +398,5 @@ results, commit/run identifiers and unverified limits before ending the session.
 Suggested new-session prompt: **“Read AGENTS.md and HANDOVER.md first, inspect the
 current branch, and resume the dashcam project with [Android / iPhone]. Preserve
 existing work and verify changes as you go.”**
+
 
