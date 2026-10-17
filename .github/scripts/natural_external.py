@@ -29,8 +29,8 @@ def call(path,body=None,method=None):
 
 def main():
     apps=call('apps?'+urllib.parse.urlencode({'filter[bundleId]':BUNDLE}))['data']
-    if len(apps)!=1:raise SystemExit('Expected one Hassy Natural record')
-    app=apps[0]['id'];print('Hassy Natural app:',app,flush=True)
+    if len(apps)!=1:raise SystemExit('Expected one camera app record')
+    app=apps[0]['id'];print('Natural camera app:',app,flush=True)
     groups=call(f'apps/{app}/betaGroups?limit=200')['data']
     external=[g for g in groups if not g['attributes']['isInternalGroup']]
     for g in external:
@@ -68,22 +68,32 @@ def distribute():
     else:raise SystemExit('Apple processing is pending; rerun distribution without uploading another build')
     print('External-eligible build:',build['attributes']['version'],'processing VALID',flush=True)
     locs=call(f'apps/{app}/betaAppLocalizations?limit=200')['data']
-    description=('An independent on-device camera and photo editor exploring natural colour. Capture ProRAW where supported, '
-        'import original JPEG/HEIC/DNG files, compare edits, adjust strength and exposure, and save or share full-resolution sRGB JPEGs. '
-        'Captured originals stay in Files. Recovered chroma and Standard film processing use an experimental phone adaptation; '
-        'this is not a verified complete HNCS match and is not affiliated with Hasselblad. No login or photo upload is required.')
+    description=('Open straight to the camera, choose a frame and take the photo. Finished photos save directly to Photos. '
+        'Simple mode keeps the essentials close; Advanced mode adds exposure readings, compensation and a grid. '
+        'Native framing preserves the supported capture dimensions. HEIC Medium is the default, with JPEG and '
+        'other compression settings available. RAW + processed saving is optional on supported cameras. '
+        'Import JPEG, HEIC or supported RAW files to adjust exposure and finishing, compare, save and share. '
+        'Processing takes place on your iPhone. No account is required.')
     if locs:
         loc=next((x for x in locs if x['attributes'].get('locale')=='en-AU'),locs[0])
-        if not loc['attributes'].get('description'):
-            call('betaAppLocalizations/'+loc['id'],{'data':{'type':'betaAppLocalizations','id':loc['id'],'attributes':{'description':description}}},'PATCH')
+        call('betaAppLocalizations/'+loc['id'],{'data':{'type':'betaAppLocalizations','id':loc['id'],'attributes':{'description':description}}},'PATCH')
     else:
         call('betaAppLocalizations',{'data':{'type':'betaAppLocalizations','attributes':{'locale':'en-AU','description':description},
             'relationships':{'app':{'data':{'type':'apps','id':app}}}}})
-    notes=('Camera opens in Simple mode. Captures automatically save the original plus processed JPEG to Photos by default; the original is ProRAW where supported, otherwise JPEG. Please allow Photos access on first capture. Test Native full-resolution framing, optional standard crops, save-both or either-copy preferences, Advanced mode, repeated captures, thumbnail review, returning to capture, tap-to-focus, lenses, exposure compensation and grid. Also test original-file imports, compare, exposure and strength, '
-        'Save to Photos and full-resolution JPEG sharing. Camera originals are in Files > On My iPhone > Hassy Natural > Originals. '
-        'Colour rendering is experimental; report crashes, export failures and unexpected colour shifts through TestFlight. No account is required.')
+    notes=('0.1.2: Simple mode, native framing, processed-only HEIC at Medium quality are the defaults. '
+        'RAW is off by default, including after upgrading from 0.1.1. Allow add-only Photos access on first capture. '
+        'In Camera controls, test JPEG/HEIC, Medium/High/Small quality, optional RAW + processed where supported, '
+        'and Advanced mode. Quality changes compression, not pixel dimensions. Check portrait and both landscape '
+        'file orientations, repeated captures, lens changes, tap-to-focus, standard crops, thumbnail review, '
+        'compare/finish/exposure, imports and sharing. Successful saves remove intermediate files; failed saves '
+        'keep recovery copies in Files > On My iPhone > Natural > Pending Captures and Processed. '
+        'This build uses an independent finishing pipeline and native Apple RAW development. '
+        'Please report crashes, save failures, rotation errors or unexpected colour shifts through TestFlight.')
     existing=call(f'builds/{build["id"]}/betaBuildLocalizations?limit=200')['data']
-    if not existing:
+    if existing:
+        loc=existing[0]
+        call('betaBuildLocalizations/'+loc['id'],{'data':{'type':'betaBuildLocalizations','id':loc['id'],'attributes':{'whatsNew':notes}}},'PATCH')
+    else:
         call('betaBuildLocalizations',{'data':{'type':'betaBuildLocalizations','attributes':{'locale':'en-AU','whatsNew':notes},
             'relationships':{'build':{'data':{'type':'builds','id':build['id']}}}}})
     review=call(f'apps/{app}/betaAppReviewDetail')['data']
