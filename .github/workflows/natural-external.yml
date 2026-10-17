@@ -1,0 +1,76 @@
+name: Natural camera beta
+on:
+  push:
+    branches: ['codex/natural-color-ios-20261015']
+    paths:
+      - '.github/workflows/natural-external.yml'
+      - '.github/scripts/natural_external.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/natural_external.py
+  upload:
+    needs: inspect
+    if: contains(github.event.head_commit.message, '[external-upload]')
+    runs-on: macos-26
+    timeout-minutes: 35
+    outputs:
+      build_number: ${{ steps.upload.outputs.build_number }}
+    concurrency:
+      group: natural-testflight
+      cancel-in-progress: false
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      NATURAL_EXTERNAL_TESTING: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require the already verified application implementation
+        run: git diff --exit-code 2e9bbe8d2a3c3223784b5216fe17aa18c086a791 HEAD -- NaturalColor/ios/HassyNatural NaturalColor/ios/project.yml
+      - name: Toolchain
+        working-directory: NaturalColor/ios
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+      - name: Sign and upload an external-testing-eligible build
+        id: upload
+        working-directory: NaturalColor/ios
+        run: |
+          python3 scripts/apple_identity.py --require-app
+          bash scripts/upload_testflight.sh
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: natural-external-upload-logs
+          path: ${{ runner.temp }}/natural-upload.log
+  distribute:
+    needs: [inspect, upload]
+    if: always() && needs.inspect.result == 'success' && (needs.upload.result == 'success' || needs.upload.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      NATURAL_BUILD_NUMBER: ${{ needs.upload.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assign the external build, prepare metadata and submit Beta App Review
+        run: python3 .github/scripts/natural_external.py distribute

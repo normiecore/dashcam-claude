@@ -1,0 +1,22 @@
+{
+  "format": "little endian IEEE754 float32",
+  "count": 65536,
+  "sha256": "b3324e976976df34b5f6ecbd4c4e6830a68b1b1a75c573a0800ef6f144e29598",
+  "input": "native film-stage normalized coordinate i/65536; not display encoded RGB",
+  "output": "uint16 truncated native gradation /65535; Standard gamma route",
+  "source": "Phocus Android 1.1.0 libcrosssdk.so static analysis",
+  "source_sha256": "d757237554529f8ab485f88f2c5e5399fbc8d56035c79b8e057b41a40fd055e4",
+  "constructor": "0x3694a54",
+  "initializer": "0x3694040",
+  "flags": {
+    "gamma": true,
+    "linear": false,
+    "lstar": false
+  },
+  "base_table": "1025 float64 mathematical samples at VA0x31871a8; SHA 1e9cdec6b5d3357f0b100f399a2c00839d2dbc4f4e75a3a6cebb6952afffa491",
+  "limitations": [
+    "No target execution or bitwise native parity",
+    "Standard selection for arbitrary phone inputs is application policy",
+    "Phone sensor calibration and Apple RAW preprocessing are separate"
+  ]
+}

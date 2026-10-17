@@ -1,0 +1,102 @@
+{
+  "method": "Own C++ exact native2DLUT+floor Standard vs scipy trilinear interpolation of same C++ generated CoreImage cubes; clampdirectRGBtoexport[0,1] beforecomparison",
+  "seed": 1729,
+  "results": [
+    {
+      "dimension": 65,
+      "input_power": 1.0,
+      "groups": {
+        "uniform_linear": {
+          "pixels": 8192,
+          "p50_max_channel_linear_error": 7.724761962890625e-05,
+          "p95_max_channel_linear_error": 0.0006163402576930821,
+          "max_channel_linear_error": 0.006564214825630188,
+          "p95_max_channel_srgb_8bit_error": 0.21723335981369019,
+          "max_channel_srgb_8bit_error": 19.109882354736328
+        },
+        "shadows": {
+          "pixels": 4096,
+          "p50_max_channel_linear_error": 0.000931847607716918,
+          "p95_max_channel_linear_error": 0.001893875072710216,
+          "max_channel_linear_error": 0.002824004739522934,
+          "p95_max_channel_srgb_8bit_error": 4.6150360107421875,
+          "max_channel_srgb_8bit_error": 6.931221961975098
+        },
+        "neutral_ramp": {
+          "pixels": 4097,
+          "p50_max_channel_linear_error": 3.0934810638427734e-05,
+          "p95_max_channel_linear_error": 0.00030888686887919903,
+          "max_channel_linear_error": 0.0010539020877331495,
+          "p95_max_channel_srgb_8bit_error": 0.19377273321151733,
+          "max_channel_srgb_8bit_error": 3.165097236633301
+        }
+      }
+    },
+    {
+      "dimension": 65,
+      "input_power": 2.0,
+      "groups": {
+        "uniform_linear": {
+          "pixels": 8192,
+          "p50_max_channel_linear_error": 0.00011175870895385742,
+          "p95_max_channel_linear_error": 0.0007139257504604757,
+          "max_channel_linear_error": 0.005058884620666504,
+          "p95_max_channel_srgb_8bit_error": 0.15658578276634216,
+          "max_channel_srgb_8bit_error": 9.680342674255371
+        },
+        "shadows": {
+          "pixels": 4096,
+          "p50_max_channel_linear_error": 6.873346865177155e-05,
+          "p95_max_channel_linear_error": 0.00012289942242205143,
+          "max_channel_linear_error": 0.0004407046362757683,
+          "p95_max_channel_srgb_8bit_error": 0.29330530762672424,
+          "max_channel_srgb_8bit_error": 0.8850723505020142
+        },
+        "neutral_ramp": {
+          "pixels": 4097,
+          "p50_max_channel_linear_error": 4.595518112182617e-05,
+          "p95_max_channel_linear_error": 0.00014327466487884521,
+          "max_channel_linear_error": 0.00022551417350769043,
+          "p95_max_channel_srgb_8bit_error": 0.07673155516386032,
+          "max_channel_srgb_8bit_error": 0.2340085506439209
+        }
+      }
+    },
+    {
+      "dimension": 128,
+      "input_power": 2.0,
+      "groups": {
+        "uniform_linear": {
+          "pixels": 8192,
+          "p50_max_channel_linear_error": 3.332644701004028e-05,
+          "p95_max_channel_linear_error": 0.0001843123754952103,
+          "max_channel_linear_error": 0.002732396125793457,
+          "p95_max_channel_srgb_8bit_error": 0.04573281854391098,
+          "max_channel_srgb_8bit_error": 2.018014907836914
+        },
+        "shadows": {
+          "pixels": 4096,
+          "p50_max_channel_linear_error": 1.9121216610074043e-05,
+          "p95_max_channel_linear_error": 3.79364937543869e-05,
+          "max_channel_linear_error": 0.00040950533002614975,
+          "p95_max_channel_srgb_8bit_error": 0.08695909380912781,
+          "max_channel_srgb_8bit_error": 0.6086627244949341
+        },
+        "neutral_ramp": {
+          "pixels": 4097,
+          "p50_max_channel_linear_error": 1.9371509552001953e-05,
+          "p95_max_channel_linear_error": 5.530714770429768e-05,
+          "max_channel_linear_error": 7.328391075134277e-05,
+          "p95_max_channel_srgb_8bit_error": 0.02409374713897705,
+          "max_channel_srgb_8bit_error": 0.0777951255440712
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "3Dcube is approximation; native2DLUT fract-before-index-clamp creates boundary discontinuities",
+    "CoreImage GPU precision/color management can introduce additional differences; verifyondevice",
+    "Input shaping and output inversegamma bridge are explicit application integration",
+    "No comparison threshold establishes Phocus rendering equivalence"
+  ]
+}

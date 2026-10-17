@@ -1,0 +1,18 @@
+{
+  "version": "0.1.2",
+  "build": "20261017.1315",
+  "verified_application_commit": "9744adf493c837c32f8663ac14f5aef04511ff5f",
+  "release_commit": "f1cfaaa3f98de899d8ba6df7a01cbf349e120910",
+  "verification_run": 39035011122,
+  "image_unit_tests_passed": 12,
+  "ui_journeys_passed": 5,
+  "release_archive": "passed",
+  "bundle_audit": "passed",
+  "release_run": 39035815264,
+  "apple_processing": "VALID",
+  "internal_group_access": true,
+  "internal_state": "IN_BETA_TESTING",
+  "external_review_submission": "accepted by Apple API; awaiting review outcome",
+  "physical_device_acceptance": "pending",
+  "app_store_submission": "not submitted"
+}

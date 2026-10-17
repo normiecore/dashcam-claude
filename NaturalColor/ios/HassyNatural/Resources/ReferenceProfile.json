@@ -1,0 +1,60 @@
+{
+  "schema": "hncs-reference-chroma-v1",
+  "resource": "ReferenceChroma.f32",
+  "format": "little endian IEEE754 float32",
+  "layout": "Cr rows, Cb columns, adjacent Cb/Cr double-derived components",
+  "width": 105,
+  "height": 89,
+  "components": 2,
+  "count": 18690,
+  "byte_count": 74760,
+  "sha256": "fda3ed04def318ecd71ac23aecfc61e683e3083d4b51ebb120b2c6914e4986de",
+  "bounds": {
+    "CbS": -20,
+    "CbE": 84,
+    "CrS": -32,
+    "CrE": 56
+  },
+  "start": [
+    -20,
+    -32
+  ],
+  "limits": [
+    104,
+    88
+  ],
+  "divisor": 32,
+  "kelvin": 5000,
+  "profile_id": "fx77eloqamxuqijs5plh",
+  "profile_role": "native GetFileName fallback; not an iPhone sensor profile",
+  "profile_version": "2.0",
+  "profile_timestamp": "2007-07-20 13:46:31",
+  "source": "Phocus Android 1.1.0 decoded Colormaps/fx77eloqamxuqijs5plh.xml",
+  "source_sha256": "cf907782ff55cd7f824159964633f03b65a125879680885a1ad736e22ce1d5ae",
+  "source_library_sha256": "d757237554529f8ab485f88f2c5e5399fbc8d56035c79b8e057b41a40fd055e4",
+  "source_array": "LUTTableFlashStd",
+  "source_value_transform": "None; LUT numbers are not affine-decoded",
+  "interpolation_policy": {
+    "interpolate": false,
+    "reproduction": false,
+    "basis": "explicit application policy; not inferred native preference defaults",
+    "selected_anchors": [
+      "LUTTableFlashStd",
+      "LUTTableFlashStd"
+    ],
+    "effective_kelvin": 5000
+  },
+  "float32_max_absolute_quantization_error": 1.8310546892053026e-06,
+  "evidence": {
+    "fallback_filename_function": "CXMLLut::GetFileName VA 0x3502480",
+    "table_selection_function": "CXMLLut::CalculateLUT VA 0x3504b00",
+    "row_major_layout_function": "Scaled2DLUT::FromCbCrData VA 0x369a440"
+  },
+  "limitations": [
+    "Fallback profile dated 2007 is not claimed to represent X2D or iPhone 17 Pro calibration",
+    "Applying its chroma transform to phone colorimetric RGB is application adaptation",
+    "Phone sensor calibration and Apple RAW preprocessing remain separate",
+    "An interpolated RGB cube approximates the recovered 2D shader mapping",
+    "No Phocus render equivalence or native runtime parity established"
+  ]
+}

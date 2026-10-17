@@ -1,0 +1,17 @@
+# Historical interface research — not the current release specification
+
+This document records the earlier investigation. The 0.1.2 production renderer and consumer branding are independent; see `app-store/` and the current README. No vendor product imagery, marks, tables or profiles are included in the production target. Earlier rendering/default-save statements below apply only to earlier candidates.
+
+# Camera-first capture interface
+
+Reference review: 16 October 2026. Design influence comes from the official [Hasselblad X2D 100C user manual](https://cdn.hasselblad.com/manuals/X2D_100C_User_Manual/User_Manual/X2D_100C_User_Manual_v1.4_EN.pdf), pages 34–40, and the official [Phocus Mobile product page](https://www.hasselblad.com/phocus/phocus-mobile-2/) and [App Store screenshots](https://apps.apple.com/us/app/phocus-mobile/id1452280435). Source photographs, logos, manuals and screenshots are reference-only and are not bundled into the app or repository changes.
+
+The app uses its own layout: black instrument panels, clear numeric exposure readings, fine rules, restrained amber controls, a portrait 4:3 viewfinder, focus brackets, composition grid, a large shutter and direct review/capture navigation. Readouts are actual iPhone ISO, exposure duration and lens aperture; fixed aperture is informational. Exposure compensation, tap-to-focus, available physical lenses and RAW/JPEG selection operate through AVFoundation. Unsupported capabilities are not presented as working controls.
+
+Cold launch opens the camera. Capture preserves the original and keeps the camera open for another photo; the thumbnail opens the latest photo for editing. Imports open review. Camera sessions stop during review/import/about and backgrounding and restart when capture is active again. Camera-denied or unavailable states retain import access. Colour processing remains the existing recovered operator; the live AVFoundation preview is not a live HNCS rendering.
+
+Hosted UI fixtures are explicitly labelled INTERFACE PREVIEW, use launch arguments only, and cannot trigger a photo capture. They verify control layout/state and permission-recovery presentation, not real camera hardware or photographic output. The ordinary simulator launch also verifies the actual camera-first route without a fixture. Physical-device checks remain necessary for first camera permission, lens changes, focus, exposure, repeated ProRAW captures and background/foreground recovery.
+
+## Simple defaults and photo preservation
+
+The default view shows framing, physical lenses, shutter, review and import. Advanced mode reveals instrument readings, EV, format and grid. Both retain the black/amber theme. Native framing derives from maximum photo dimensions; standard ratios crop the processed output centrally without resampling. Original + processed is the default Camera Roll transaction, with separate assets and truthful JPEG fallback when RAW is unavailable. A failed Photos transaction keeps recovery files and reports the failure. Simulator screenshots verify layout only; native-camera capture and Photos writes still need device acceptance.

@@ -1,0 +1,224 @@
+{
+  "source_sha256": "d757237554529f8ab485f88f2c5e5399fbc8d56035c79b8e057b41a40fd055e4",
+  "method": "Static data extraction and previously bounded Capstone instruction traces; no target execution",
+  "constants": {
+    "native_rgb_to_ycbcr": {
+      "virtual_address": "0x314ed90",
+      "bytes": "c58f31772d21d33fdaacfa5c6dc5e23f1d5a643bdf4fbd3fd5e76a2bf697c5bf51da1b7c6132d5bf000000000000e03f000000000000e03fdaacfa5c6dc5dabf88855ad3bce3b4bf",
+      "rows": [
+        [
+          0.2989,
+          0.5866,
+          0.1145
+        ],
+        [
+          -0.1687,
+          -0.3312,
+          0.5
+        ],
+        [
+          0.5,
+          -0.4183,
+          -0.0816
+        ]
+      ]
+    },
+    "xyz_to_native_rgb": {
+      "virtual_address": "0x3150f00",
+      "bytes": "aa9b8bbfed49fc3f817c09151c5edfbf93aaed26f8a6d0bfedd3f19881cae9bf11e50b5a4800fc3ffa0967b796c9a03f6aa2cf471971a13fa91611c5e40db8bf2b8a5759db94f43f",
+      "rows": [
+        [
+          1.768049,
+          -0.490119,
+          -0.260191
+        ],
+        [
+          -0.80597,
+          1.750069,
+          0.032788
+        ],
+        [
+          0.034066,
+          -0.093962,
+          1.286342
+        ]
+      ]
+    }
+  },
+  "derived": {
+    "native_rgb_to_xyz": [
+      [
+        0.6491241409527314,
+        0.18858318772721505,
+        0.12649279413984166
+      ],
+      [
+        0.29885819196767344,
+        0.6574492391300237,
+        0.043692708606005014
+      ],
+      [
+        0.004639707362405009,
+        0.04302974678119814,
+        0.777239918125094
+      ]
+    ],
+    "native_white_xyz_y1": [
+      0.9641999881174801,
+      1.0,
+      0.82490925702582
+    ],
+    "native_ycbcr_to_rgb": [
+      [
+        0.9998597879188299,
+        -0.00012188356583590878,
+        1.4022426952670104
+      ],
+      [
+        1.000106010502679,
+        -0.34562707769717743,
+        -0.7144779490935292
+      ],
+      [
+        0.9998229138007876,
+        1.7710155002182766,
+        -0.0001535080964643524
+      ]
+    ]
+  },
+  "native_contract": {
+    "input": "C @ A @ M @ diag(wb) * scale, on the ordinary profile path",
+    "M": "CRawColorParams::GetRawRGB2XYZMatrix(T,...) returns CXMLLut::CalculateMatrix for nonzero T",
+    "output": "GetColorSpaceChangeMatrix(working_enum) @ inverse(C), with chroma columns additionally divided by table divisor in GPU uniforms",
+    "dng_matrix": "For T=0 GetRawRGB2XYZMatrix calls GetColorMatrixDNG; at0x350394c that getter copies9doubles fromprofile+0x168, corresponding to mfd",
+    "setup": "XML SetupCC copies incoming matrices unchanged into +0x08 and +0x50; independent CalculateMatrix also populates +0xf0",
+    "sites": {
+      "native_basis_constructor": "0x34c5558..0x34c5570",
+      "xyz_transform_set": "0x34c55e0..0x34c55f0 and 0x34c563c..0x34c5650",
+      "wb_column_scaling": "0x34c5824..0x34c5894",
+      "xyz_multiply": "0x34c589c",
+      "basis_multiply": "0x34c58d0",
+      "scale_multiply": "0x34c58f8",
+      "working_space_output": "0x34c5944..0x34c596c",
+      "xml_setup_copies": "0x34c8ca0..0x34c8ce8",
+      "matrix_storage_row": "0x369b028..0x369b03c"
+    }
+  },
+  "phone_adapter": {
+    "classification": "Explicit standards-based integration choice, not recovered phone profile or validated HNCS equivalence",
+    "input": "White-balanced linear sRGB D65 from a documented decoder; no further Hasselblad sensor matrix or WB",
+    "method": "sRGB->XYZ, Bradford adaptation from sRGB matrix white to recovered native white, native XYZ->RGB, native chroma basis",
+    "input_matrix_rows": [
+      [
+        0.22065768270191272,
+        0.6547762036689073,
+        0.12456597392549729
+      ],
+      [
+        -0.1178468681274096,
+        -0.3297894099981833,
+        0.44773627811162264
+      ],
+      [
+        0.3121446064237095,
+        -0.2499638530923849,
+        -0.062080753345294754
+      ]
+    ],
+    "algebraic_inverse_adapter_rows": [
+      [
+        0.9997405531558743,
+        0.07182896321247433,
+        2.5240365150614426
+      ],
+      [
+        1.000125536212045,
+        -0.3970614868145419,
+        -0.8569035966092781
+      ],
+      [
+        0.999800832599208,
+        1.9598995832700665,
+        0.03317146167104779
+      ]
+    ],
+    "shader_native_output_rows": [
+      [
+        0.9998597879188299,
+        -0.00012188356583590878,
+        1.4022426952670104
+      ],
+      [
+        1.000106010502679,
+        -0.34562707769717743,
+        -0.7144779490935292
+      ],
+      [
+        0.9998229138007876,
+        1.7710155002182766,
+        -0.0001535080964643524
+      ]
+    ],
+    "post_shader_native_rgb_to_linear_srgb_rows": [
+      [
+        1.5487231627750677,
+        -0.4931464183849373,
+        -0.055576604686429
+      ],
+      [
+        -0.06253000270524556,
+        1.0766231784366227,
+        -0.01409303602767471
+      ],
+      [
+        -0.015208859998233059,
+        -0.07651119599334996,
+        1.0917201956952851
+      ]
+    ],
+    "native_shader_forced_luma_column": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "native_no_table_effective_rgb_matrix": [
+      [
+        1.0000419093910617,
+        8.224840681444936e-05,
+        1.605428329400031e-05
+      ],
+      [
+        -3.1686539250785906e-05,
+        0.9999378142391285,
+        -1.2138202556721031e-05
+      ],
+      [
+        5.293106494458287e-05,
+        0.00010387876445785427,
+        1.0000202763698096
+      ]
+    ],
+    "native_no_table_maximum_coefficient_difference_from_identity": 0.00010387876445785427,
+    "maximum_roundtrip_error": 2.220446049250313e-16,
+    "table_divisor": "For shader native output divide inverse(C) chroma columns by actual table divisor (normally32); input matrix unscaled",
+    "fragment_quirk": "Fragment output ignores output matrix column0 and adds Y directly to each channel. Use native output plus separate full3x3 posttransform to preserve recovered operator; algebraic inverse adapter alone is not exact."
+  },
+  "unresolved": [
+    "Exact phone decoder linear output and white balance behavior need on-device validation",
+    "Selecting a Hasselblad LUT on a phone is a chosen shared-color model, not an actual iPhone calibration",
+    "Complete native preference/illumination LUT interpolation and profile-to-camera map",
+    "Complete native film, tone and output processing equivalence",
+    "Exposure/white normalization and all enum-specific 1.7 or alternate matrix branches"
+  ],
+  "app_integration": {
+    "api": "hn_recovered_pixel / hn_recovered_pixel_with_curve / hn_make_reference_cube",
+    "input": "Documented white-balanced linear sRGB D65; shader clamps and multiplies channels by65535 BEFORE native matrix",
+    "native_scale": "App caller explicitly selects1.0; L15500 is in16-bit shader Y units. This is a declared policy rather than fully recovered native physical scale.",
+    "gray_measurement": "Fragment gray ratio is computed on incoming phone linear-sRGB here; original raw route measured sensor RGB. No claim these saturation measures are camera invariant.",
+    "black_policy": "Exactblack returnszero rather than preserving source0/0gray NaN",
+    "tone_policy": "Recovered Standard film in native workingRGB; undo encoded native gamma with exponent2.19921875 before linear nativeRGB->sRGB postmatrix, then let CoreImage encode display/export once. This bridge is explicit application integration.",
+    "cube": "Red varies fastest; outputclamped[0,1],alpha1; strengthblendlinearSRGB; RGBcube is an approximation to direct2DLUT mapping.",
+    "film_sampling": "Exact native film shader floor(clamp(nativeRGB*65536,0,65535)); no1Dcurveinterpolation",
+    "input_shaping": "hn_make_reference_cube_shaped power2 stores samples atlinearRGB=q\u00b2; applypow(linearRGB,.5) beforecube lookup. OriginalAPIwrapper usespower1. Linearstrengthblendhappensbeforestorage."
+  }
+}
