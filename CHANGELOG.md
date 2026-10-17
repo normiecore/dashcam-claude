@@ -1,3 +1,10 @@
+## Store imagery verification and naming brief — 2026-10-17
+
+- Rendered four private original RAWs through the verified native 0.1.2 pipeline; full native Medium HEIC outputs and decoded presentation previews validated by hashes and dimensions.
+- Replaced the private older-output imagery study with a shape-led selection: fronds, circular sculpture, pennants and framed tower.
+- Expanded name rationale and added a distinct ordinary-language direction around looking and recording. Final naming remains open.
+- Added an encrypted private rendering harness and provenance record; private photographs and authenticated URLs remain outside public source/artifacts. App production code and accepted beta version remain unchanged.
+
 ## 0.1.2 (20261017.1315) — 2026-10-17
 
 - Available in the existing internal TestFlight group: Apple VALID / IN_BETA_TESTING.
