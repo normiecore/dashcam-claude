@@ -2,7 +2,7 @@
 
 - Restore the 0.1.1 RAW development settings and colour/tone renderer at the user's request, retaining newer storage defaults and capture/UI fixes.
 - Restore numerical rendering regressions and hash-checked production resources. Independent luminance-only finish is excluded.
-- Hosted verification and TestFlight delivery pending; no App Store publication or rights clearance implied.
+- Hosted Xcode image/UI/archive verification and signed upload passed. Apple accepted 0.1.3 (20261017.1525), VALID and IN_BETA_TESTING with existing internal access. External Beta App Review submitted; public approval and physical phone acceptance remain pending.
 
 ## Store imagery verification and naming brief — 2026-10-17
 

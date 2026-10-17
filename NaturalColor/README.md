@@ -12,9 +12,9 @@ Working display name: Natural. The existing bundle identifier and Xcode target r
 
 ## Status
 
-0.1.3 restores the preferred earlier renderer. Verification/upload are pending; the 0.1.2 evidence below is historical and does not verify the rollback.
+**0.1.3 (20261017.1525) restores the preferred earlier renderer and is available to the existing internal TestFlight group.** Apple processing is VALID and internal state IN_BETA_TESTING. [Verification](https://github.com/normiecore/dashcam-claude/actions/runs/39044267142) and [signed upload/access confirmation](https://github.com/normiecore/dashcam-claude/actions/runs/39044915216) passed. External Beta App Review submitted; physical phone acceptance remains pending. The 0.1.2 evidence below is historical and does not verify the rollback.
 
-**0.1.2 (20261017.1315) is available to the existing internal TestFlight group.** Apple processing is VALID and the internal state is IN_BETA_TESTING. Update through the existing listing; the installed display name is Natural.
+Historical release: **0.1.2 (20261017.1315)** was available to the existing internal TestFlight group. Apple processing is VALID and the internal state is IN_BETA_TESTING. Update through the existing listing; the installed display name is Natural.
 
 [Verification](https://github.com/normiecore/dashcam-claude/actions/runs/39035011122) passed 12 image/unit tests, five UI journeys and the production device archive/bundle audit. [Signed upload and Apple processing/group confirmation](https://github.com/normiecore/dashcam-claude/actions/runs/39035815264) passed. Verified application inputs: `9744adf493c837c32f8663ac14f5aef04511ff5f`; the release guard proves the uploaded app matches those inputs. The dedicated camera workflow now uses independent display labels.
 

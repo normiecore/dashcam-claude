@@ -1,3 +1,11 @@
+## Accepted rendering rollback — 17 October 2026
+
+**0.1.3 (20261017.1525) is uploaded, Apple VALID, existing internal group access True and IN_BETA_TESTING.** Release run https://github.com/normiecore/dashcam-claude/actions/runs/39044915216; release helper commit 6820f4d56f95de0cb109c7227bd07d7cdbe98d18. The upload guard proves app sources/project are identical to verified source 2e9bbe8d2a3c3223784b5216fe17aa18c086a791. Production archive and resource checksum audit passed again during signing. Do not duplicate this upload.
+
+The user explicitly requested restoring the renderer used for the samples, superseding the independent replacement. Original 0.1.1 RAW development/kernel/tables/preview are restored; newer HEIC Medium / RAW-off defaults, optional RAW saving and camera/storage fixes remain. Working display name stays Natural. Phone acceptance requires updating through the existing TestFlight app and taking fresh photographs. No physical phone capture or private 0.1.3 rendering comparison was performed here.
+
+External Beta App Review was submitted successfully and the build is assigned to the existing public group. Public availability still depends on Apple's approval; no production App Store submission was made. Prior 0.1.2 render previews describe the superseded look. See NaturalColor/verification/release/0.1.3-rollback.md. Historical entries below remain for provenance.
+
 ## Rendering rollback requested — 17 October 2026
 
 The user rejected the near-neutral 0.1.2 replacement and explicitly requested the rendering used for their supplied samples. Candidate 0.1.3 restores the exact 0.1.1 RAW decoder settings, recovered Metal operator, profile/chroma/film tables and sRGB preview, based on verified source 5365cfa6f202c023132ab4fd6cb95d4859d3564f. Existing kernel/core/assets are byte-identical to that source. The current HEIC Medium / RAW-off defaults, optional RAW pair, capture orientation, save cleanup and camera UI fixes remain. HEIC uses tagged Display P3 and JPEG uses sRGB; file encoding differs from 0.1.1's high-quality JPEG, so encoded files are not claimed byte-identical.
