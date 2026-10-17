@@ -80,14 +80,14 @@ def distribute():
     else:
         call('betaAppLocalizations',{'data':{'type':'betaAppLocalizations','attributes':{'locale':'en-AU','description':description},
             'relationships':{'app':{'data':{'type':'apps','id':app}}}}})
-    notes=('0.1.2: Simple mode, native framing, processed-only HEIC at Medium quality are the defaults. '
+    notes=('0.1.3: Restores the colour and tone rendering used in 0.1.1. Simple mode, native framing, processed-only HEIC at Medium quality are the defaults. '
         'RAW is off by default, including after upgrading from 0.1.1. Allow add-only Photos access on first capture. '
         'In Camera controls, test JPEG/HEIC, Medium/High/Small quality, optional RAW + processed where supported, '
         'and Advanced mode. Quality changes compression, not pixel dimensions. Check portrait and both landscape '
         'file orientations, repeated captures, lens changes, tap-to-focus, standard crops, thumbnail review, '
         'compare/finish/exposure, imports and sharing. Successful saves remove intermediate files; failed saves '
         'keep recovery copies in Files > On My iPhone > Natural > Pending Captures and Processed. '
-        'This build uses an independent finishing pipeline and native Apple RAW development. '
+        'The RAW development settings and rendering from 0.1.1 are restored. '
         'Please report crashes, save failures, rotation errors or unexpected colour shifts through TestFlight.')
     existing=call(f'builds/{build["id"]}/betaBuildLocalizations?limit=200')['data']
     if existing:

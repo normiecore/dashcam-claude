@@ -4,7 +4,7 @@ The user rejected the near-neutral 0.1.2 replacement and explicitly requested th
 
 Re-enable the original three renderer regression tests; exclude the superseded analytic kernel/tests. The production archive audit now requires and hashes the restored tables rather than forbidding them. This supersedes the independent-pipeline shipping direction below. It does not establish redistribution rights or App Store readiness. No new marketing claims or App Store submission are authorised by the rollback.
 
-Verification and a replacement TestFlight upload are pending. The currently installed 0.1.2 is unchanged until a new accepted build is installed. Never overwrite the historical 0.1.2 evidence as if it tested this candidate.
+Hosted verification passed: 13 image/unit tests, five UI journeys and production iPhone archive/bundle checksum checks in https://github.com/normiecore/dashcam-claude/actions/runs/39044267142. Candidate app source is 2e9bbe8d2a3c3223784b5216fe17aa18c086a791. Signed external-eligible TestFlight upload is next, with app-tree equality pinned to this verified source. The currently installed 0.1.2 is unchanged until a new accepted build is installed. Never overwrite the historical 0.1.2 evidence as if it tested this candidate.
 
 ## Verified imagery and revised naming — 17 October 2026
 
