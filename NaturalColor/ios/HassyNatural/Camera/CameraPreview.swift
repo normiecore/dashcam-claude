@@ -311,12 +311,20 @@ struct CameraView: View {
                 Toggle("Advanced mode", isOn: $advanced).accessibilityIdentifier("advancedMode")
                 Text(advanced ? "Live exposure readings, composition grid and capture format." : "Just frame, focus and shoot. Auto exposure handles the rest.")
                     .font(.caption).foregroundStyle(.secondary)
-                Picker("File format", selection: $fileFormat) {
-                    ForEach(PhotoFileFormat.allCases) { format in Text("\(format.rawValue) (\(format.label))").tag(format) }
-                }.accessibilityIdentifier("fileFormat")
-                Picker("Photo quality", selection: $fileQuality) {
-                    ForEach(PhotoFileQuality.allCases) { quality in Text(quality.rawValue).tag(quality) }
-                }.accessibilityIdentifier("fileQuality")
+                HStack {
+                    Text("File format")
+                    Spacer()
+                    Picker("File format", selection: $fileFormat) {
+                        ForEach(PhotoFileFormat.allCases) { format in Text("\(format.rawValue) (\(format.label))").tag(format) }
+                    }.labelsHidden().accessibilityLabel("File format").accessibilityIdentifier("fileFormat")
+                }
+                HStack {
+                    Text("Photo quality")
+                    Spacer()
+                    Picker("Photo quality", selection: $fileQuality) {
+                        ForEach(PhotoFileQuality.allCases) { quality in Text(quality.rawValue).tag(quality) }
+                    }.labelsHidden().accessibilityLabel("Photo quality").accessibilityIdentifier("fileQuality")
+                }
                 if camera.supportsRaw {
                     Toggle("Save RAW original", isOn: Binding(get: { saveMode != .processed }, set: { saveMode = $0 ? .both : .processed }))
                         .disabled(camera.capturing).accessibilityIdentifier("saveRAW")

@@ -99,7 +99,7 @@ struct ContentView: View {
                     Text("A camera, with room to look.")
                     Text("Frame a moment, take the photo and carry on. A light finishing adjustment keeps the original colours close.")
                     Text("RAW files are decoded through Apple’s RAW support. Unsupported originals show an error instead of substituting their embedded preview. HEIC saves space and retains wide colour. JPEG is available when you need it. Your imported files remain unchanged.")
-                    Text("Photos stay on this device. No account or upload is required.")
+                    Text("Processing happens on your iPhone. No account or upload is required.")
                     Text("A finished photo saves straight to Photos. Medium-quality HEIC is the default. Enable Save RAW original in Camera controls to keep an additional RAW file where supported. Native framing keeps the camera’s pixel dimensions; optional ratios crop the finished photo. Interrupted saves remain in Files → On My iPhone → Natural → Pending Captures or Processed.")
                 }.padding(24)
             }
