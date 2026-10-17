@@ -1,4 +1,4 @@
-name: Hassy Natural
+name: Natural camera
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       upload:
-        description: Upload this verified build to Hassy Natural TestFlight
+        description: Upload this verified build to Natural camera TestFlight
         type: boolean
         default: false
 permissions:
@@ -48,7 +48,7 @@ jobs:
       - name: Prepare the dedicated upload trigger
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh label create natural-testflight --repo "$GITHUB_REPOSITORY" --color D4BC8C --description 'Upload verified Hassy Natural build' --force
+        run: gh label create natural-testflight --repo "$GITHUB_REPOSITORY" --color D4BC8C --description 'Upload verified Natural camera build' --force
       - name: Apple app identity
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -133,7 +133,7 @@ jobs:
           xcodebuild -version
           brew install xcodegen
           xcodegen generate
-      - name: Archive and upload the separate Hassy Natural app
+      - name: Archive and upload the separate Natural camera app
         run: |
           python3 scripts/apple_identity.py --require-app
           bash scripts/upload_testflight.sh

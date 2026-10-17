@@ -12,9 +12,15 @@ Working display name: Natural. The existing bundle identifier and Xcode target r
 
 ## Status
 
-0.1.1 (20261016.2356) is the last confirmed internal TestFlight build. The 0.1.2 candidate is undergoing hosted Xcode verification; see HANDOVER/CHANGELOG for the final accepted source and upload result. Do not mistake source changes for a shipped update.
+**0.1.2 (20261017.1315) is available to the existing internal TestFlight group.** Apple processing is VALID and the internal state is IN_BETA_TESTING. Update through the existing listing; the installed display name is Natural.
 
-The public invitation link exists, but external installation awaits complete review/feedback contacts and Apple Beta App Review. App Store publication requires a separate submission. The draft [store package](app-store/listing.md) includes listing copy, privacy/support text, screenshot direction and remaining release fields. Private assessment photographs and personal details are excluded.
+[Verification](https://github.com/normiecore/dashcam-claude/actions/runs/39035011122) passed 12 image/unit tests, five UI journeys and the production device archive/bundle audit. [Signed upload and Apple processing/group confirmation](https://github.com/normiecore/dashcam-claude/actions/runs/39035815264) passed. Verified application inputs: `9744adf493c837c32f8663ac14f5aef04511ff5f`; the release guard proves the uploaded app matches those inputs. The dedicated camera workflow now uses independent display labels.
+
+Defaults are HEIC Medium, RAW off, Simple mode and native framing. Camera controls changes format/quality/RAW. On a physical iPhone, confirm a single finished HEIC appears in Photos at the supported native dimensions, portrait/both landscape orientations behave correctly, and enabling RAW creates the expected pair. Simulator checks do not establish camera or Photos acceptance.
+
+The [name shortlist](app-store/names.md) and [store copy](app-store/listing.md) are drafts awaiting final selection and publishing details. Private store-direction previews and test photographs remain outside this repository.
+
+The public invitation link exists and this build was successfully submitted for Apple Beta App Review. External installation awaits Apple’s approval. App Store publication requires a separate submission. The draft [store package](app-store/listing.md) includes listing copy, privacy/support text, screenshot direction and remaining release fields. Private assessment photographs and personal details are excluded.
 
 ## Build and verify
 

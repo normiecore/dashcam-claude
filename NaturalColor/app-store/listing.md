@@ -1,6 +1,6 @@
 # Store listing draft
 
-Working name: Natural. Replace with the selected available name before submission.
+Working name: Natural. Replace with the selected available name before submission. See names.md for the screened shortlist.
 Subtitle (28 characters): A little room for the moment
 Promotional text: Open the camera. Find your frame. Your photo saves straight to Photos, ready for whatever comes next.
 Category: Photo & Video. Platform: iPhone, iOS 17 or later.
@@ -30,4 +30,4 @@ No account, subscription or demo login. Launch on an iPhone, allow Camera access
 
 ## Submission fields still requiring the publisher
 
-Final available name; publisher copyright; real review contact name/email/phone and feedback contact; live support/privacy URLs; price, territories and completed age-rating questionnaire. Working files are drafts, not a submitted App Store listing. Do not publish private tester photographs or contact details in this repository.
+Final available name; publisher copyright; production review/publisher fields (beta review/feedback contacts are already populated); live support/privacy URLs; price, territories and completed age-rating questionnaire. Working files are drafts, not a submitted App Store listing. Do not publish private tester photographs or contact details in this repository.

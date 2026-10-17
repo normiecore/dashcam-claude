@@ -1,3 +1,13 @@
+## 0.1.2 (20261017.1315) — 2026-10-17
+
+- Available in the existing internal TestFlight group: Apple VALID / IN_BETA_TESTING.
+- Default HEIC Medium, RAW off on fresh install and upgrade. Optional JPEG, compression presets and RAW + processed.
+- Preserve supported native pixels; standard crops without upsampling. Device-aware capture orientation; durable failed-save recovery and successful-save cleanup.
+- Independent analytic finish and native Apple RAW development. Recovered research code/resources excluded from production and audited absent.
+- Independent consumer/beta/store copy, working name Natural; explicit setting labels and 44pt settings/grid/EV hit targets.
+- Passed 12 image/unit + five UI tests and production archive/bundle audit: https://github.com/normiecore/dashcam-claude/actions/runs/39035011122. Signed upload and processing/group confirmation: https://github.com/normiecore/dashcam-claude/actions/runs/39035815264.
+- Private 55-file photo assessment informed the changes. Store copy, privacy/support drafts, screenshot direction and screened names are prepared; final naming, contact/URL fields, phone acceptance and publication assets remain.
+
 ## 0.1.2 candidate — 2026-10-17
 
 - Default processed-only HEIC Medium; optional RAW and JPEG/quality controls.
