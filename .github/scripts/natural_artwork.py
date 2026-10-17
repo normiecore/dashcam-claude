@@ -1,5 +1,5 @@
 """Private artwork verification: authenticated encrypted inputs and encrypted outputs only."""
-import base64, hashlib, json, os, shutil, sys, urllib.request, zipfile
+import base64, hashlib, json, os, re, shutil, sys, urllib.request, zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
@@ -33,8 +33,14 @@ def prepare():
     (fixtures/'artwork-manifest.json').write_text(json.dumps(safe))
     Path('NaturalColor/ios/HassyNaturalTests/PrivateArtworkRenderingTests.swift').write_text(SWIFT)
     print('Four private RAW fixtures verified. URLs and photographs omitted from logs.')
-def seal(directory):
-    directory=Path(directory)
+def seal():
+    # The test reports its authoritative host-accessible Simulator path.
+    # Xcode may shut the Simulator down before the collection step.
+    log=(Path(os.environ['RUNNER_TEMP'])/'artwork-native.log').read_text()
+    paths=re.findall(r'NATIVE_ARTWORK_DIRECTORY=(/[^\r\n]+)',log)
+    if not paths:raise ValueError('output directory missing')
+    directory=Path(paths[-1].strip())
+    if not (directory/'render-manifest.json').is_file():raise ValueError('manifest missing')
     files=list(directory.iterdir())
     if len([x for x in files if x.suffix=='.heic'])!=4 or len([x for x in files if x.suffix=='.jpg'])!=4:raise ValueError('incomplete output')
     spec=json.loads((directory/'render-manifest.json').read_text())
@@ -88,13 +94,14 @@ final class PrivateArtworkRenderingTests: XCTestCase {
             manifest.append(["id":id,"source_sha256":item["source_sha256"]!,"width":width,"height":height,"preview_width":preview.width,"preview_height":preview.height])
         }
         try JSONSerialization.data(withJSONObject:manifest,options:.sortedKeys).write(to:directory.appendingPathComponent("render-manifest.json"))
+        print("NATIVE_ARTWORK_DIRECTORY=" + directory.path)
     }
 }
 '''
 if __name__=='__main__':
     try:
         if sys.argv[1]=='prepare':prepare()
-        else:seal(sys.argv[2])
+        else:seal()
     except Exception:
         # Exceptions from HTTP/crypto may contain private URLs or payload fields.
         raise SystemExit('Private artwork operation failed. No private inputs printed; refresh authenticated inputs if expired.') from None

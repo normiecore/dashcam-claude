@@ -38,8 +38,7 @@ jobs:
           grep -E 'Test Case.*passed|TEST SUCCEEDED' "$RUNNER_TEMP/artwork-native.log"
       - name: Encrypt native outputs for the requesting workspace
         run: |
-          app_data="$(xcrun simctl get_app_container "$SIM_UDID" com.normiecore.hassynatural data)"
-          "$RUNNER_TEMP/artwork-python/bin/python" .github/scripts/natural_artwork.py seal "$app_data/Documents/Artwork"
+          "$RUNNER_TEMP/artwork-python/bin/python" .github/scripts/natural_artwork.py seal
       - uses: actions/upload-artifact@v4
         with:
           name: encrypted-native-artwork
