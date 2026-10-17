@@ -1,5 +1,7 @@
 import AVFoundation
 import SwiftUI
+import ImageIO
+import UniformTypeIdentifiers
 
 struct CameraLens: Identifiable {
     let id: String
@@ -15,7 +17,6 @@ final class CameraService: NSObject, ObservableObject {
     @Published var ready = false
     @Published var capturing = false
     @Published var supportsRaw = false
-    @Published var useRaw = true
     @Published var error: String?
     @Published var permissionDenied = false
     @Published var unavailableReason: String?
@@ -220,10 +221,10 @@ final class CameraService: NSObject, ObservableObject {
         }
     }
 
-    func capture() {
+    func capture(rawRequested: Bool = false, format: PhotoFileFormat = .heic, rotationAngle: CGFloat = 90) {
         guard canCapture else { return }
         capturing = true
-        let rawRequested = useRaw && supportsRaw
+        let rawRequested = rawRequested && supportsRaw
         let delegate = PhotoCaptureDelegate { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -241,12 +242,13 @@ final class CameraService: NSObject, ObservableObject {
             if rawRequested, let format = output.availableRawPhotoPixelFormatTypes.first(where: { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }) {
                 settings = AVCapturePhotoSettings(rawPixelFormatType: format)
             } else {
-                settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+                let codec: AVVideoCodecType = format == .heic && output.availablePhotoCodecTypes.contains(.hevc) ? .hevc : .jpeg
+                settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: codec])
             }
             settings.maxPhotoDimensions = output.maxPhotoDimensions
             settings.photoQualityPrioritization = .quality
-            if let connection = output.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
+            if let connection = output.connection(with: .video), connection.isVideoRotationAngleSupported(rotationAngle) {
+                connection.videoRotationAngle = rotationAngle
             }
             output.capturePhoto(with: settings, delegate: delegate)
         }
@@ -267,9 +269,11 @@ private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
         guard let data = photo.fileDataRepresentation() else { result = .failure(CameraFailure.capture); return }
         do {
             let originals = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("Originals", isDirectory: true)
+                .appendingPathComponent("Pending Captures", isDirectory: true)
             try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
-            let url = originals.appendingPathComponent("Capture-\(UUID().uuidString).\(photo.isRawPhoto ? "dng" : "jpg")")
+            let type = CGImageSourceCreateWithData(data as CFData, nil).flatMap { CGImageSourceGetType($0) } as String?
+            let ext = photo.isRawPhoto ? "dng" : (type == UTType.heic.identifier || type == "public.heif" ? "heic" : "jpg")
+            let url = originals.appendingPathComponent("Capture-\(UUID().uuidString).\(ext)")
             try data.write(to: url, options: .atomic)
             result = .success(url)
         } catch { result = .failure(error) }

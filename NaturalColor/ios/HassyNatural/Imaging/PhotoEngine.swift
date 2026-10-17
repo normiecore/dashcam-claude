@@ -3,7 +3,6 @@ import CoreImage.CIFilterBuiltins
 import ImageIO
 import UniformTypeIdentifiers
 import UIKit
-import CryptoKit
 
 struct EditSettings: Equatable, Sendable {
     var strength: Float = 1
@@ -19,7 +18,7 @@ enum PhotoError: LocalizedError {
         case .invalidImage: return "This image has unsupported dimensions."
         case .rendering: return "The photo could not be rendered. Try a smaller photo."
         case .encoding: return "The edited photo could not be exported."
-        case .photoAccess: return "Allow Hassy Natural to add photos in Settings, or use Share to save to Files."
+        case .photoAccess: return "Allow Natural to add photos in Settings, or use Share to save to Files."
         }
     }
 }
@@ -38,8 +37,8 @@ actor PhotoEngine {
         .workingColorSpace: linear, .outputColorSpace: display,
         .cacheIntermediates: false, .workingFormat: CIFormat.RGBAf.rawValue
     ])
-    private var recoveredKernel: RecoveredKernel?
-    private var reference: ReferenceAssets?
+    private var naturalKernel: NaturalKernel?
+    private let wideDisplay = CGColorSpace(name: CGColorSpace.displayP3)!
 
     func demoPhoto() -> LoadedPhoto {
         let filter = CIFilter.linearGradient()
@@ -58,12 +57,8 @@ actor PhotoEngine {
         if raw {
             // A RAW must decode actual sensor data. Never silently substitute its preview.
             if let decoder = CIRAWFilter(imageURL: url) {
-                // Apple defaults to adding its global tone curve. Disable
-                // creative tone processing before the recovered Standard stage.
-                decoder.boostAmount = 0
-                decoder.boostShadowAmount = 0
-                if decoder.isLocalToneMapSupported { decoder.localToneMapAmount = 0 }
-                decoder.isGamutMappingEnabled = false
+                // Use Apple's native RAW development (including its tone and
+                // colour management). Do not apply another camera's profile.
                 decoder.exposure = 0
                 image = decoder.outputImage
             } else { image = nil }
@@ -85,16 +80,9 @@ actor PhotoEngine {
         exposure.ev = settings.exposure
         guard let exposed = exposure.outputImage else { throw PhotoError.rendering }
         if settings.strength <= 0 { return exposed }
-        if recoveredKernel == nil {
-            let assets = try ReferenceAssets.load()
-            reference = assets
-            recoveredKernel = try RecoveredKernel(chroma: assets.chroma, film: assets.film,
-                width: assets.profile.width, height: assets.profile.height,
-                cbStart: assets.profile.start[0], crStart: assets.profile.start[1],
-                divisor: assets.profile.divisor, nativeScale: 1)
-        }
-        guard let recoveredKernel else { throw PhotoError.rendering }
-        return try recoveredKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
+        if naturalKernel == nil { naturalKernel = try NaturalKernel() }
+        guard let naturalKernel else { throw PhotoError.rendering }
+        return try naturalKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
     }
 
     private func crop(_ image: CIImage, ratio: PhotoAspectRatio) -> CIImage {
@@ -108,73 +96,39 @@ actor PhotoEngine {
         let scale = min(1, 1600 / max(framed.extent.width, framed.extent.height))
         let small = framed.transformed(by: .init(scaleX: scale, y: scale))
         let image = original ? small : try filtered(small, settings: settings)
-        guard let result = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: display) else { throw PhotoError.rendering }
+        guard let result = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: wideDisplay) else { throw PhotoError.rendering }
         return result
     }
 
     // One actor turn keeps repeated full-resolution captures from accumulating
     // decoded RAW images while waiting for their corresponding exports.
-    func exportCapture(url: URL, settings: EditSettings) throws -> URL {
-        try export(photo: load(url: url), settings: settings)
+    func exportCapture(url: URL, settings: EditSettings, output: PhotoOutputOptions) throws -> URL {
+        try export(photo: load(url: url), settings: settings, output: output)
     }
 
-    func export(photo: LoadedPhoto, settings: EditSettings) throws -> URL {
+    func export(photo: LoadedPhoto, settings: EditSettings,
+                output: PhotoOutputOptions = .init(format: .jpeg, quality: .high)) throws -> URL {
         let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
-        // Bound rendering to a concrete RGBA8 raster before ImageIO encoding.
-        // CIContext's tiled JPEG writer can request an unbounded intermediate
-        // for generated/filter graphs, even when the visible extent is finite.
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let name = photo.name.replacingOccurrences(of: "/", with: "-")
-        let url = directory.appendingPathComponent("\(name)-natural-\(UUID().uuidString.prefix(6)).jpg")
-        guard let raster = context.createCGImage(image, from: image.extent,
-                format: .RGBA8, colorSpace: display),
-              let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
-            throw PhotoError.encoding
+        let name = photo.name.replacingOccurrences(of: "/", with: "-") + "-natural-" + String(UUID().uuidString.prefix(6))
+        let types = CGImageDestinationCopyTypeIdentifiers() as! [String]
+        let tryHEIC = output.format == .heic && types.contains(UTType.heic.identifier)
+        // Rasterize a finite image before encoding; keep the source dimensions.
+        // HEIC retains a tagged Display P3 image; compatible JPEG uses sRGB.
+        for heic in tryHEIC ? [true, false] : [false] {
+            let space = heic ? wideDisplay : display
+            guard let raster = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: space) else { throw PhotoError.rendering }
+            let url = directory.appendingPathComponent(name + (heic ? ".heic" : ".jpg"))
+            let type = heic ? UTType.heic : .jpeg
+            guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else { continue }
+            CGImageDestinationAddImage(destination, raster, [
+                kCGImageDestinationLossyCompressionQuality: output.quality.compression,
+                kCGImagePropertyOrientation: 1
+            ] as CFDictionary)
+            if CGImageDestinationFinalize(destination) { return url }
+            try? FileManager.default.removeItem(at: url)
         }
-        CGImageDestinationAddImage(destination, raster, [
-            kCGImageDestinationLossyCompressionQuality: 0.96,
-            kCGImagePropertyOrientation: 1
-        ] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { throw PhotoError.encoding }
-        return url
-    }
-}
-
-private struct ReferenceProfile: Decodable {
-    let width: Int
-    let height: Int
-    let start: [Float]
-    let divisor: Float
-    let sha256: String
-}
-
-private struct ReferenceAssets {
-    let profile: ReferenceProfile
-    let chroma: [Float]
-    let film: [Float]
-    static func load() throws -> ReferenceAssets {
-        func data(_ name: String, _ ext: String) throws -> Data {
-            guard let url = Bundle.main.url(forResource: name, withExtension: ext) else { throw PhotoError.rendering }
-            return try Data(contentsOf: url)
-        }
-        func floats(_ bytes: Data, count: Int) throws -> [Float] {
-            guard bytes.count == count * MemoryLayout<Float>.size else { throw PhotoError.rendering }
-            var values = [Float](repeating: 0, count: count)
-            _ = values.withUnsafeMutableBytes { bytes.copyBytes(to: $0) }
-            guard values.allSatisfy({ $0.isFinite }) else { throw PhotoError.rendering }
-            return values
-        }
-        let profile = try JSONDecoder().decode(ReferenceProfile.self, from: data("ReferenceProfile", "json"))
-        guard profile.width >= 2, profile.height >= 2, profile.width <= 256, profile.height <= 256,
-              profile.start.count == 2, profile.start.allSatisfy({ $0.isFinite }),
-              profile.divisor.isFinite, profile.divisor > 0 else { throw PhotoError.rendering }
-        let chroma = try data("ReferenceChroma", "f32")
-        let film = try data("StandardCurve", "f32")
-        func hash(_ bytes: Data) -> String { SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() }
-        guard hash(chroma) == profile.sha256,
-              hash(film) == "b3324e976976df34b5f6ecbd4c4e6830a68b1b1a75c573a0800ef6f144e29598" else { throw PhotoError.rendering }
-        return try ReferenceAssets(profile: profile,
-            chroma: floats(chroma, count: profile.width*profile.height*2), film: floats(film, count: 65536))
+        throw PhotoError.encoding
     }
 }

@@ -1,3 +1,11 @@
+## 0.1.2 in progress — 17 October 2026
+
+User approved an independent rendering pipeline, replacing the recovered research implementation in the shipping target. The research sources and provenance remain archived in the repository; Xcode excludes them and the production bundle audit rejects recovered assets. New tests cover the analytic finish; archived goldens describe the previous renderer only.
+
+New default: processed photo only, HEIC Medium (ImageIO quality 0.78), source pixels preserved. JPEG, High/Small compression and optional RAW + processed are available in Camera controls. V2 save preference deliberately establishes RAW-off on upgrade. RAW is not requested unless enabled. Pending captures survive failed Photos transactions; successfully saved intermediate copies are removed. Apple native RAW development replaces forced tone-map/gamut overrides. Capture files follow held-device orientation while camera UI stays portrait.
+
+Test shots remain private, outside the repository. Full native image/export and UI verification is pending hosted Xcode CI; do not describe this candidate as shipped yet. Working display name Natural; final brand is not selected. Existing bundle ID is retained for update compatibility.
+
 # Dashcam project — read first
 
 ## Hassy Natural Simple camera UI — 2026-10-17, Australia/Perth

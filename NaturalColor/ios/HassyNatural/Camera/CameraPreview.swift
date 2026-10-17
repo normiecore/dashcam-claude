@@ -43,23 +43,27 @@ struct CameraView: View {
     @StateObject private var camera: CameraService
     @ObservedObject var model: EditorModel
     let active: Bool
-    let onCapture: (URL, PhotoAspectRatio, PhotoSaveMode) -> Void
+    let onCapture: (URL, PhotoAspectRatio, PhotoSaveMode, PhotoOutputOptions) -> Void
     let onReview: () -> Void
     let onLibrary: () -> Void
     let onFiles: () -> Void
     let onAbout: () -> Void
     @AppStorage("advancedCamera") private var advanced = false
     @AppStorage("photoAspectRatio") private var ratio: PhotoAspectRatio = .native
-    @AppStorage("photoSaveMode") private var saveMode: PhotoSaveMode = .both
+    @AppStorage("photoSaveModeV2") private var saveMode: PhotoSaveMode = .processed
+    @AppStorage("photoFileFormat") private var fileFormat: PhotoFileFormat = .heic
+    @AppStorage("photoFileQuality") private var fileQuality: PhotoFileQuality = .medium
+    @State private var shotOutput = PhotoOutputOptions()
+    @State private var captureAngle: CGFloat = 90
     @State private var shotRatio: PhotoAspectRatio = .native
-    @State private var shotSaveMode: PhotoSaveMode = .both
+    @State private var shotSaveMode: PhotoSaveMode = .processed
     @State private var gridVisible = false
     @State private var controls = false
     @State private var showAboutAfterControls = false
     @State private var focusPoint: CGPoint?
     @State private var focusID = UUID()
 
-    init(model: EditorModel, active: Bool, onCapture: @escaping (URL, PhotoAspectRatio, PhotoSaveMode) -> Void,
+    init(model: EditorModel, active: Bool, onCapture: @escaping (URL, PhotoAspectRatio, PhotoSaveMode, PhotoOutputOptions) -> Void,
          onReview: @escaping () -> Void, onLibrary: @escaping () -> Void,
          onFiles: @escaping () -> Void, onAbout: @escaping () -> Void) {
         self.model = model; self.active = active; self.onCapture = onCapture
@@ -96,10 +100,14 @@ struct CameraView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("cameraScreen")
         .task(id: active) {
-            camera.onCapture = { url in onCapture(url, shotRatio, shotSaveMode) }
+            camera.onCapture = { url in onCapture(url, shotRatio, shotSaveMode, shotOutput) }
             if active { await camera.start() } else { camera.stop() }
         }
-        .onDisappear { camera.stop() }
+        .onDisappear { camera.stop(); UIDevice.current.endGeneratingDeviceOrientationNotifications() }
+        .onAppear { UIDevice.current.beginGeneratingDeviceOrientationNotifications() }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            captureAngle = CaptureOrientation.angle(for: UIDevice.current.orientation, previous: captureAngle)
+        }
         .onChange(of: camera.ready) { _, ready in
             if ready && !advanced { camera.setExposureBias(0) }
         }
@@ -126,19 +134,12 @@ struct CameraView: View {
             }
             Spacer()
             if advanced {
-            Menu {
-                Button { camera.useRaw = true } label: { Label("Apple ProRAW", systemImage: camera.useRaw ? "checkmark" : "circle") }
-                    .disabled(!camera.supportsRaw)
-                Button { camera.useRaw = false } label: { Label("JPEG", systemImage: !camera.useRaw ? "checkmark" : "circle") }
-            } label: {
-                Text(camera.useRaw && camera.supportsRaw ? "RAW" : "JPEG")
-                    .font(.system(size: 11, weight: .semibold)).tracking(1)
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(CameraTheme.rule))
-                    .frame(minHeight: 44).contentShape(Rectangle())
-            }
-            .accessibilityLabel("Capture format").accessibilityValue(camera.useRaw && camera.supportsRaw ? "RAW" : "JPEG").accessibilityIdentifier("captureFormat")
-            .disabled(!camera.ready || camera.capturing)
+            Text(saveMode != .processed && camera.supportsRaw ? "RAW" : fileFormat.label)
+                .font(.system(size: 11, weight: .semibold)).tracking(1)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Capture format")
+                .accessibilityValue(saveMode != .processed && camera.supportsRaw ? "RAW" : fileFormat.label)
+                .accessibilityIdentifier("captureFormat")
             Button { gridVisible.toggle() } label: {
                 Image(systemName: "viewfinder").foregroundStyle(gridVisible ? CameraTheme.accent : .white)
             }
@@ -277,7 +278,12 @@ struct CameraView: View {
                     .overlay(RoundedRectangle(cornerRadius: 5).stroke(CameraTheme.rule))
             }.frame(maxWidth: .infinity).disabled(model.busy)
                 .accessibilityLabel(model.photo == nil ? "Photo library" : "Review last photo").accessibilityIdentifier("reviewCapture")
-            Button { shotRatio = ratio; shotSaveMode = saveMode; camera.capture() } label: {
+            Button {
+                shotRatio = ratio; shotSaveMode = camera.supportsRaw ? saveMode : .processed
+                shotOutput = .init(format: fileFormat, quality: fileQuality)
+                captureAngle = CaptureOrientation.angle(for: UIDevice.current.orientation, previous: captureAngle)
+                camera.capture(rawRequested: saveMode != .processed, format: fileFormat, rotationAngle: captureAngle)
+            } label: {
                 ZStack {
                     Circle().stroke(.white.opacity(camera.canCapture ? 1 : 0.3), lineWidth: 2).frame(width: 76, height: 76)
                     Circle().fill(.white.opacity(camera.canCapture ? 1 : 0.3)).frame(width: 62, height: 62)
@@ -287,7 +293,7 @@ struct CameraView: View {
             Menu {
                 Button("Photo library", systemImage: "photo.on.rectangle", action: onLibrary).accessibilityIdentifier("openLibrary")
                 Button("Import from Files", systemImage: "folder", action: onFiles).accessibilityIdentifier("openFiles")
-                Button("About Hassy Natural", systemImage: "info.circle", action: onAbout)
+                Button("About Natural", systemImage: "info.circle", action: onAbout)
             } label: {
                 VStack(spacing: 7) {
                     Image(systemName: "square.grid.2x2").font(.system(size: 22, weight: .light))
@@ -304,10 +310,17 @@ struct CameraView: View {
                 Toggle("Advanced mode", isOn: $advanced).accessibilityIdentifier("advancedMode")
                 Text(advanced ? "Live exposure readings, composition grid and capture format." : "Just frame, focus and shoot. Auto exposure handles the rest.")
                     .font(.caption).foregroundStyle(.secondary)
-                Picker("Save to Camera Roll", selection: $saveMode) {
-                    ForEach(PhotoSaveMode.allCases) { mode in Text(mode.rawValue).tag(mode) }
-                }.accessibilityIdentifier("saveMode")
-                Text("Both saves the untouched original and a separate processed JPEG. The original is ProRAW where available, otherwise JPEG. Allow Photos access on your first capture.")
+                Picker("File format", selection: $fileFormat) {
+                    ForEach(PhotoFileFormat.allCases) { format in Text("\(format.rawValue) (\(format.label))").tag(format) }
+                }.accessibilityIdentifier("fileFormat")
+                Picker("Photo quality", selection: $fileQuality) {
+                    ForEach(PhotoFileQuality.allCases) { quality in Text(quality.rawValue).tag(quality) }
+                }.accessibilityIdentifier("fileQuality")
+                if camera.supportsRaw {
+                    Toggle("Save RAW original", isOn: Binding(get: { saveMode != .processed }, set: { saveMode = $0 ? .both : .processed }))
+                        .disabled(camera.capturing).accessibilityIdentifier("saveRAW")
+                } else { Text("RAW isn’t available for this camera.").font(.caption).foregroundStyle(.secondary) }
+                Text("One finished photo saves to Photos. HEIC keeps files smaller; JPEG is available for compatibility. RAW adds a separate original when enabled. Quality changes compression, not pixel dimensions.")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Native uses the camera’s maximum supported photo dimensions without cropping or upscaling. Standard ratios crop the processed copy only.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -324,13 +337,10 @@ struct CameraView: View {
                     HStack { Text("−2"); Spacer(); Text("0"); Spacer(); Text("+2") }.font(.caption2).foregroundStyle(.secondary)
                 }
                 Toggle("Composition grid", isOn: $gridVisible)
-                if camera.supportsRaw {
-                    Toggle("Apple ProRAW", isOn: $camera.useRaw).disabled(camera.capturing)
-                } else { Text("JPEG capture · ProRAW is unavailable on this camera.").font(.caption).foregroundStyle(.secondary) }
                 Text("ISO, shutter and aperture are live readings. Exposure compensation changes the camera’s auto exposure.")
                     .font(.caption).foregroundStyle(.secondary)
                 }
-                Button("About Hassy Natural") { showAboutAfterControls = true; controls = false }.font(.footnote)
+                Button("About Natural") { showAboutAfterControls = true; controls = false }.font(.footnote)
                 }.padding(24)
             }.background(CameraTheme.panel)
                 .navigationTitle("Camera controls").navigationBarTitleDisplayMode(.inline)

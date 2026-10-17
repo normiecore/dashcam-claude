@@ -33,3 +33,26 @@ enum PhotoSaveMode: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
+
+/// Compression presets preserve the source dimensions. These are encoder
+/// quality values, not resolution tiers or capture-speed priorities.
+enum PhotoFileFormat: String, CaseIterable, Identifiable, Sendable {
+    case heic = "High Efficiency", jpeg = "Most Compatible"
+    var id: String { rawValue }
+    var label: String { self == .heic ? "HEIC" : "JPEG" }
+}
+enum PhotoFileQuality: String, CaseIterable, Identifiable, Sendable {
+    case medium = "Medium", high = "High", small = "Small"
+    var id: String { rawValue }
+    var compression: Double {
+        switch self { case .medium: return 0.78; case .high: return 0.95; case .small: return 0.60 }
+    }
+}
+struct PhotoOutputOptions: Equatable, Sendable {
+    var format: PhotoFileFormat = .heic
+    var quality: PhotoFileQuality = .medium
+    static var current: Self {
+        .init(format: PhotoFileFormat(rawValue: UserDefaults.standard.string(forKey: "photoFileFormat") ?? "") ?? .heic,
+              quality: PhotoFileQuality(rawValue: UserDefaults.standard.string(forKey: "photoFileQuality") ?? "") ?? .medium)
+    }
+}

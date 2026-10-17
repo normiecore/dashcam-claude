@@ -69,9 +69,10 @@ final class EditorModel: ObservableObject {
     }
 
     /// Each capture owns its save task. Reviewing/importing another image cannot cancel it.
-    func captured(url: URL, ratio: PhotoAspectRatio, mode: PhotoSaveMode) {
+    func captured(url: URL, ratio: PhotoAspectRatio, mode: PhotoSaveMode, output: PhotoOutputOptions) {
         let edit = EditSettings(aspectRatio: ratio)
         load(url: url, initialSettings: edit)
+        let reviewTask = loadTask
         savingCaptures += 1
         captureStatus = "Saving to Photos…"
         Task {
@@ -83,7 +84,7 @@ final class EditorModel: ObservableObject {
             var processed: URL?
             do {
                 if mode != .original {
-                    let rendered = try await engine.exportCapture(url: url, settings: edit)
+                    let rendered = try await engine.exportCapture(url: url, settings: edit, output: output)
                     // Keep a durable recovery copy until Photos confirms the transaction.
                     let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                         .appendingPathComponent("Processed", isDirectory: true)
@@ -101,11 +102,15 @@ final class EditorModel: ObservableObject {
                         request.addResource(with: .photo, fileURL: resource, options: nil)
                     }
                 }
+                await reviewTask?.value
                 if let processed { try? FileManager.default.removeItem(at: processed) }
+                // Photos has copied the resources; retain only the review copy
+                // in temporary storage, not another permanent RAW/HEIC file.
+                try? FileManager.default.removeItem(at: url)
                 captureStatus = mode == .both ? "Original + processed saved to Photos" : "Photo saved to Photos"
             } catch {
                 captureStatus = "Save incomplete · Copies kept in Files"
-                self.error = "Camera Roll save failed. Your original is safe in Files → Hassy Natural → Originals. Any developed copy is in Processed. " + error.localizedDescription
+                self.error = "Camera Roll save failed. Your capture is safe in Files → Natural → Pending Captures. Any developed copy is in Processed. " + error.localizedDescription
             }
         }
     }
@@ -139,7 +144,7 @@ final class EditorModel: ObservableObject {
         exporting = true
         defer { exporting = false }
         do {
-            let url = try await engine.export(photo: photo, settings: settings)
+            let url = try await engine.export(photo: photo, settings: settings, output: .current)
             if saveToPhotos {
                 let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
                 guard status == .authorized || status == .limited else { throw PhotoError.photoAccess }

@@ -1,3 +1,11 @@
+## 0.1.2 candidate — 2026-10-17
+
+- Default processed-only HEIC Medium; optional RAW and JPEG/quality controls.
+- Preserve source dimensions; clean successful capture intermediates and retain recovery files on failure.
+- Independent analytic finish and native Apple RAW development; exclude recovered tables/code from production.
+- Device-aware capture orientation and independent product copy, working name Natural.
+- Verification pending: hosted image/UI tests and Release bundle audit.
+
 # Hassy Natural Simple camera — 0.1.1 — 2026-10-17
 
 - Default to Simple mode, with opt-in Advanced controls and remembered preferences. Save original + processed automatically to Photos; offer either copy alone and retain files if saving fails.

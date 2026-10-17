@@ -40,7 +40,7 @@ struct EditorView: View {
                         .accessibilityIdentifier("compareButton")
                 }
                 VStack(spacing: 5) {
-                    HStack { Text("STRENGTH").font(.system(size: 10, weight: .medium)).tracking(1.5); Spacer(); Text("\(Int(model.settings.strength * 100))% ").monospacedDigit().foregroundStyle(CameraTheme.accent) }
+                    HStack { Text("FINISH").font(.system(size: 10, weight: .medium)).tracking(1.5); Spacer(); Text("\(Int(model.settings.strength * 100))% ").monospacedDigit().foregroundStyle(CameraTheme.accent) }
                     Slider(value: $model.settings.strength, in: 0...1)
                         .accessibilityLabel("Strength").accessibilityIdentifier("strengthSlider")
                 }

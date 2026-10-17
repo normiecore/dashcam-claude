@@ -1,6 +1,7 @@
 import XCTest
 import CoreImage
 import ImageIO
+import UniformTypeIdentifiers
 @testable import HassyNatural
 
 final class PhotoEngineTests: XCTestCase {
@@ -15,9 +16,9 @@ final class PhotoEngineTests: XCTestCase {
         let rendered = try await engine.preview(photo: photo, settings: .init())
         XCTAssertGreaterThan(rendered.width, 1000)
         XCTAssertGreaterThan(rendered.height, 1000)
-        // Exercise the actual 48 MP graph and concrete JPEG writer, rather
+        // Exercise the actual 48 MP graph and default HEIC writer, rather
         // than inferring full-resolution export from a small synthetic image.
-        let exported = try await engine.export(photo: photo, settings: .init())
+        let exported = try await engine.export(photo: photo, settings: .init(), output: .init())
         defer { try? FileManager.default.removeItem(at: exported) }
         let source = try XCTUnwrap(CGImageSourceCreateWithURL(exported as CFURL, nil))
         let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
@@ -69,6 +70,48 @@ final class PhotoEngineTests: XCTestCase {
         XCTAssertEqual(PhotoSaveMode.original.resources(original: original, processed: nil), [original])
         XCTAssertEqual(PhotoSaveMode.processed.resources(original: original, processed: processed), [processed])
         XCTAssertEqual(EditSettings().aspectRatio, .native)
+    }
+
+    func testMediumHEICExportPreservesPixelsAndHasMatchingFileType() async throws {
+        XCTAssertEqual(PhotoOutputOptions().format, .heic)
+        XCTAssertEqual(PhotoOutputOptions().quality, .medium)
+        let engine = PhotoEngine()
+        let photo = await engine.demoPhoto()
+        let url = try await engine.export(photo: photo, settings: .init(), output: .init())
+        defer { try? FileManager.default.removeItem(at: url) }
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let raster = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        XCTAssertEqual(raster.width, 1200)
+        XCTAssertEqual(raster.height, 900)
+        let type = CGImageSourceGetType(source) as String?
+        XCTAssertEqual(type, url.pathExtension == "heic" ? UTType.heic.identifier : UTType.jpeg.identifier)
+        let supported = CGImageDestinationCopyTypeIdentifiers() as! [String]
+        if supported.contains(UTType.heic.identifier) { XCTAssertEqual(url.pathExtension, "heic") }
+    }
+
+    func testHEICQualityChangesBytesWithoutChangingResolution() async throws {
+        let engine = PhotoEngine()
+        let photo = await engine.demoPhoto()
+        let medium = try await engine.export(photo: photo, settings: .init(), output: .init())
+        let high = try await engine.export(photo: photo, settings: .init(), output: .init(quality: .high))
+        defer { try? FileManager.default.removeItem(at: medium); try? FileManager.default.removeItem(at: high) }
+        let mediumBytes = try Data(contentsOf: medium).count
+        let highBytes = try Data(contentsOf: high).count
+        XCTAssertLessThan(mediumBytes, highBytes)
+        for url in [medium, high] {
+            let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+            let raster = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+            XCTAssertEqual(raster.width * raster.height, 1200 * 900)
+        }
+    }
+
+    @MainActor func testCaptureOrientationFollowsDeviceAndRetainsPoseWhenFlat() {
+        XCTAssertEqual(CaptureOrientation.angle(for: .portrait, previous: 0), 90)
+        XCTAssertEqual(CaptureOrientation.angle(for: .landscapeLeft, previous: 90), 0)
+        XCTAssertEqual(CaptureOrientation.angle(for: .landscapeRight, previous: 90), 180)
+        XCTAssertEqual(CaptureOrientation.angle(for: .portraitUpsideDown, previous: 90), 270)
+        XCTAssertEqual(CaptureOrientation.angle(for: .faceUp, previous: 180), 180)
+        XCTAssertEqual(CaptureOrientation.angle(for: .unknown, previous: 0), 0)
     }
 
     func testUnreadableRAWIsRejectedWithoutUsingPreview() async throws {

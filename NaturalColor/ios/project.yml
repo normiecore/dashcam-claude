@@ -20,14 +20,21 @@ targets:
     platform: iOS
     sources:
       - path: HassyNatural
+        excludes:
+          - Core
+          - Imaging/RecoveredKernel.swift
+          - Imaging/RecoveredKernel.ci.metal
+          - Resources/ReferenceChroma.f32
+          - Resources/ReferenceProfile.json
+          - Resources/StandardCurve.f32
+          - Resources/*.provenance.json
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.normiecore.hassynatural
         PRODUCT_NAME: HassyNatural
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "0.1.1"
+        MARKETING_VERSION: "0.1.2"
         CURRENT_PROJECT_VERSION: "1"
-        SWIFT_OBJC_BRIDGING_HEADER: HassyNatural/Core/BridgingHeader.h
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MTL_COMPILER_FLAGS: "$(inherited) -fcikernel"
         MTLLINKER_FLAGS: "$(inherited) -cikernel"
@@ -35,7 +42,7 @@ targets:
     info:
       path: HassyNatural/Resources/Info.plist
       properties:
-        CFBundleDisplayName: Hassy Natural
+        CFBundleDisplayName: Natural
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSRequiresIPhoneOS: true
@@ -47,8 +54,8 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
-        NSCameraUsageDescription: Hassy Natural uses the camera to take photos you choose to edit.
-        NSPhotoLibraryAddUsageDescription: Automatically save your original and processed captures to your photo library. Choose which copies to save in Camera controls.
+        NSCameraUsageDescription: Use the camera to take photos.
+        NSPhotoLibraryAddUsageDescription: Save your photos to the photo library. RAW originals are optional in Settings.
     scheme:
       testTargets:
         - HassyNaturalTests
@@ -61,6 +68,7 @@ targets:
       - path: HassyNaturalTests
         excludes:
           - Fixtures
+          - RecoveredRenderingTests.swift
       - path: HassyNaturalTests/Fixtures
         type: folder
         optional: true
@@ -70,7 +78,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.normiecore.hassynatural.tests
         GENERATE_INFOPLIST_FILE: YES
-        SWIFT_OBJC_BRIDGING_HEADER: HassyNatural/Core/BridgingHeader.h
   HassyNaturalUITests:
     type: bundle.ui-testing
     platform: iOS

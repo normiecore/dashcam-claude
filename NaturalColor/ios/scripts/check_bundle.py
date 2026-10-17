@@ -8,5 +8,8 @@ for key in ['NSCameraUsageDescription','NSPhotoLibraryAddUsageDescription','CFBu
 assert (p/'PrivacyInfo.xcprivacy').exists(),'Missing privacy manifest'
 assert (p/'Assets.car').exists(),'Missing compiled icon assets'
 assert (p/'HassyNatural').exists(),'Missing executable'
-assert (p/'StandardCurve.f32').stat().st_size==65536*4,'Missing recovered film curve'
-print('Production Hassy Natural bundle checks pass')
+assert d['CFBundleDisplayName']=='Natural','Incorrect display name'
+for name in ['ReferenceChroma.f32','ReferenceProfile.json','StandardCurve.f32','StandardCurve.provenance.json','HNCSMatrix.provenance.json']:
+ assert not list(p.rglob(name)),f'Research resource must not be distributed: {name}'
+assert (p/'default.metallib').exists(),'Missing independent finishing kernel' 
+print('Production Natural bundle checks pass')

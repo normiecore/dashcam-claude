@@ -34,7 +34,7 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
             CameraView(model: model,
                 active: !reviewing && !picking && !importing && !about && !fetching && scenePhase == .active,
-                onCapture: { url, ratio, mode in cancelPicker(); model.captured(url: url, ratio: ratio, mode: mode) },
+                onCapture: { url, ratio, mode, output in cancelPicker(); model.captured(url: url, ratio: ratio, mode: mode, output: output) },
                 onReview: { reviewing = true },
                 onLibrary: { picking = true },
                 onFiles: { importing = true },
@@ -84,7 +84,7 @@ struct ContentView: View {
                         Menu {
                             Button("Photo library", systemImage: "photo.on.rectangle") { picking = true }
                             Button("Import from Files", systemImage: "folder") { importing = true }
-                            Button("About Hassy Natural", systemImage: "info.circle") { about = true }
+                            Button("About Natural", systemImage: "info.circle") { about = true }
                         } label: { Image(systemName: "ellipsis") }.accessibilityLabel("Review options")
                     }
                 }
@@ -95,12 +95,12 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Hassy Natural").font(.largeTitle.weight(.light))
-                    Text("An independent camera and photo editor exploring natural colour rendering.")
-                    Text("Reference rendering uses recovered chroma processing and the Standard film curve. Its adaptation to phone images is experimental and has not been validated as a complete HNCS match. This independent app is not affiliated with Hasselblad.")
-                    Text("RAW files are decoded through Apple’s RAW support. Unsupported originals show an error instead of substituting their embedded preview. Exports are full-resolution sRGB JPEGs; your original files remain unchanged.")
+                    Text("Natural").font(.largeTitle.weight(.light))
+                    Text("A camera, with room to look.")
+                    Text("Frame a moment, take the photo and carry on. A light finishing adjustment keeps the original colours close.")
+                    Text("RAW files are decoded through Apple’s RAW support. Unsupported originals show an error instead of substituting their embedded preview. HEIC saves space and retains wide colour. JPEG is available when you need it. Your imported files remain unchanged.")
                     Text("Photos stay on this device. No account or upload is required.")
-                    Text("Captures automatically save the original and processed result to Photos by default. On supported cameras the original is Apple ProRAW; other cameras capture JPEG. Choose what to save in Camera controls. Originals also remain in Files → On My iPhone → Hassy Natural → Originals. Native framing keeps every source pixel; optional ratios crop only the processed result.")
+                    Text("A finished photo saves straight to Photos. Medium-quality HEIC is the default. Enable Save RAW original in Camera controls to keep an additional RAW file where supported. Native framing keeps the camera’s pixel dimensions; optional ratios crop the finished photo. Interrupted saves remain in Files → On My iPhone → Natural → Pending Captures or Processed.")
                 }.padding(24)
             }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { about = false } } }
