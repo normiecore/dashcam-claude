@@ -3,6 +3,7 @@ import CoreImage.CIFilterBuiltins
 import ImageIO
 import UniformTypeIdentifiers
 import UIKit
+import CryptoKit
 
 struct EditSettings: Equatable, Sendable {
     var strength: Float = 1
@@ -37,7 +38,8 @@ actor PhotoEngine {
         .workingColorSpace: linear, .outputColorSpace: display,
         .cacheIntermediates: false, .workingFormat: CIFormat.RGBAf.rawValue
     ])
-    private var naturalKernel: NaturalKernel?
+    private var recoveredKernel: RecoveredKernel?
+    private var reference: ReferenceAssets?
     private let wideDisplay = CGColorSpace(name: CGColorSpace.displayP3)!
 
     func demoPhoto() -> LoadedPhoto {
@@ -57,8 +59,12 @@ actor PhotoEngine {
         if raw {
             // A RAW must decode actual sensor data. Never silently substitute its preview.
             if let decoder = CIRAWFilter(imageURL: url) {
-                // Use Apple's native RAW development (including its tone and
-                // colour management). Do not apply another camera's profile.
+                // Apple defaults to adding its global tone curve. Disable
+                // creative tone processing before the recovered Standard stage.
+                decoder.boostAmount = 0
+                decoder.boostShadowAmount = 0
+                if decoder.isLocalToneMapSupported { decoder.localToneMapAmount = 0 }
+                decoder.isGamutMappingEnabled = false
                 decoder.exposure = 0
                 image = decoder.outputImage
             } else { image = nil }
@@ -80,9 +86,16 @@ actor PhotoEngine {
         exposure.ev = settings.exposure
         guard let exposed = exposure.outputImage else { throw PhotoError.rendering }
         if settings.strength <= 0 { return exposed }
-        if naturalKernel == nil { naturalKernel = try NaturalKernel() }
-        guard let naturalKernel else { throw PhotoError.rendering }
-        return try naturalKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
+        if recoveredKernel == nil {
+            let assets = try ReferenceAssets.load()
+            reference = assets
+            recoveredKernel = try RecoveredKernel(chroma: assets.chroma, film: assets.film,
+                width: assets.profile.width, height: assets.profile.height,
+                cbStart: assets.profile.start[0], crStart: assets.profile.start[1],
+                divisor: assets.profile.divisor, nativeScale: 1)
+        }
+        guard let recoveredKernel else { throw PhotoError.rendering }
+        return try recoveredKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
     }
 
     private func crop(_ image: CIImage, ratio: PhotoAspectRatio) -> CIImage {
@@ -96,7 +109,7 @@ actor PhotoEngine {
         let scale = min(1, 1600 / max(framed.extent.width, framed.extent.height))
         let small = framed.transformed(by: .init(scaleX: scale, y: scale))
         let image = original ? small : try filtered(small, settings: settings)
-        guard let result = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: wideDisplay) else { throw PhotoError.rendering }
+        guard let result = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: display) else { throw PhotoError.rendering }
         return result
     }
 
@@ -130,5 +143,43 @@ actor PhotoEngine {
             try? FileManager.default.removeItem(at: url)
         }
         throw PhotoError.encoding
+    }
+}
+
+private struct ReferenceProfile: Decodable {
+    let width: Int
+    let height: Int
+    let start: [Float]
+    let divisor: Float
+    let sha256: String
+}
+
+private struct ReferenceAssets {
+    let profile: ReferenceProfile
+    let chroma: [Float]
+    let film: [Float]
+    static func load() throws -> ReferenceAssets {
+        func data(_ name: String, _ ext: String) throws -> Data {
+            guard let url = Bundle.main.url(forResource: name, withExtension: ext) else { throw PhotoError.rendering }
+            return try Data(contentsOf: url)
+        }
+        func floats(_ bytes: Data, count: Int) throws -> [Float] {
+            guard bytes.count == count * MemoryLayout<Float>.size else { throw PhotoError.rendering }
+            var values = [Float](repeating: 0, count: count)
+            _ = values.withUnsafeMutableBytes { bytes.copyBytes(to: $0) }
+            guard values.allSatisfy({ $0.isFinite }) else { throw PhotoError.rendering }
+            return values
+        }
+        let profile = try JSONDecoder().decode(ReferenceProfile.self, from: data("ReferenceProfile", "json"))
+        guard profile.width >= 2, profile.height >= 2, profile.width <= 256, profile.height <= 256,
+              profile.start.count == 2, profile.start.allSatisfy({ $0.isFinite }),
+              profile.divisor.isFinite, profile.divisor > 0 else { throw PhotoError.rendering }
+        let chroma = try data("ReferenceChroma", "f32")
+        let film = try data("StandardCurve", "f32")
+        func hash(_ bytes: Data) -> String { SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() }
+        guard hash(chroma) == profile.sha256,
+              hash(film) == "b3324e976976df34b5f6ecbd4c4e6830a68b1b1a75c573a0800ef6f144e29598" else { throw PhotoError.rendering }
+        return try ReferenceAssets(profile: profile,
+            chroma: floats(chroma, count: profile.width*profile.height*2), film: floats(film, count: 65536))
     }
 }

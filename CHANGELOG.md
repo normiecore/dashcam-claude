@@ -1,3 +1,9 @@
+## 2026-10-17 — Restore preferred photographic rendering (0.1.3 candidate)
+
+- Restore the 0.1.1 RAW development settings and colour/tone renderer at the user's request, retaining newer storage defaults and capture/UI fixes.
+- Restore numerical rendering regressions and hash-checked production resources. Independent luminance-only finish is excluded.
+- Hosted verification and TestFlight delivery pending; no App Store publication or rights clearance implied.
+
 ## Store imagery verification and naming brief — 2026-10-17
 
 - Rendered four private original RAWs through the verified native 0.1.2 pipeline; full native Medium HEIC outputs and decoded presentation previews validated by hashes and dimensions.

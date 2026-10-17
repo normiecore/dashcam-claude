@@ -1,3 +1,11 @@
+## Rendering rollback requested — 17 October 2026
+
+The user rejected the near-neutral 0.1.2 replacement and explicitly requested the rendering used for their supplied samples. Candidate 0.1.3 restores the exact 0.1.1 RAW decoder settings, recovered Metal operator, profile/chroma/film tables and sRGB preview, based on verified source 5365cfa6f202c023132ab4fd6cb95d4859d3564f. Existing kernel/core/assets are byte-identical to that source. The current HEIC Medium / RAW-off defaults, optional RAW pair, capture orientation, save cleanup and camera UI fixes remain. HEIC uses tagged Display P3 and JPEG uses sRGB; file encoding differs from 0.1.1's high-quality JPEG, so encoded files are not claimed byte-identical.
+
+Re-enable the original three renderer regression tests; exclude the superseded analytic kernel/tests. The production archive audit now requires and hashes the restored tables rather than forbidding them. This supersedes the independent-pipeline shipping direction below. It does not establish redistribution rights or App Store readiness. No new marketing claims or App Store submission are authorised by the rollback.
+
+Verification and a replacement TestFlight upload are pending. The currently installed 0.1.2 is unchanged until a new accepted build is installed. Never overwrite the historical 0.1.2 evidence as if it tested this candidate.
+
 ## Verified imagery and revised naming — 17 October 2026
 
 User requested stronger aesthetic selections, actual rendered outputs and name explanations/a different naming direction. Completed native render run https://github.com/normiecore/dashcam-claude/actions/runs/39037816177: four original private RAWs → actual 0.1.2 Medium HEIC exports, all 6048×8064, 2.58–7.07 MB. App inputs were guarded against accepted source 9744adf493c837c32f8663ac14f5aef04511ff5f. Presentation JPEGs were decoded from the final HEICs without extra grading/cropping. Original-source/output checksums and dimensions verified locally. This is simulator RAW rendering, not phone capture.

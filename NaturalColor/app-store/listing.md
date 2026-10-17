@@ -22,7 +22,7 @@ RAW support and maximum capture dimensions depend on the device and selected cam
 
 ## What’s new — 0.1.2
 
-HEIC at Medium quality is now the default, with RAW saving optional. File format and quality are available in Camera controls. This update also introduces our independent finishing pipeline and follows the phone’s orientation when saving captures.
+HEIC at Medium quality is now the default, with RAW saving optional. File format and quality are available in Camera controls. Capture files follow the phone’s orientation when saving. The 0.1.3 candidate restores the previous rendering; this draft is not publication clearance.
 
 ## Review notes
 
