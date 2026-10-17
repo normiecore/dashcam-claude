@@ -142,8 +142,8 @@ struct CameraView: View {
                 .accessibilityIdentifier("captureFormat")
             Button { gridVisible.toggle() } label: {
                 Image(systemName: "viewfinder").foregroundStyle(gridVisible ? CameraTheme.accent : .white)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
             }
-            .frame(width: 44, height: 44)
             .accessibilityLabel("Composition grid").accessibilityValue(gridVisible ? "On" : "Off")
             .accessibilityIdentifier("cameraGrid")
             }
@@ -157,8 +157,9 @@ struct CameraView: View {
                 Text(ratio.rawValue.uppercased()).font(.system(size: 11, weight: .semibold))
                     .frame(minWidth: 44, minHeight: 44)
             }.accessibilityLabel("Photo aspect ratio").accessibilityValue(ratio.rawValue).accessibilityIdentifier("cameraRatio")
-            Button { controls = true } label: { Image(systemName: "slider.horizontal.3") }
-                .frame(width: 44, height: 44).accessibilityLabel("Camera controls").accessibilityIdentifier("cameraControls")
+            Button { controls = true } label: {
+                Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44).contentShape(Rectangle())
+            }.accessibilityLabel("Camera controls").accessibilityIdentifier("cameraControls")
         }
         .foregroundStyle(.white).padding(.horizontal, 12)
     }
@@ -261,8 +262,8 @@ struct CameraView: View {
                     }
                 }.frame(height: 14)
                 Text(String(format: "%+.1f EV", camera.exposureBias)).font(.system(size: 11, weight: .medium)).monospacedDigit().frame(width: 60, alignment: .trailing)
-            }
-        }.frame(height: 44).foregroundStyle(.white).accessibilityLabel("Exposure compensation").accessibilityValue(String(format: "%+.1f EV", camera.exposureBias)).accessibilityIdentifier("cameraExposureControl")
+            }.frame(height: 44).contentShape(Rectangle())
+        }.foregroundStyle(.white).accessibilityLabel("Exposure compensation").accessibilityValue(String(format: "%+.1f EV", camera.exposureBias)).accessibilityIdentifier("cameraExposureControl")
     }
 
     private var captureControls: some View {

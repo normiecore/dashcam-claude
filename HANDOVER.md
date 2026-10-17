@@ -1,3 +1,5 @@
+0.1.2 first verification run 39034089846: all 12 image/unit tests and 4/5 UI journeys passed. The Simple→Advanced→settings reopen journey exposed an icon-only hit target (21×16pt despite an outer frame). Settings/grid/exposure now place the 44pt target inside the button label with an explicit content shape. UI regression asserts the actual settings target size and awaits the sheet. Reverification and production archive pending; no new build uploaded yet.
+
 ## 0.1.2 in progress — 17 October 2026
 
 User approved an independent rendering pipeline, replacing the recovered research implementation in the shipping target. The research sources and provenance remain archived in the repository; Xcode excludes them and the production bundle audit rejects recovered assets. New tests cover the analytic finish; archived goldens describe the previous renderer only.

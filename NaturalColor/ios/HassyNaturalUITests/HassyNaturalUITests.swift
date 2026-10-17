@@ -93,7 +93,11 @@ final class HassyNaturalUITests: XCTestCase {
         XCTAssertTrue(app.buttons["cameraGrid"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["cameraExposureControl"].exists)
         XCTAssertEqual(app.staticTexts["captureFormat"].value as? String, "RAW")
-        app.buttons["cameraControls"].tap()
+        let settings = app.buttons["cameraControls"]
+        XCTAssertGreaterThanOrEqual(settings.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(settings.frame.height, 44)
+        settings.tap()
+        XCTAssertTrue(app.switches["advancedMode"].waitForExistence(timeout: 10))
         app.switches["advancedMode"].tap()
         app.buttons["Done"].tap()
         XCTAssertFalse(app.buttons["cameraGrid"].exists)
