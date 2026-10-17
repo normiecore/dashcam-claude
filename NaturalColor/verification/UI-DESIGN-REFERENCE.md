@@ -1,3 +1,7 @@
+# Historical interface research — not the current release specification
+
+This document records the earlier investigation. The 0.1.2 production renderer and consumer branding are independent; see `app-store/` and the current README. No vendor product imagery, marks, tables or profiles are included in the production target. Earlier rendering/default-save statements below apply only to earlier candidates.
+
 # Camera-first capture interface
 
 Reference review: 16 October 2026. Design influence comes from the official [Hasselblad X2D 100C user manual](https://cdn.hasselblad.com/manuals/X2D_100C_User_Manual/User_Manual/X2D_100C_User_Manual_v1.4_EN.pdf), pages 34–40, and the official [Phocus Mobile product page](https://www.hasselblad.com/phocus/phocus-mobile-2/) and [App Store screenshots](https://apps.apple.com/us/app/phocus-mobile/id1452280435). Source photographs, logos, manuals and screenshots are reference-only and are not bundled into the app or repository changes.
