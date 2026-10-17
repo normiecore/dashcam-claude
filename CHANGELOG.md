@@ -1,11 +1,11 @@
-# Camera-first capture UI — 0.1.1 — 2026-10-16
+# Hassy Natural Simple camera — 0.1.1 — 2026-10-17
 
 - Default to Simple mode, with opt-in Advanced controls and remembered preferences. Save original + processed automatically to Photos; offer either copy alone and retain files if saving fails.
 - Preserve native maximum capture dimensions by default. Offer source-pixel 4:3, 3:2, 16:9 and square crops on the processed copy only.
 - Open directly to capture with a Hasselblad/Phocus-influenced black instrument panel, amber controls, large viewfinder and live ISO/shutter/aperture readings.
 - Add tap-to-focus, real exposure compensation, composition grid and accessible RAW/JPEG/physical-lens controls. Keep shooting after a capture; open review from the thumbnail and return directly to the camera.
 - Stop camera sessions during review/import/about and app backgrounding; retain imports when camera access is denied or no camera exists.
-- Keep the recovered colour operator and full-resolution export intact. Expand hosted UI coverage for capture entry, controls, denied access and the review round trip. Hosted validation is pending.
+- Keep the recovered colour operator and full-resolution export intact. Expand hosted UI coverage for capture entry, controls, denied access and the review round trip. Hosted run 38983140789 passes all nine image/unit tests, five UI journeys, and Release archive/bundle checks. Image numerical assertions remain unchanged; UI-only time allowances accommodate observed simulator latency. Apple accepted 0.1.1 build `20261016.2356` in release run 38983940384; processing is VALID and internal state IN_BETA_TESTING. The external group has the eligible build, with public review still pending actual review-contact/feedback metadata.
 
 # Hassy Natural review-contact entry — 2026-10-15
 
