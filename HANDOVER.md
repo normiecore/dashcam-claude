@@ -1,3 +1,52 @@
+## Round 4 renderer candidate — 18 October 2026
+
+The owner asked to optimise rendering per the repository research, "as true to life as
+shooting on an X2D II 100C, optimised for iPhone", and to see before/after samples from
+repeatable in-app pipelines. Work is on `claude/round4-hncs-optimise`, branched from
+`codex/round3-color-audit-20261018` (which includes the 35d762f provenance work). The
+parallel `codex/round3-native-replay-20261018` branch is audit-only and unmerged.
+
+Implemented (design and evidence: `NaturalColor/verification/research/SCENE-TONE.md`):
+- `CIRAWFilter.extendedDynamicRangeAmount = 1`. Public iPhone 17 Pro DNG on the hosted
+  simulator: peak 1.18 at the default 0, 2.40 at 1, midtones unchanged; value 2 only adds
+  reconstructed data. `shadowBias` defaults to 0 on that fixture.
+- A measured scene tone stage (portable C++ plus Metal mirror) before the HNCS chroma and
+  Standard film stages. It folds up to 2.5 stops of measured highlights into the shoulder
+  from +1 EV, with a neutral path to white. Backlit-only shadow fill is ≤ 0.6 EV. Quiet
+  scenes are byte-identical to 0.1.3.
+- Exposure placement is unchanged (`HN_RAW_FILM_EXPOSURE = 1`). On the public DNG,
+  Apple's gain table lifts the median 0.9 to 1.5 stops, so BaselineExposure alone is not
+  a proven 0.18 placement. A grey-card phone calibration decides whether to adopt the
+  Standard design point 0.125/0.18.
+- No output clamp to sRGB, so P3 HEIC keeps colours outside sRGB.
+- High-contrast HEIC on iOS 26+ writes an HNCS HDR-style ISO gain map restoring the folded
+  stops (≤ 3). Untagged kernel output produced an identity map, fixed with
+  `settingContentHeadroom`.
+- The first shoulder (from grey) was replaced after the research synthesis showed it
+  flattened +1/+2 EV. Shadow fill was gated on bright highlights after the public dim
+  scene triggered it.
+
+Verification: `python3 NaturalColor/verification/verify_scene_tone.py` passes (Linux).
+Hosted run [39125338087](https://github.com/normiecore/dashcam-claude/actions/runs/39125338087)
+passed 22 image/unit tests, all UI journeys and the production archive/resource audit
+for the earlier stage revision (b5ede5e). Later runs are recorded below. These are
+simulator/portable checks, not phone captures.
+
+**Blocked: owner photographs.** The Drive folder is not visible to this session's Drive
+connector account, and the cloud environment's network policy denies `drive.google.com`.
+An encrypted runner exchange for the photos was blocked by the session safety check as
+data exfiltration. It is parked outside Git (session scratch only) and not committed or
+run. No owner photographs have been processed in this round, so **no before/after on the
+owner's images exists yet**. To proceed, the owner must either allow `drive.google.com`
+and `drive.usercontent.google.com` in the environment network settings (with the folder
+link-shared), or explicitly approve sending the photos encrypted to GitHub's macOS
+runner for in-app rendering. Allowing `*.blob.core.windows.net` would also let artifacts
+be downloaded instead of using a scratch branch.
+
+No TestFlight upload, merge or PR. Next: obtain photo access → render actual-app
+before (the owner's Round 3 phone HEIC) and after (this branch, same DNG) boards → tune
+knee, compression cap and fill on real scenes → grey-card calibration on a phone.
+
 ## Round 3 colour reassessment and diagnostic candidate — 18 October 2026
 
 The owner confirms Round 3 used **0.1.3 (20261018.629)**. Work is isolated on
