@@ -1,0 +1,85 @@
+name: Private Round3 native replay
+on:
+  push:
+    branches: ['codex/round3-native-replay-20261018']
+    paths: ['.github/scripts/natural_replay.py', '.github/workflows/natural-replay.yml']
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require unchanged accepted 0.1.3 app and original restored kernel
+        run: |
+          git diff --exit-code 0d405590144995297c5d4ab1faa9bb2beebccc66 HEAD -- NaturalColor/ios/HassyNatural NaturalColor/ios/project.yml
+          git diff --exit-code 5365cfa6f202c023132ab4fd6cb95d4859d3564f HEAD -- NaturalColor/ios/HassyNatural/Imaging/RecoveredKernel.swift NaturalColor/ios/HassyNatural/Imaging/RecoveredKernel.ci.metal NaturalColor/ios/HassyNatural/Resources/ReferenceProfile.json NaturalColor/ios/HassyNatural/Resources/ReferenceChroma.f32 NaturalColor/ios/HassyNatural/Resources/StandardCurve.f32
+      - name: Install native build and encryption support before short-lived references
+        run: |
+          brew install xcodegen
+          python3 -m venv "$RUNNER_TEMP/replay-python"
+          "$RUNNER_TEMP/replay-python/bin/pip" install --quiet cryptography
+      - name: Await encrypted private input envelope
+        run: |
+          for attempt in {1..60}; do
+            git fetch --quiet origin codex/round3-native-replay-20261018
+            if git show FETCH_HEAD:.github/replay-input.enc.json > "$RUNNER_TEMP/replay-envelope" 2>/dev/null; then
+              cp "$RUNNER_TEMP/replay-envelope" .github/replay-input.enc.json
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+      - name: Retrieve authenticated private fixtures without logging references
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: '"$RUNNER_TEMP/replay-python/bin/python" .github/scripts/natural_replay.py prepare'
+      - name: Build native replay test
+        working-directory: NaturalColor/ios
+        run: |
+          xcodegen generate
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Compare actual native full exports and previews
+        working-directory: NaturalColor/ios
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -destination "id=$SIM_UDID" \
+            -only-testing:HassyNaturalTests/PrivateNativeReplayTests -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 900 \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/replay-native.log" 2>&1 || \
+            { grep -m 20 -E 'error:|failed|TEST FAILED' "$RUNNER_TEMP/replay-native.log"; exit 1; }
+          grep -E 'Test Case.*passed|TEST SUCCEEDED' "$RUNNER_TEMP/replay-native.log"
+      - name: Encrypt private native evidence
+        run: '"$RUNNER_TEMP/replay-python/bin/python" .github/scripts/natural_replay.py seal'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-00
+          path: |
+            ${{ runner.temp }}/natural-replay/output-00.enc
+            ${{ runner.temp }}/natural-replay/output-envelope.json
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-01
+          path: ${{ runner.temp }}/natural-replay/output-01.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-02
+          path: ${{ runner.temp }}/natural-replay/output-02.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-03
+          path: ${{ runner.temp }}/natural-replay/output-03.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Remove private working files
+        if: always()
+        run: |
+          rm -rf NaturalColor/ios/HassyNaturalTests/Fixtures
+          rm -rf "$RUNNER_TEMP/natural-replay"

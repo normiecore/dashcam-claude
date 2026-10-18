@@ -1,3 +1,7 @@
+## 2026-10-18 — Round3 isolated replay audit
+
+- Prepare private native same-RAW original/current renderer, preview, full-raster and encoded-output comparisons using encrypted CI ingress/egress; no app implementation changes. Hosted result pending.
+
 ## 2026-10-18 — RAW-saving rendering fix on TestFlight
 
 - Uploaded verified Natural 0.1.3 build 20261018.629: Apple VALID, existing internal group access True, IN_BETA_TESTING. Release run 39104201604; independent status run 39104490714.

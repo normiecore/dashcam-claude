@@ -1,3 +1,7 @@
+## Round3 private native replay audit — 18 October 2026
+
+Isolated branch `codex/round3-native-replay-20261018` prepares a hosted native iOS simulator replay of two private Round3 RAW + actual HEIC pairs. It pins the accepted 0.1.3 app tree to 0d405590 and the restored kernel/assets to original 0.1.1 source 5365cfa. Original/current engine source snapshots are generated into tests only; app code is unchanged. Warm runner awaits encrypted short-lived input references. All photographs, source mapping and return private key stay outside Git; CI outputs are encrypted. No TestFlight upload, merge or phone acceptance. Native test results pending.
+
 ## RAW-saving rendering fix uploaded — 18 October 2026
 
 Apple accepted Natural 0.1.3 build 20261018.629 in release run https://github.com/normiecore/dashcam-claude/actions/runs/39104201604. Upload and production archive/resource audit succeeded; Apple processing is VALID and the build is assigned to the existing external group. Upload guard pins app implementation to verified source 0d405590144995297c5d4ab1faa9bb2beebccc66. Do not upload a duplicate.
