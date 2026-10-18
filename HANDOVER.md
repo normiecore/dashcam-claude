@@ -1,3 +1,5 @@
+First float setup run39152104279 stopped at its optional public DPReview transfer probe before any private input was supplied. Probe failures are now diagnostic/nonblocking and report safe HTTP status; actual private decoding/rendering remains fatal. Include a1536px lossless sRGB current-render control from the unmodified app preview API applied to the exact same pre-scaled CIImage as each float buffer. No additional resampling or candidate calibration is introduced.
+
 ## Native pre-film float preparation — 18 October 2026
 
 Prepare two private R3 originals through the unmodified released0.1.3 PhotoEngine.load at0d405590, then render1536px-long-edge RGBAFloat32 in extendedLinearSRGB before exposure/recoveredfilm/integeroutput. Synthetic controls verify negative and above-one retention and rowgeometry; actual decoder defaults/effective settings plus same-job OS/runtime will accompany encrypted floats. No candidate calibration, app edits or full-resolution encoded outputs are authored in this phase. ExactX2DII public RAW range download locally succeeds with ordinaryMozilla/5.0 plus productReferer; hosted range probe pending. Nativeexecution pending.

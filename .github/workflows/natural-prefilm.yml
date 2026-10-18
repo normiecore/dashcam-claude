@@ -21,6 +21,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/prefilm-python"
           "$RUNNER_TEMP/prefilm-python/bin/pip" install --quiet cryptography
       - name: Probe exact-model public reference RAW with ordinary browser headers
+        continue-on-error: true
         run: '"$RUNNER_TEMP/prefilm-python/bin/python" .github/scripts/natural_prefilm.py probe'
       - name: Await encrypted private input envelope
         run: |

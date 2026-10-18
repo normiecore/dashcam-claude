@@ -1,5 +1,5 @@
 """Private native pre-film float capture; no calibration or graded candidate is authored."""
-import base64,hashlib,json,os,re,shutil,subprocess,sys,time,urllib.request,zipfile
+import base64,hashlib,json,os,re,shutil,subprocess,sys,time,urllib.error,urllib.request,zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes,serialization
@@ -33,9 +33,15 @@ def prepare():
 def public_probe():
     url='https://www.dpreview.com/wp-content/uploads/sample_galleries/L-4239298554/6994506799.3fr'
     request=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.dpreview.com/products/hasselblad/slrs/hasselblad_x2dii100c/','Range':'bytes=0-63'})
-    with urllib.request.urlopen(request,timeout=60) as r:
-        head=r.read(64);status=r.status;kind=r.headers.get('Content-Type','')
-    if not (head.startswith(b'II*\x00') or head.startswith(b'MM\x00*')):raise ValueError('public RAW signature')
+    try:
+        with urllib.request.urlopen(request,timeout=60) as r:
+            head=r.read(64);status=r.status;kind=r.headers.get('Content-Type','')
+    except urllib.error.HTTPError as error:
+        print(json.dumps({'public_reference':'DPReview exact X2D II RAW','http_status':error.code,'probe_only':True,'private_native_capture_independent':True}),flush=True)
+        raise
+    if not (head.startswith(b'II*\x00') or head.startswith(b'MM\x00*')):
+        print(json.dumps({'public_reference':'DPReview exact X2D II RAW','http_status':status,'content_type':kind,'tiff_container':False,'probe_only':True}),flush=True)
+        raise ValueError('public RAW signature')
     print(json.dumps({'public_reference':'DPReview exact X2D II order 2 RAW','http_status':status,'content_type':kind,'bytes_read':len(head),'tiff_container':True,'headers':'Mozilla/5.0 + exact-product Referer'}))
 def watch():
     path=Path(os.environ['RUNNER_TEMP'])/'prefilm-native.log';offset=0
@@ -56,6 +62,8 @@ def seal():
         p=directory/(row['id']+'.rgba32f')
         if p.stat().st_size!=row['width']*row['height']*4*4:raise ValueError('float length')
         row['sha256']=hashlib.sha256(p.read_bytes()).hexdigest();row['bytes']=p.stat().st_size
+        control=directory/row['current_control']['file']
+        row['current_control'].update(sha256=hashlib.sha256(control.read_bytes()).hexdigest(),bytes=control.stat().st_size)
     result['verified_app_source']=CURRENT
     result['host']={'xcode':subprocess.check_output(['xcodebuild','-version']).decode().strip(),'macos':subprocess.check_output(['sw_vers']).decode().strip(),'runner_image_version':os.environ.get('ImageVersion','unknown')}
     runtimes=json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','-j']))['runtimes']
@@ -79,6 +87,7 @@ def seal():
 SWIFT=r'''import XCTest
 import CoreImage
 import ImageIO
+import UniformTypeIdentifiers
 import UIKit
 @testable import HassyNatural
 
@@ -128,19 +137,29 @@ final class PrivatePrefilmFloatTests: XCTestCase {
         let diagnostic=try metadata(url)
         let engine=PhotoEngine(),photo=try await engine.load(url:url)
         print("PREFILM_STAGE="+id+"-loaded")
+        let scale=min(1,1536/max(photo.image.extent.width,photo.image.extent.height))
+        let width=Int((photo.image.extent.width*scale).rounded()),height=Int((photo.image.extent.height*scale).rounded())
+        let scaled=photo.image.transformed(by:.init(scaleX:scale,y:scale)).cropped(to:CGRect(x:0,y:0,width:width,height:height))
+        // Already below the app preview cap: preview performs a scale of one.
+        // Both the float sample and current-render control receive this exact CIImage.
+        let small=LoadedPhoto(image:scaled,name:"private-control",isRaw:photo.isRaw)
+        let control=try await engine.preview(photo:small,settings:.init())
+        XCTAssertEqual(control.width,width);XCTAssertEqual(control.height,height)
+        print("PREFILM_STAGE="+id+"-current-control-rendered")
         return try autoreleasepool {
             let c=context();defer{c.clearCaches()}
-            let scale=min(1,1536/max(photo.image.extent.width,photo.image.extent.height))
-            let width=Int((photo.image.extent.width*scale).rounded()),height=Int((photo.image.extent.height*scale).rounded())
-            let scaled=photo.image.transformed(by:.init(scaleX:scale,y:scale)).cropped(to:CGRect(x:0,y:0,width:width,height:height))
             let data=bitmap(scaled,width:width,height:height,using:c)
             var low=[Float](repeating:Float.infinity,count:4),high=[Float](repeating:-Float.infinity,count:4),sum=[Double](repeating:0,count:4),above=[Int](repeating:0,count:4),below=[Int](repeating:0,count:4),nonfinite=0
             for i in data.indices {let v=data[i],channel=i%4;if !v.isFinite {nonfinite+=1;continue};low[channel]=min(low[channel],v);high[channel]=max(high[channel],v);sum[channel]+=Double(v);if v>1 {above[channel]+=1};if v<0 {below[channel]+=1}}
             XCTAssertEqual(nonfinite,0)
             let file=directory.appendingPathComponent(id+".rgba32f")
             try data.withUnsafeBytes {try Data($0).write(to:file)}
+            let controlURL=directory.appendingPathComponent(id+"-current-control.png")
+            let destination=try XCTUnwrap(CGImageDestinationCreateWithURL(controlURL as CFURL,UTType.png.identifier as CFString,1,nil))
+            CGImageDestinationAddImage(destination,control,[kCGImagePropertyOrientation:1] as CFDictionary)
+            XCTAssertTrue(CGImageDestinationFinalize(destination))
             print("PREFILM_STAGE="+id+"-float-written")
-            return ["id":id,"source_sha256":item["source_sha256"]!,"width":width,"height":height,"source_width":Int(photo.image.extent.width),"source_height":Int(photo.image.extent.height),"format":"little-endian IEEE754 Float32 RGBA interleaved; row stride width*16 bytes","color_space":"extendedLinearSRGB","stage":"released PhotoEngine.load output before exposure adjustment, recovered color/film kernel and all integer display/export conversion","exposureEV":0,"resampling":"same affine scale mechanism as released preview, long edge1536","range_min_rgba":low,"range_max_rgba":high,"mean_rgba":sum.map{$0/Double(width*height)},"count_above_one_rgba":above,"count_below_zero_rgba":below,"nonfinite_count":nonfinite,"decoder":diagnostic]
+            return ["id":id,"source_sha256":item["source_sha256"]!,"width":width,"height":height,"source_width":Int(photo.image.extent.width),"source_height":Int(photo.image.extent.height),"format":"little-endian IEEE754 Float32 RGBA interleaved; row stride width*16 bytes","color_space":"extendedLinearSRGB","stage":"released PhotoEngine.load output before exposure adjustment, recovered color/film kernel and all integer display/export conversion","exposureEV":0,"resampling":"same affine scale mechanism as released preview, long edge1536","range_min_rgba":low,"range_max_rgba":high,"mean_rgba":sum.map{$0/Double(width*height)},"count_above_one_rgba":above,"count_below_zero_rgba":below,"nonfinite_count":nonfinite,"decoder":diagnostic,"current_control":["file":id+"-current-control.png","format":"lossless PNG, 8-bit sRGB","width":width,"height":height,"method":"unmodified released PhotoEngine.preview with strength1 exposure0 nativeAspect applied to the exact same pre-scaled1536px CIImage as the float buffer; preview internal scaling equals one"]]
         }
     }
     func testCaptureTwoPrivatePrefilmFloats() async throws {
