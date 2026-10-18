@@ -173,8 +173,10 @@ extern "C" int hn_choose_scene_tone(const hn_scene_stats* stats,float exposureEV
  const float exposure=HN_RAW_FILM_EXPOSURE;
  const float white=stats->white*std::exp2(exposureEV)*exposure;
  const float compression=white>1 ? std::min(std::log2(white),HN_MAX_COMPRESSION) : 0.0f;
- const float f=std::clamp((stats->darkFraction-0.15f)/(0.45f-0.15f),0.0f,1.0f);
- *out={exposure,compression,HN_MAX_SHADOW_FILL*f*f*(3-2*f)};
+ // Fill only backlit scenes: many dark pixels together with highlights near
+ // film white. Low-key scenes without bright highlights keep their mood.
+ const float fill=smooth01((stats->darkFraction-0.15f)/0.30f)*smooth01((white-0.5f)/0.5f);
+ *out={exposure,compression,HN_MAX_SHADOW_FILL*fill};
  return 1;
 }
 

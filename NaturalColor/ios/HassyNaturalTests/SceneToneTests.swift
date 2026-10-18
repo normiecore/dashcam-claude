@@ -157,13 +157,17 @@ final class SceneToneTests: XCTestCase {
         let values: [Float] = [0, 0.18 * pow(2, -2.5), 0.18]
         let image = patchImage(values.map { [$0, $0, $0] })
         let flat = LoadedPhoto(image: image, name: "Shadows", isRaw: true, sceneStats: hn_scene_stats(white: 0.5, darkFraction: 0))
-        let backlit = LoadedPhoto(image: image, name: "Shadows", isRaw: true, sceneStats: hn_scene_stats(white: 0.5, darkFraction: 0.6))
+        // Backlit: many dark pixels and highlights at film white (no compression yet).
+        let backlit = LoadedPhoto(image: image, name: "Shadows", isRaw: true, sceneStats: hn_scene_stats(white: 1.0, darkFraction: 0.6))
+        let lowKey = LoadedPhoto(image: image, name: "Shadows", isRaw: true, sceneStats: hn_scene_stats(white: 0.4, darkFraction: 0.6))
         let a = try bytes(await engine.preview(photo: flat, settings: .init()), space: srgb)
         let b = try bytes(await engine.preview(photo: backlit, settings: .init()), space: srgb)
         XCTAssertEqual(a[1], 0)
         XCTAssertEqual(b[1], 0)
         XCTAssertGreaterThan(Int(b[5]), Int(a[5]) + 8, "Lower midtones lift in a backlit scene")
         XCTAssertEqual(Double(b[9]), Double(a[9]), accuracy: 1, "Middle grey is unchanged")
+        let c = try bytes(await engine.preview(photo: lowKey, settings: .init()), space: srgb)
+        XCTAssertEqual(c, a, "A low-key scene without bright highlights is not filled")
     }
 
     func testP3HEICRetainsColoursOutsideSRGB() async throws {

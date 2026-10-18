@@ -69,7 +69,8 @@ int hn_scene_highlight_ev(const float rgb[3], const hn_scene_tone* tone, float* 
 /* rgba: count pixels of 4 floats in linear sRGB. Non-finite pixels are ignored. */
 int hn_measure_scene(const float* rgba, size_t count, hn_scene_stats* out);
 /* Chooses the tone for a RAW decode measured by hn_measure_scene, given the
- * user's edit exposure in EV (applied before this stage). */
+ * user's edit exposure in EV (applied before this stage). Shadow fill needs
+ * both dark content and highlights near film white (a backlit scene). */
 int hn_choose_scene_tone(const hn_scene_stats* stats, float exposureEV, hn_scene_tone* out);
 /* hn_apply_scene_tone followed by hn_recovered_pixel_with_curve. */
 int hn_toned_pixel_with_curve(const float rgb[3], const hn_scene_tone* tone, const float* cbcr,

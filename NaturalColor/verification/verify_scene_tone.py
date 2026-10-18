@@ -138,6 +138,11 @@ def main():
         results['backlit_choice'] = {'compression': round(chosen.compression, 4), 'shadowFill': round(chosen.shadowFill, 4)}
         assert lib.hn_choose_scene_tone(ctypes.byref(stats), -1.5, ctypes.byref(chosen)) == 1
         assert abs(chosen.compression - max(0.0, math.log2(3.6 * 2 ** -1.5))) < 1e-5
+        # A dim, low-key scene without bright highlights keeps its mood.
+        dim = np.concatenate([np.tile([0.012, 0.012, 0.012, 1], 4000), np.tile([0.3, 0.3, 0.3, 1], 6000)]).astype(np.float32)
+        assert lib.hn_measure_scene(dim.ctypes.data_as(P), 10000, ctypes.byref(stats)) == 1
+        assert lib.hn_choose_scene_tone(ctypes.byref(stats), 0, ctypes.byref(chosen)) == 1
+        assert abs(stats.darkFraction - 0.4) < 1e-6 and chosen.shadowFill == 0 and chosen.compression == 0
         bad = Tone(exposure, 3.0, 0)
         assert lib.hn_apply_scene_tone((F * 3)(0.1, 0.1, 0.1), ctypes.byref(bad), (F * 3)()) == 0
     print(json.dumps({'scene_tone_checks': 'pass', **results}, indent=1))
