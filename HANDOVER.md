@@ -5,6 +5,13 @@ The owner confirms Round 3 used **0.1.3 (20261018.629)**. Work is isolated on
 the assessment is `NaturalColor/verification/release/round-3-reassessment.md`.
 [Draft PR #12](https://github.com/normiecore/dashcam-claude/pull/12) targets the
 photo-app branch, not main.
+Follow-up sample delivery: latest released photo-app source was rechecked at
+`f2481b1` and remains app-tree identical to `0d40559` / build 20261018.629.
+The two verified native RAW exports are packaged privately at
+`/workspace/photo-audit/latest-build-samples.zip` (10.7 MB), with original
+6048×8064 P3 HEICs, decoded sRGB JPEG previews, settings/proof and checksums.
+These reuse the completed native replay from that exact unchanged renderer;
+no duplicate rendering job, app change, photo publication or upload was needed.
 Reviewed all 87 distinct finished files across the three rounds with colour
 management. Main visible concern is dark foregrounds in bright/backlit scenes,
 also present among original Round 1 direct captures. Many Round 3 foliage scenes
