@@ -48,6 +48,7 @@ jobs:
       - name: Prepare native project
         run: |
           brew install xcodegen
+          mkdir -p HassyNaturalTests/Fixtures
           xcodegen generate
           python3 scripts/select_simulator.py >> "$GITHUB_ENV"
       - name: Interface journeys

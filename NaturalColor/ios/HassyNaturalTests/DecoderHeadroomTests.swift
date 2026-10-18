@@ -29,7 +29,6 @@ final class DecoderHeadroomTests: XCTestCase {
         defaults["defaultExtendedDynamicRangeAmount"] = decoder.extendedDynamicRangeAmount
         defaults["defaultLocalToneMapAmount"] = decoder.localToneMapAmount
         defaults["defaultBoostAmount"] = decoder.boostAmount
-        defaults["highlightRecoveryEnabled"] = decoder.isHighlightRecoveryEnabled
         defaults["decoderVersion"] = String(describing: decoder.decoderVersion)
         let longest = max(decoder.nativeSize.width, decoder.nativeSize.height)
         decoder.scaleFactor = Float(1024 / longest)

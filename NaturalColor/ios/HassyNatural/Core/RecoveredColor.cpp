@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 // Provenance: HNCSMatrix.provenance.json. C and A recovered statically from
 // PhocusAndroid1.1.0 ELF SHA d757237554529f8ab485f88f2c5e5399fbc8d56035c79b8e057b41a40fd055e4.
 // Bradford/sRGB bridge is an explicit phone integration choice, not a recovered
@@ -87,6 +88,83 @@ extern "C" int hn_recovered_pixel_with_curve(const float rgb[3],const float* cbc
  if (!film) return 0;
  return recovered_pixel(rgb,cbcr,width,height,cbStart,crStart,div,nativeScale,film,filmCount,out);
 }
+// Scene tone stage. Keep arithmetic synchronized with RecoveredKernel.ci.metal.
+namespace {
+constexpr float filmStops=3.0f;          // log2(1/HN_FILM_MIDDLE_GREY)
+constexpr float compressionPower=1.5f;   // phi(u)=u^1.5 keeps slope 1 at middle grey
+constexpr float fillFloor=-7.0f;         // stops below middle grey where fill reaches zero
+constexpr float fillShape=1.5688f;       // places the fill peak 2.5 stops below grey
+float scene_tone_ev(float n,const hn_scene_tone& tone) {
+ if (!(n>0)) return 0;
+ const float t=std::log2(n/HN_FILM_MIDDLE_GREY);
+ float ev=0;
+ if (tone.compression>0 && t>0) {
+  const float u=t/(filmStops+tone.compression);
+  const float phi=u<=1 ? std::pow(u,compressionPower) : 1+compressionPower*(u-1);
+  ev-=tone.compression*phi;
+ }
+ if (tone.shadowFill>0 && t<0 && t>fillFloor) {
+  const float u=std::pow((t-fillFloor)/-fillFloor,fillShape);
+  const float s=std::sin(3.14159265358979f*u);
+  ev+=tone.shadowFill*s*s;
+ }
+ return ev;
+}
+bool valid_tone(const hn_scene_tone* tone) {
+ return tone && std::isfinite(tone->exposure) && tone->exposure>0 &&
+  std::isfinite(tone->compression) && tone->compression>=0 && tone->compression<=HN_MAX_COMPRESSION &&
+  std::isfinite(tone->shadowFill) && tone->shadowFill>=0 && tone->shadowFill<=HN_MAX_SHADOW_FILL;
+}
+}
+
+extern "C" int hn_apply_scene_tone(const float rgb[3],const hn_scene_tone* tone,float out[3]) {
+ if (!rgb || !out || !valid_tone(tone)) return 0;
+ float x[3];
+ for (int i=0;i<3;++i) {if (!std::isfinite(rgb[i])) return 0; x[i]=rgb[i]*tone->exposure;}
+ // A max(R,G,B) gain keeps hue and keeps compressed highlights within [0,1].
+ const float gain=std::exp2(scene_tone_ev(std::max({x[0],x[1],x[2]}),*tone));
+ for (int i=0;i<3;++i) out[i]=x[i]*gain;
+ return 1;
+}
+
+extern "C" int hn_measure_scene(const float* rgba,size_t count,hn_scene_stats* out) {
+ if (!rgba || !out || count==0) return 0;
+ std::vector<float> peaks;peaks.reserve(count);
+ size_t dark=0;
+ const float darkLimit=HN_SCENE_MIDDLE_GREY*std::exp2(-2.5f);
+ for (size_t i=0;i<count;++i) {
+  const float r=rgba[i*4],g=rgba[i*4+1],b=rgba[i*4+2];
+  if (!std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b)) continue;
+  peaks.push_back(std::max({r,g,b,0.0f}));
+  if (0.2126f*r+0.7152f*g+0.0722f*b<darkLimit) ++dark;
+ }
+ if (peaks.empty()) return 0;
+ const size_t index=std::min(peaks.size()-1,size_t(double(peaks.size()-1)*0.995));
+ std::nth_element(peaks.begin(),peaks.begin()+index,peaks.end());
+ out->white=peaks[index];
+ out->darkFraction=float(double(dark)/double(peaks.size()));
+ return 1;
+}
+
+extern "C" int hn_choose_scene_tone(const hn_scene_stats* stats,float exposureEV,hn_scene_tone* out) {
+ if (!stats || !out || !std::isfinite(stats->white) || stats->white<0 || !std::isfinite(exposureEV) ||
+     !std::isfinite(stats->darkFraction) || stats->darkFraction<0 || stats->darkFraction>1) return 0;
+ const float exposure=HN_FILM_MIDDLE_GREY/HN_SCENE_MIDDLE_GREY;
+ const float white=stats->white*std::exp2(exposureEV)*exposure;
+ const float compression=white>1 ? std::min(std::log2(white),HN_MAX_COMPRESSION) : 0.0f;
+ const float f=std::clamp((stats->darkFraction-0.15f)/(0.45f-0.15f),0.0f,1.0f);
+ *out={exposure,compression,HN_MAX_SHADOW_FILL*f*f*(3-2*f)};
+ return 1;
+}
+
+extern "C" int hn_toned_pixel_with_curve(const float rgb[3],const hn_scene_tone* tone,const float* cbcr,
+ size_t width,size_t height,float cbStart,float crStart,float div,float nativeScale,
+ const float* film,size_t filmCount,float out[3]) {
+ float toned[3];
+ if (!film || !hn_apply_scene_tone(rgb,tone,toned)) return 0;
+ return recovered_pixel(toned,cbcr,width,height,cbStart,crStart,div,nativeScale,film,filmCount,out);
+}
+
 extern "C" int hn_make_reference_cube_shaped(float* rgba,size_t capacity,unsigned n,float strength,
  const float* table,size_t width,size_t height,float cbStart,float crStart,float div,
  float nativeScale,const float* film,size_t filmCount,float inputPower) {
