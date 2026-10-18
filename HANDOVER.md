@@ -1,3 +1,9 @@
+## RAW-saving rendering fix uploaded — 18 October 2026
+
+Apple accepted Natural 0.1.3 build 20261018.629 in release run https://github.com/normiecore/dashcam-claude/actions/runs/39104201604. Upload and production archive/resource audit succeeded; Apple processing is VALID and the build is assigned to the existing external group. Upload guard pins app implementation to verified source 0d405590144995297c5d4ab1faa9bb2beebccc66. Do not upload a duplicate.
+
+External Beta App Review submission returned HTTP 422 ANOTHER_BUILD_IN_REVIEW: the previous build in version 0.1.3 remains in beta review. No review was cancelled. Distribution helper now reports this pending state and continues to confirm internal access. A distribution-only retry and independent internal-status check are pending. Retry external submission after the existing review finishes; never infer public availability from group assignment.
+
 ## RAW-saving rendering fix — TestFlight upload authorised, 18 October 2026
 
 The owner requested pushing the verified fix through to TestFlight. Release workflow now pins app-tree equality to verified source 0d405590144995297c5d4ab1faa9bb2beebccc66 (successful Xcode run 39103434989); the app implementation and marketing version 0.1.3 are unchanged from that source. Upload will generate a new build number and use the existing internal/external groups. Beta notes describe RAW-toggle parity and retention checks. Upload/Apple processing are pending; do not duplicate an accepted upload. No merge or production App Store submission is requested.

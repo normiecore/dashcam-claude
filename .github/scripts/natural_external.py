@@ -122,8 +122,13 @@ def distribute():
         confirm_internal_access()
         return
     if state=='READY_FOR_BETA_SUBMISSION':
-        call('betaAppReviewSubmissions',{'data':{'type':'betaAppReviewSubmissions','relationships':{'build':{'data':{'type':'builds','id':build['id']}}}}})
-        print('Submitted the external build for Apple Beta App Review',flush=True)
+        try:
+            call('betaAppReviewSubmissions',{'data':{'type':'betaAppReviewSubmissions','relationships':{'build':{'data':{'type':'builds','id':build['id']}}}}})
+            print('Submitted the external build for Apple Beta App Review',flush=True)
+        except RuntimeError as error:
+            if 'ANOTHER_BUILD_IN_REVIEW' not in str(error):raise
+            print('External Beta App Review submission is pending: another build in this version is still in review. '
+                  'Retry distribution after that review completes; do not upload this build again.',flush=True)
     elif state in ('WAITING_FOR_BETA_REVIEW','IN_BETA_REVIEW','IN_BETA_TESTING','BETA_APPROVED','READY_FOR_BETA_TESTING'):
         print('External build already has review/distribution state:',state,flush=True)
     else:print('External state needs attention in App Store Connect:',state,flush=True)
