@@ -52,6 +52,11 @@ typedef struct {
 } hn_scene_stats;
 #define HN_FILM_MIDDLE_GREY 0.125f
 #define HN_SCENE_MIDDLE_GREY 0.18f
+/* Exposure applied to Apple's decode (BaselineExposure included). 1 keeps the
+ * 0.1.1 placement. Apple's ProRAW gain table carries part of its exposure
+ * intent, so where an 18% card lands is unmeasured; a grey-card calibration
+ * may later justify HN_FILM_MIDDLE_GREY/HN_SCENE_MIDDLE_GREY instead. */
+#define HN_RAW_FILM_EXPOSURE 1.0f
 #define HN_MAX_COMPRESSION 2.5f
 #define HN_MAX_SHADOW_FILL 0.6f
 /* Gain-scaled rgb; out may alias rgb. Success=1, invalid argument=0. */

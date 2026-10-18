@@ -125,7 +125,8 @@ final class RecoveredRenderingTests: XCTestCase {
             }
             XCTAssertEqual(success, 1)
             for channel in 0..<3 {
-                let expected = min(max(direct[channel], 0), 1)
+                // Output stays unclamped so Display P3 exports keep colours outside sRGB.
+                let expected = direct[channel]
                 XCTAssertTrue(rendered[index * 4 + channel].isFinite)
                 // GPU arithmetic may cross one quantized film-table entry.
                 XCTAssertEqual(rendered[index * 4 + channel], expected, accuracy: 0.002,

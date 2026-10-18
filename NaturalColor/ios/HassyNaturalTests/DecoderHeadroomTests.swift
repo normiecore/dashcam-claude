@@ -23,9 +23,11 @@ final class DecoderHeadroomTests: XCTestCase {
         return url
     }
 
-    private func decode(_ url: URL, edr: Float?, localToneMap: Float, defaults: inout [String: Any]) throws -> Decoded {
+    private func decode(_ url: URL, edr: Float?, localToneMap: Float, shadowBias: Float? = nil,
+                        defaults: inout [String: Any]) throws -> Decoded {
         let decoder = try XCTUnwrap(CIRAWFilter(imageURL: url))
         defaults["baselineExposure"] = decoder.baselineExposure
+        defaults["defaultShadowBias"] = decoder.shadowBias
         defaults["defaultExtendedDynamicRangeAmount"] = decoder.extendedDynamicRangeAmount
         defaults["defaultLocalToneMapAmount"] = decoder.localToneMapAmount
         defaults["defaultBoostAmount"] = decoder.boostAmount
@@ -38,6 +40,7 @@ final class DecoderHeadroomTests: XCTestCase {
         decoder.isGamutMappingEnabled = false
         decoder.exposure = 0
         if let edr { decoder.extendedDynamicRangeAmount = edr }
+        if let shadowBias { decoder.shadowBias = shadowBias }
         let image = try XCTUnwrap(decoder.outputImage)
         let extent = image.extent
         let width = Int(extent.width), height = Int(extent.height)
@@ -96,10 +99,12 @@ final class DecoderHeadroomTests: XCTestCase {
         let edr2 = try decode(url, edr: 2, localToneMap: 0, defaults: &defaults)
         let ltmHalf = try decode(url, edr: 1, localToneMap: 0.5, defaults: &defaults)
         let ltmFull = try decode(url, edr: 1, localToneMap: 1, defaults: &defaults)
+        let unbiased = try decode(url, edr: 1, localToneMap: 0, shadowBias: 0, defaults: &defaults)
         let report: [String: Any] = [
             "defaults": defaults,
             "appDecode": stats(base), "edr1": stats(edr1), "edr2": stats(edr2),
             "edr1LocalToneMapHalf": stats(ltmHalf), "edr1LocalToneMapFull": stats(ltmFull),
+            "edr1ShadowBiasZero": stats(unbiased),
             "midtoneDifferenceAppVsEdr1": midtoneDifference(base, edr1),
             "midtoneDifferenceEdr1VsEdr2": midtoneDifference(edr1, edr2)
         ]

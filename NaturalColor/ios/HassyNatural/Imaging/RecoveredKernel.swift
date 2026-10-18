@@ -56,8 +56,13 @@ final class RecoveredKernel {
 
     /// Input must be evaluated by a CIContext with extended-linear-sRGB working
     /// space, matching the explicit phone bridge in RecoveredColor.cpp.
-    func apply(input: CIImage, strength: Float) throws -> CIImage {
-        guard strength.isFinite, !input.extent.isEmpty, !input.extent.isInfinite else {
+    /// The identity tone reproduces the original recovered operator.
+    func apply(input: CIImage, strength: Float,
+               tone: hn_scene_tone = hn_scene_tone(exposure: 1, compression: 0, shadowFill: 0)) throws -> CIImage {
+        guard strength.isFinite, !input.extent.isEmpty, !input.extent.isInfinite,
+              tone.exposure.isFinite, tone.exposure > 0,
+              tone.compression.isFinite, (0...HN_MAX_COMPRESSION).contains(tone.compression),
+              tone.shadowFill.isFinite, (0...HN_MAX_SHADOW_FILL).contains(tone.shadowFill) else {
             throw KernelError.renderFailed
         }
         let tableExtent = chroma.extent
@@ -70,7 +75,8 @@ final class RecoveredKernel {
             case 2: return filmExtent
             default: return rect
             }
-        }, arguments: [input, chroma, film, grid, options]) else {
+        }, arguments: [input, chroma, film, grid, options,
+                       CIVector(x: CGFloat(tone.exposure), y: CGFloat(tone.compression), z: CGFloat(tone.shadowFill), w: 0)]) else {
             throw KernelError.renderFailed
         }
         return output

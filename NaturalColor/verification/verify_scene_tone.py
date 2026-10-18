@@ -63,6 +63,8 @@ def main():
         for rgb in rng.uniform(0, 3, (500, 3)).astype(np.float32):
             assert tone(list(rgb), identity) == [float(v) for v in rgb], 'identity must be exact'
 
+        # Standard curve design point: with a calibrated exposure that places
+        # an 18% card at 0.125, the documented camera targets are met.
         exposure = 0.125 / 0.18
         ladder = {}
         for stops in (0, 1, 2):
@@ -100,17 +102,18 @@ def main():
         assert lib.hn_measure_scene(flat.ctypes.data_as(P), 10000, ctypes.byref(stats)) == 1
         chosen = Tone()
         assert lib.hn_choose_scene_tone(ctypes.byref(stats), 0, ctypes.byref(chosen)) == 1
-        assert chosen.compression == 0 and chosen.shadowFill == 0 and abs(chosen.exposure - exposure) < 1e-6
+        # The RAW placement stays Apple's (1.0) until a grey-card calibration.
+        assert chosen.compression == 0 and chosen.shadowFill == 0 and chosen.exposure == 1.0
         backlit = np.concatenate([np.tile([0.012, 0.012, 0.012, 1], 4000), np.tile([0.18, 0.18, 0.18, 1], 3000),
                                   np.tile([3.2, 3.4, 3.6, 1], 3000)]).astype(np.float32)
         assert lib.hn_measure_scene(backlit.ctypes.data_as(P), 10000, ctypes.byref(stats)) == 1
         assert abs(stats.white - 3.6) < 1e-5 and abs(stats.darkFraction - 0.4) < 1e-6
         assert lib.hn_choose_scene_tone(ctypes.byref(stats), 0, ctypes.byref(chosen)) == 1
-        assert abs(chosen.compression - min(math.log2(3.6 * exposure), 2.5)) < 1e-5
+        assert abs(chosen.compression - min(math.log2(3.6), 2.5)) < 1e-5
         assert 0.5 < chosen.shadowFill <= 0.6
         results['backlit_choice'] = {'compression': round(chosen.compression, 4), 'shadowFill': round(chosen.shadowFill, 4)}
         assert lib.hn_choose_scene_tone(ctypes.byref(stats), -1.5, ctypes.byref(chosen)) == 1
-        assert abs(chosen.compression - max(0.0, math.log2(3.6 * exposure * 2 ** -1.5))) < 1e-5
+        assert abs(chosen.compression - max(0.0, math.log2(3.6 * 2 ** -1.5))) < 1e-5
         bad = Tone(exposure, 3.0, 0)
         assert lib.hn_apply_scene_tone((F * 3)(0.1, 0.1, 0.1), ctypes.byref(bad), (F * 3)()) == 0
     print(json.dumps({'scene_tone_checks': 'pass', **results}, indent=1))

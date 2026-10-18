@@ -29,14 +29,21 @@ struct LoadedPhoto: @unchecked Sendable {
     let name: String
     let isRaw: Bool
     let rawDevelopment: [String: Any]?
-    init(image: CIImage, name: String, isRaw: Bool, rawDevelopment: [String: Any]? = nil) {
+    /// Measured once per decode so preview and full-size export choose the same tone.
+    let sceneStats: hn_scene_stats?
+    init(image: CIImage, name: String, isRaw: Bool, rawDevelopment: [String: Any]? = nil,
+         sceneStats: hn_scene_stats? = nil) {
         self.image = image; self.name = name; self.isRaw = isRaw
         self.rawDevelopment = rawDevelopment
+        self.sceneStats = sceneStats
     }
     var dimensions: String { "\(Int(image.extent.width)) × \(Int(image.extent.height))" }
 }
 
 actor PhotoEngine {
+    /// CIRAWFilter limits linear highlights at its default of 0. 1 keeps the
+    /// file's measured headroom; 2 only adds reconstructed clipped values.
+    static let rawExtendedDynamicRange: Float = 1
     private let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!
     private let display = CGColorSpace(name: CGColorSpace.sRGB)!
     private lazy var context = CIContext(options: [
@@ -57,21 +64,29 @@ actor PhotoEngine {
         return LoadedPhoto(image: image, name: "Studio gradient", isRaw: false)
     }
 
+    /// Apple defaults to adding its global tone curve. Disable creative tone
+    /// processing before the recovered Standard stage.
+    private static func configure(_ decoder: CIRAWFilter) {
+        decoder.boostAmount = 0
+        decoder.boostShadowAmount = 0
+        if decoder.isLocalToneMapSupported { decoder.localToneMapAmount = 0 }
+        decoder.isGamutMappingEnabled = false
+        decoder.exposure = 0
+        // Keep linear highlights above 1.0 for the scene tone stage, which
+        // folds them into the film shoulder instead of clipping.
+        decoder.extendedDynamicRangeAmount = rawExtendedDynamicRange
+    }
+
     func load(url: URL) throws -> LoadedPhoto {
         let ext = url.pathExtension.lowercased()
         let raw = ["dng","3fr","fff","arw","cr2","cr3","nef","raf","rw2","orf"].contains(ext)
         let image: CIImage?
         var rawDevelopment: [String: Any]?
+        var sceneStats: hn_scene_stats?
         if raw {
             // A RAW must decode actual sensor data. Never silently substitute its preview.
             if let decoder = CIRAWFilter(imageURL: url) {
-                // Apple defaults to adding its global tone curve. Disable
-                // creative tone processing before the recovered Standard stage.
-                decoder.boostAmount = 0
-                decoder.boostShadowAmount = 0
-                if decoder.isLocalToneMapSupported { decoder.localToneMapAmount = 0 }
-                decoder.isGamutMappingEnabled = false
-                decoder.exposure = 0
+                Self.configure(decoder)
                 // Record the decoder's effective defaults/settings without
                 // altering exposure normalization or scene white balance.
                 rawDevelopment = [
@@ -84,10 +99,20 @@ actor PhotoEngine {
                     "boostAmount": decoder.boostAmount,
                     "boostShadowAmount": decoder.boostShadowAmount,
                     "localToneMapSupported": decoder.isLocalToneMapSupported,
-                    "gamutMappingEnabled": decoder.isGamutMappingEnabled
+                    "gamutMappingEnabled": decoder.isGamutMappingEnabled,
+                    "extendedDynamicRangeAmount": decoder.extendedDynamicRangeAmount
                 ]
                 if decoder.isLocalToneMapSupported { rawDevelopment?["localToneMapAmount"] = decoder.localToneMapAmount }
                 image = decoder.outputImage
+                // A reduced decode with identical settings measures the scene
+                // without another full-resolution pass. Measurement failure
+                // leaves highlights uncompressed; it never blocks a photo.
+                if let analysis = CIRAWFilter(imageURL: url) {
+                    Self.configure(analysis)
+                    let longest = max(analysis.nativeSize.width, analysis.nativeSize.height)
+                    if longest > 512 { analysis.scaleFactor = Float(512 / longest) }
+                    if let small = analysis.outputImage { sceneStats = try? measure(small) }
+                }
             } else { image = nil }
         } else {
             image = CIImage(contentsOf: url, options: [.applyOrientationProperty: true])
@@ -99,10 +124,41 @@ actor PhotoEngine {
               extent.width * extent.height <= 110_000_000 else { throw PhotoError.invalidImage }
         let origin = CGAffineTransform(translationX: -extent.minX, y: -extent.minY)
         return LoadedPhoto(image: image.transformed(by: origin), name: url.deletingPathExtension().lastPathComponent,
-                           isRaw: raw, rawDevelopment: rawDevelopment)
+                           isRaw: raw, rawDevelopment: rawDevelopment, sceneStats: sceneStats)
     }
 
-    private func filtered(_ image: CIImage, settings: EditSettings) throws -> CIImage {
+    /// Robust scene statistics from a small linear rendition of the whole frame.
+    private func measure(_ image: CIImage) throws -> hn_scene_stats {
+        let extent = image.extent
+        guard !extent.isInfinite, !extent.isEmpty else { throw PhotoError.invalidImage }
+        let scale = min(1, 256 / max(extent.width, extent.height))
+        let small = image.transformed(by: .init(translationX: -extent.minX, y: -extent.minY))
+            .applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: scale, kCIInputAspectRatioKey: 1])
+        let bounds = small.extent.integral
+        let width = Int(bounds.width), height = Int(bounds.height)
+        guard width > 0, height > 0 else { throw PhotoError.invalidImage }
+        var pixels = [Float](repeating: 0, count: width * height * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            context.render(small, toBitmap: buffer.baseAddress!, rowBytes: width * 16,
+                           bounds: bounds, format: .RGBAf, colorSpace: linear)
+        }
+        var stats = hn_scene_stats()
+        guard hn_measure_scene(pixels, width * height, &stats) == 1 else { throw PhotoError.rendering }
+        return stats
+    }
+
+    /// RAW decodes get highlight compression and shadow fill chosen from the
+    /// measured scene. Already rendered HEIC/JPEG input keeps the original
+    /// recovered operator.
+    private func sceneTone(for photo: LoadedPhoto, settings: EditSettings) -> hn_scene_tone {
+        let identity = hn_scene_tone(exposure: 1, compression: 0, shadowFill: 0)
+        guard photo.isRaw else { return identity }
+        var stats = photo.sceneStats ?? hn_scene_stats(white: 0, darkFraction: 0)
+        var tone = identity
+        return hn_choose_scene_tone(&stats, settings.exposure, &tone) == 1 ? tone : identity
+    }
+
+    private func filtered(_ image: CIImage, settings: EditSettings, tone: hn_scene_tone) throws -> CIImage {
         let exposure = CIFilter.exposureAdjust()
         exposure.inputImage = image
         exposure.ev = settings.exposure
@@ -117,7 +173,7 @@ actor PhotoEngine {
                 divisor: assets.profile.divisor, nativeScale: 1)
         }
         guard let recoveredKernel else { throw PhotoError.rendering }
-        return try recoveredKernel.apply(input: exposed, strength: settings.strength).cropped(to: image.extent)
+        return try recoveredKernel.apply(input: exposed, strength: settings.strength, tone: tone).cropped(to: image.extent)
     }
 
     private func crop(_ image: CIImage, ratio: PhotoAspectRatio) -> CIImage {
@@ -130,7 +186,7 @@ actor PhotoEngine {
         let framed = crop(photo.image, ratio: settings.aspectRatio)
         let scale = min(1, 1600 / max(framed.extent.width, framed.extent.height))
         let small = framed.transformed(by: .init(scaleX: scale, y: scale))
-        let image = original ? small : try filtered(small, settings: settings)
+        let image = original ? small : try filtered(small, settings: settings, tone: sceneTone(for: photo, settings: settings))
         guard let result = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: display) else { throw PhotoError.rendering }
         return result
     }
@@ -147,9 +203,11 @@ actor PhotoEngine {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         // Version this identifier when the RAW development or recovered operator
         // changes. A marketing version alone cannot distinguish rendering builds.
+        let tone = sceneTone(for: photo, settings: settings)
         var provenance: [String: Any] = [
             "schema": "natural-render-v1",
-            "renderer": "recovered-standard-sdr-v1",
+            "renderer": "recovered-standard-scene-v1",
+            "sceneTone": ["exposure": tone.exposure, "compression": tone.compression, "shadowFill": tone.shadowFill],
             "input": photo.isRaw ? "raw" : "processed",
             "strength": settings.strength,
             "exposureEV": settings.exposure,
@@ -164,6 +222,7 @@ actor PhotoEngine {
             ]
         ]
         if let rawDevelopment = photo.rawDevelopment { provenance["rawDevelopment"] = rawDevelopment }
+        if let stats = photo.sceneStats { provenance["sceneStats"] = ["white": stats.white, "darkFraction": stats.darkFraction] }
         // An unavailable decoder readback must not prevent saving a valid photo.
         // JSON has no NaN/infinity representation; preserve missing diagnostics
         // as null without changing any value used by the rendering graph.
@@ -186,7 +245,8 @@ actor PhotoEngine {
 
     func export(photo: LoadedPhoto, settings: EditSettings,
                 output: PhotoOutputOptions = .init(format: .jpeg, quality: .high)) throws -> URL {
-        let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
+        let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings,
+                                 tone: sceneTone(for: photo, settings: settings))
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = photo.name.replacingOccurrences(of: "/", with: "-") + "-natural-" + String(UUID().uuidString.prefix(6))

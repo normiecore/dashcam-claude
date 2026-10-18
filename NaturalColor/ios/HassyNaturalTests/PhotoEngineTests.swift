@@ -118,7 +118,15 @@ final class PhotoEngineTests: XCTestCase {
         let data = try XCTUnwrap(comment.data(using: .utf8))
         let provenance = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(provenance["schema"] as? String, "natural-render-v1")
-        XCTAssertEqual(provenance["renderer"] as? String, "recovered-standard-sdr-v1")
+        XCTAssertEqual(provenance["renderer"] as? String, "recovered-standard-scene-v1")
+        let tone = try XCTUnwrap(provenance["sceneTone"] as? [String: Any])
+        let toneExposure = try XCTUnwrap(tone["exposure"] as? NSNumber).floatValue
+        XCTAssertEqual(toneExposure, input == "raw" ? HN_RAW_FILM_EXPOSURE : 1, accuracy: 0.000001)
+        for key in ["compression", "shadowFill"] {
+            let value = try XCTUnwrap(tone[key] as? NSNumber).floatValue
+            XCTAssertTrue(value >= 0 && value.isFinite, key)
+            if input != "raw" { XCTAssertEqual(value, 0, key) }
+        }
         XCTAssertEqual(provenance["input"] as? String, input)
         XCTAssertEqual(try XCTUnwrap(provenance["strength"] as? NSNumber).floatValue, settings.strength, accuracy: 0.000001)
         XCTAssertEqual(try XCTUnwrap(provenance["exposureEV"] as? NSNumber).floatValue, settings.exposure, accuracy: 0.000001)
@@ -150,6 +158,10 @@ final class PhotoEngineTests: XCTestCase {
                 XCTAssertEqual(try XCTUnwrap(raw[key] as? NSNumber).floatValue, 0, accuracy: 0.000001, key)
             }
             XCTAssertEqual(raw["gamutMappingEnabled"] as? Bool, false)
+            XCTAssertEqual(try XCTUnwrap(raw["extendedDynamicRangeAmount"] as? NSNumber).floatValue,
+                           PhotoEngine.rawExtendedDynamicRange, accuracy: 0.000001)
+            let stats = try XCTUnwrap(provenance["sceneStats"] as? [String: Any])
+            XCTAssertGreaterThan(try XCTUnwrap(stats["white"] as? NSNumber).doubleValue, 0)
             if raw["localToneMapSupported"] as? Bool == true {
                 XCTAssertEqual(try XCTUnwrap(raw["localToneMapAmount"] as? NSNumber).floatValue, 0, accuracy: 0.000001)
             }

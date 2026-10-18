@@ -149,7 +149,7 @@ extern "C" int hn_measure_scene(const float* rgba,size_t count,hn_scene_stats* o
 extern "C" int hn_choose_scene_tone(const hn_scene_stats* stats,float exposureEV,hn_scene_tone* out) {
  if (!stats || !out || !std::isfinite(stats->white) || stats->white<0 || !std::isfinite(exposureEV) ||
      !std::isfinite(stats->darkFraction) || stats->darkFraction<0 || stats->darkFraction>1) return 0;
- const float exposure=HN_FILM_MIDDLE_GREY/HN_SCENE_MIDDLE_GREY;
+ const float exposure=HN_RAW_FILM_EXPOSURE;
  const float white=stats->white*std::exp2(exposureEV)*exposure;
  const float compression=white>1 ? std::min(std::log2(white),HN_MAX_COMPRESSION) : 0.0f;
  const float f=std::clamp((stats->darkFraction-0.15f)/(0.45f-0.15f),0.0f,1.0f);
