@@ -1,3 +1,5 @@
+A memory-bounded parallel replay is prepared because run 39119748186 remains in its native test step without live progress. New audit helpers hash full rasters inside actor autorelease pools, clear context caches, release RAW graphs between stages, inspect dimensions/profile using metadata plus a one-pixel decode, and stream only generic phase markers. The application renderer remains unchanged. The existing run is allowed to finish; duplicate successful work will be cancelled.
+
 Public runtime probe prepared in parallel on the same macos-26 runner image. Replay runtime was not logged in the replay job itself; the probe records actual available runtimes and the identical deterministic selection for environmental comparison only. Native replay remains simulator evidence, not phone acceptance.
 
 Private replay first run 39119028370 compiled successfully but failed after 5.686 seconds: audit-only source prefixing changed the ReferenceProfile resource string. Fixed transformation preserves exact asset literals; application code remains unchanged. Retry pending.

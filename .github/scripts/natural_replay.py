@@ -1,5 +1,5 @@
 """Private native replay audit; photographs and authenticated references never logged."""
-import base64, hashlib, json, os, re, shutil, subprocess, sys, urllib.request, zipfile
+import base64, hashlib, json, os, re, shutil, subprocess, sys, time, urllib.request, zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
@@ -17,12 +17,31 @@ def key(shared,salt,context):
 def source_snapshot(commit,prefix):
     source=subprocess.check_output(['git','show',commit+':'+ENGINE]).decode()
     helper='''
-    func auditFullRaster(photo: LoadedPhoto, settings: EditSettings) throws -> CGImage {
-        let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
-        guard let raster = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: display) else { throw PhotoError.rendering }
-        return raster
+    func auditFullRasterHash(url: URL, settings: EditSettings) throws -> String {
+        defer { context.clearCaches() }
+        return try autoreleasepool {
+            let photo = try load(url: url)
+            let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
+            guard let raster = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: display),
+                  let bytes = raster.dataProvider?.data else { throw PhotoError.rendering }
+            return SHA256.hash(data: bytes as Data).map { String(format: "%02x", $0) }.joined()
+        }
+    }
+    func auditPreviews(url: URL, settings: EditSettings) throws -> [CGImage] {
+        defer { context.clearCaches() }
+        return try autoreleasepool {
+            let photo = try load(url: url)
+            return [try preview(photo: photo, settings: settings), try preview(photo: photo, settings: settings, original: true)]
+        }
+    }
+    func auditExportCapture(url: URL, settings: EditSettings) throws -> URL {
+        defer { context.clearCaches() }
+        return try autoreleasepool {
+            try exportCapture(url: url, settings: settings)
+        }
     }
 '''
+    if prefix=='Current':helper=helper.replace('try exportCapture(url: url, settings: settings)','try exportCapture(url: url, settings: settings, output: .init())')
     source=source.replace('\n}\n\nprivate struct ReferenceProfile:',helper+'\n}\n\nprivate struct ReferenceProfile:')
     for name in ['PhotoEngine','EditSettings','PhotoError','LoadedPhoto','ReferenceProfile','ReferenceAssets']:
         source=re.sub(r'\b'+name+r'\b',prefix+name,source)
@@ -58,6 +77,19 @@ def prepare():
     (tests/'CurrentReplayEngine.swift').write_text(source_snapshot(CURRENT,'Current'))
     (tests/'PrivateNativeReplayTests.swift').write_text(SWIFT)
     print('Two private RAW and actual HEIC pairs verified. References and photographs omitted from logs.')
+
+def watch():
+    log=Path(os.environ['RUNNER_TEMP'])/'replay-native.log'
+    offset=0
+    while True:
+        if log.is_file():
+            with log.open(errors='replace') as f:
+                f.seek(offset)
+                chunk=f.read()
+                offset=f.tell()
+                for line in chunk.splitlines():
+                    if 'NATIVE_REPLAY_STAGE=' in line:print(line.strip(),flush=True)
+        time.sleep(1)
 
 def seal():
     log=(Path(os.environ['RUNNER_TEMP'])/'replay-native.log').read_text()
@@ -131,8 +163,37 @@ final class PrivateNativeReplayTests: XCTestCase {
     func properties(_ url: URL) throws -> [String:Any] {
         let source=try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL,nil))
         let p=try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any])
-        let image=try XCTUnwrap(CGImageSourceCreateImageAtIndex(source,0,nil))
-        return ["width":image.width,"height":image.height,"profile_name":p[kCGImagePropertyProfileName] as? String ?? "none","color_space_name":image.colorSpace?.name as String? ?? "none","orientation":p[kCGImagePropertyOrientation] as? Int ?? 1]
+        let image=try XCTUnwrap(CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceCreateThumbnailMaxPixelSize:1] as CFDictionary))
+        return ["width":(p[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0,"height":(p[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0,"profile_name":p[kCGImagePropertyProfileName] as? String ?? "none","color_space_name":image.colorSpace?.name as String? ?? "none","orientation":p[kCGImagePropertyOrientation] as? Int ?? 1]
+    }
+    // Each stage owns a single RAW graph/context and returns only small rasters, hashes or file URLs.
+    func legacyPreviews(_ raw: URL) async throws -> [CGImage] {
+        let engine=LegacyPhotoEngine()
+        return try await engine.auditPreviews(url:raw,settings:.init())
+    }
+    func livePreviews(_ raw: URL) async throws -> [CGImage] {
+        let engine=PhotoEngine(),photo=try await engine.load(url:raw)
+        return [try await engine.preview(photo:photo,settings:.init()),try await engine.preview(photo:photo,settings:.init(),original:true)]
+    }
+    func auditedPreviews(_ raw: URL) async throws -> [CGImage] {
+        let engine=CurrentPhotoEngine()
+        return try await engine.auditPreviews(url:raw,settings:.init())
+    }
+    func legacyFullHash(_ raw: URL) async throws -> String {
+        let engine=LegacyPhotoEngine()
+        return try await engine.auditFullRasterHash(url:raw,settings:.init())
+    }
+    func currentFullHash(_ raw: URL) async throws -> String {
+        let engine=CurrentPhotoEngine()
+        return try await engine.auditFullRasterHash(url:raw,settings:.init())
+    }
+    func legacyExport(_ raw: URL) async throws -> URL {
+        let engine=LegacyPhotoEngine()
+        return try await engine.auditExportCapture(url:raw,settings:.init())
+    }
+    func liveExport(_ raw: URL, _ options: PhotoOutputOptions) async throws -> URL {
+        let engine=PhotoEngine()
+        return try await engine.exportCapture(url:raw,settings:.init(),output:options)
     }
     func testReplayTwoRound3Pairs() async throws {
         executionTimeAllowance=900
@@ -140,30 +201,34 @@ final class PrivateNativeReplayTests: XCTestCase {
         let inputs=try XCTUnwrap(JSONSerialization.jsonObject(with:Data(contentsOf:fixture.appendingPathComponent("replay-manifest.json"))) as? [[String:String]])
         let directory=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("Replay")
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
-        let legacy=LegacyPhotoEngine(),current=PhotoEngine(),audited=CurrentPhotoEngine()
         var manifest=[[String:Any]]()
         for item in inputs {
             let id=try XCTUnwrap(item["id"]),raw=fixture.appendingPathComponent(id+".dng"),actual=fixture.appendingPathComponent(id+".heic")
-            let oldPhoto=try await legacy.load(url:raw),newPhoto=try await current.load(url:raw),auditPhoto=try await audited.load(url:raw)
-            print("NATIVE_REPLAY_STAGE="+id+"-loaded")
-            let oldPreview=try await legacy.preview(photo:oldPhoto,settings:.init()),newPreview=try await current.preview(photo:newPhoto,settings:.init())
+            print("NATIVE_REPLAY_STAGE="+id+"-starting")
+            let oldPreviews=try await legacyPreviews(raw)
+            print("NATIVE_REPLAY_STAGE="+id+"-legacy-previews")
+            let newPreviews=try await livePreviews(raw)
+            let oldPreview=oldPreviews[0],newPreview=newPreviews[0]
             let oldPreviewHash=try hash(oldPreview),newPreviewHash=try hash(newPreview)
             XCTAssertEqual(oldPreviewHash,newPreviewHash,"Restored current preview must match original on same RAW")
-            let oldOriginal=try await legacy.preview(photo:oldPhoto,settings:.init(),original:true),newOriginal=try await current.preview(photo:newPhoto,settings:.init(),original:true)
+            let oldOriginal=oldPreviews[1],newOriginal=newPreviews[1]
             XCTAssertEqual(try hash(oldOriginal),try hash(newOriginal))
-            let auditedPreview=try await audited.preview(photo:auditPhoto,settings:.init())
-            XCTAssertEqual(try hash(auditedPreview),newPreviewHash,"Instrumented source snapshot must match live app")
+            let currentAuditPreviews=try await auditedPreviews(raw)
+            XCTAssertEqual(try hash(currentAuditPreviews[0]),newPreviewHash,"Instrumented source snapshot must match live app")
             print("NATIVE_REPLAY_STAGE="+id+"-preview-parity")
-            let oldRasterHash=try await hash(legacy.auditFullRaster(photo:oldPhoto,settings:.init()))
-            let currentRasterHash=try await hash(audited.auditFullRaster(photo:auditPhoto,settings:.init()))
+            let oldRasterHash=try await legacyFullHash(raw)
+            print("NATIVE_REPLAY_STAGE="+id+"-legacy-full-raster-hashed")
+            let currentRasterHash=try await currentFullHash(raw)
             XCTAssertEqual(oldRasterHash,currentRasterHash,"Full-resolution pre-encoding sRGB raster must match original")
             print("NATIVE_REPLAY_STAGE="+id+"-full-raster-parity")
             try save(oldPreview,directory.appendingPathComponent(id+"-legacy-preview.jpg"))
             try save(newPreview,directory.appendingPathComponent(id+"-current-preview.jpg"))
             try save(newOriginal,directory.appendingPathComponent(id+"-decoder-zero-strength.jpg"))
-            let old=try await legacy.export(photo:oldPhoto,settings:.init())
-            let jpeg=try await current.export(photo:newPhoto,settings:.init(),output:.init(format:.jpeg,quality:.high))
-            let heic=try await current.export(photo:newPhoto,settings:.init(),output:.init())
+            let old=try await legacyExport(raw)
+            print("NATIVE_REPLAY_STAGE="+id+"-legacy-export")
+            let jpeg=try await liveExport(raw,.init(format:.jpeg,quality:.high))
+            print("NATIVE_REPLAY_STAGE="+id+"-current-jpeg-export")
+            let heic=try await liveExport(raw,.init())
             XCTAssertEqual(heic.pathExtension,"heic","Native HEIC encoding is required")
             print("NATIVE_REPLAY_STAGE="+id+"-native-exports")
             let files=[("legacy-native.jpg",old),("current-native.jpg",jpeg),("current-native.heic",heic)]
@@ -182,6 +247,7 @@ final class PrivateNativeReplayTests: XCTestCase {
 if __name__=='__main__':
     try:
         if sys.argv[1]=='prepare':prepare()
+        elif sys.argv[1]=='watch':watch()
         else:seal()
     except Exception:
         raise SystemExit('Private replay failed. No private inputs printed; inspect source assertions or refresh private references.') from None

@@ -45,12 +45,15 @@ jobs:
       - name: Compare actual native full exports and previews
         working-directory: NaturalColor/ios
         run: |
+          "$RUNNER_TEMP/replay-python/bin/python" -u ../../.github/scripts/natural_replay.py watch &
+          replay_watch_pid=$!
+          trap 'kill "$replay_watch_pid" 2>/dev/null || true' EXIT
           xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -destination "id=$SIM_UDID" \
             -only-testing:HassyNaturalTests/PrivateNativeReplayTests -parallel-testing-enabled NO \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 900 \
             CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/replay-native.log" 2>&1 || \
             { grep -m 40 -E 'error:|failed|TEST FAILED|NATIVE_REPLAY_STAGE' "$RUNNER_TEMP/replay-native.log"; exit 1; }
-          grep -E 'Test Case.*passed|TEST SUCCEEDED|NATIVE_REPLAY_STAGE' "$RUNNER_TEMP/replay-native.log"
+          grep -E 'Test Case.*passed|TEST SUCCEEDED' "$RUNNER_TEMP/replay-native.log"
       - name: Encrypt private native evidence
         run: '"$RUNNER_TEMP/replay-python/bin/python" .github/scripts/natural_replay.py seal'
       - uses: actions/upload-artifact@v4
