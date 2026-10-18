@@ -199,7 +199,7 @@ final class SceneToneTests: XCTestCase {
     }
 
     func testHighContrastHEICCarriesGainMapThatRestoresHighlights() async throws {
-        guard #available(iOS 18.0, *) else { throw XCTSkip("Gain-map writing needs iOS 18") }
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Gain maps with declared headroom need iOS 26") }
         let engine = PhotoEngine()
         let values: [Float] = [0.18, 0.72, 2.0, 4.0]
         let photo = LoadedPhoto(image: patchImage(values.map { [$0, $0, $0] }, width: 64, height: 64), name: "HDR ladder",

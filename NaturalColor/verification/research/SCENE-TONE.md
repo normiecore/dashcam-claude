@@ -59,10 +59,11 @@ For RAW input only. Processed HEIC/JPEG input keeps the original operator.
    mirrors Phocus Shadow Fill / DRC "As Shot" (global and content-adaptive).
 7. **Output gamut.** The kernel no longer clamps its output. HEIC is encoded in
    Display P3 and keeps colours outside sRGB; JPEG and preview clip once in sRGB.
-8. **HNCS HDR-style gain map.** For HEIC on iOS 18+, when compression > 0, the
+8. **HNCS HDR-style gain map.** For HEIC on iOS 26+, when compression > 0, the
    HDR rendition is the finished SDR pixel × 2^ev, where ev is the stops the
-   shoulder removed (capped at 3). Core Image's `.hdrImage` writer computes the
-   ISO gain map. Below the knee the two renditions are identical. Quiet scenes,
+   shoulder removed (capped at 3), tagged with that headroom
+   (`settingContentHeadroom`, iOS 26+; untagged kernel output produced an identity map).
+   Core Image's `.hdrImage` writer computes the ISO gain map. Below the knee the two renditions are identical. Quiet scenes,
    JPEG and older systems write SDR only.
 
 A RAW scene whose measured white fits the film domain and that has few dark

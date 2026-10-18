@@ -1,3 +1,11 @@
+## 2026-10-18 — Round 4 renderer: X2D II-style dynamic range on iPhone (candidate, not uploaded)
+
+- Keep ProRAW highlight headroom from Apple's decoder (`extendedDynamicRangeAmount` 1). On the public iPhone 17 Pro DNG the brightest value rises from 1.18 to 2.40 with unchanged midtones.
+- Add a measured scene tone stage before the recovered HNCS chroma and Standard film stages. A hue-preserving rational shoulder from +1 EV folds up to 2.5 stops of measured highlights into the curve instead of clipping, with a neutral path to white. Backlit scenes (dark content plus bright highlights) get a global shadow fill of up to 0.6 EV that leaves middle grey and blacks alone. Quiet scenes render byte-identically to 0.1.3. Exposure placement is unchanged pending a grey-card calibration.
+- Stop clamping the kernel output to sRGB, so Display P3 HEIC keeps saturated colours outside sRGB (19% of saturated test colours, 97% of them inside P3).
+- High-contrast HEIC exports on iOS 26+ carry an ISO gain map whose HDR rendition restores the folded stops (at most three), mirroring HNCS HDR. JPEG and quiet scenes stay SDR.
+- Record the scene tone, scene statistics and gain-map use in export provenance. Add `verify_scene_tone.py`, native scene-tone tests and a decoder headroom probe; design notes are in `NaturalColor/verification/research/SCENE-TONE.md`.
+
 ## 2026-10-18 — Round 3 colour reassessment and export diagnostics
 
 - Review 87 distinct supplied photos, original HNCS research and renderer history; distinguish the earlier incomplete rollback from confirmed latest-build Round 3 results. High-contrast foreground darkness also occurs in the original captures; calibrated Phocus equivalence remains unproven.

@@ -250,7 +250,8 @@ actor PhotoEngine {
     /// the folded highlight stops on HDR displays. Nil when unavailable.
     private func writeGainMapHEIC(sdr: CIImage, hdr: CIImage, headroom: Float, properties: [CFString: Any],
                                   quality: Double, to url: URL) -> URL? {
-        guard #available(iOS 18.0, *) else { return nil }
+        // Declaring the HDR headroom (needed for a non-identity map) is iOS 26+.
+        guard #available(iOS 26.0, *) else { return nil }
         var metadata: [AnyHashable: Any] = [:]
         for (key, value) in properties where key != kCGImageDestinationLossyCompressionQuality { metadata[key as String] = value }
         // A kernel output reports unknown headroom; Core Image needs it to
