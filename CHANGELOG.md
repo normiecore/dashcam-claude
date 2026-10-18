@@ -1,3 +1,9 @@
+## 2026-10-18 — RAW-saving rendering fix on TestFlight
+
+- Uploaded verified Natural 0.1.3 build 20261018.629: Apple VALID, existing internal group access True, IN_BETA_TESTING. Release run 39104201604; independent status run 39104490714.
+- Finished HEIC/JPEG uses ProRAW development with RAW saving on or off on supported cameras. Save RAW original controls retention.
+- External group assignment succeeded, but Beta App Review submission is pending because the previous 0.1.3 build is still in review (Apple ANOTHER_BUILD_IN_REVIEW). No duplicate upload or review cancellation.
+
 ## 2026-10-18 — Consistent finished-photo rendering with RAW saving off
 
 - Use available ProRAW for finished-photo development independently of whether the original is saved, fixing the HEIC rendering change caused by the RAW-saving toggle. Unsupported cameras retain processed capture.

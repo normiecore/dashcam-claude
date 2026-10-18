@@ -2,7 +2,7 @@
 
 Apple accepted Natural 0.1.3 build 20261018.629 in release run https://github.com/normiecore/dashcam-claude/actions/runs/39104201604. Upload and production archive/resource audit succeeded; Apple processing is VALID and the build is assigned to the existing external group. Upload guard pins app implementation to verified source 0d405590144995297c5d4ab1faa9bb2beebccc66. Do not upload a duplicate.
 
-External Beta App Review submission returned HTTP 422 ANOTHER_BUILD_IN_REVIEW: the previous build in version 0.1.3 remains in beta review. No review was cancelled. Distribution helper now reports this pending state and continues to confirm internal access. A distribution-only retry and independent internal-status check are pending. Retry external submission after the existing review finishes; never infer public availability from group assignment.
+External Beta App Review submission returned HTTP 422 ANOTHER_BUILD_IN_REVIEW: the previous build in version 0.1.3 remains in beta review. No review was cancelled. Distribution helper now reports this pending state and continues to confirm internal access. Independent status run https://github.com/normiecore/dashcam-claude/actions/runs/39104490714 confirms build 20261018.629 is VALID, internal group access True and IN_BETA_TESTING. Distribution-only retry https://github.com/normiecore/dashcam-claude/actions/runs/39104506212 succeeded: upload skipped, external review explicitly pending, and the same build confirmed VALID with internal access and IN_BETA_TESTING. Retry external submission after the existing review finishes; never infer public availability from group assignment.
 
 ## RAW-saving rendering fix — TestFlight upload authorised, 18 October 2026
 

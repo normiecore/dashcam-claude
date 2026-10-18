@@ -1,5 +1,7 @@
 # Natural camera for iPhone
 
+Current internal TestFlight build: **0.1.3 (20261018.629)**, with consistent ProRAW development whether RAW saving is on or off. Apple processing is VALID and internal access is confirmed. External submission is pending the previous 0.1.3 build’s beta review. [Release](https://github.com/normiecore/dashcam-claude/actions/runs/39104201604) · [Access confirmation](https://github.com/normiecore/dashcam-claude/actions/runs/39104490714).
+
 A native SwiftUI, AVFoundation and Core Image camera. It opens directly to Simple mode: frame, tap to focus, choose a physical lens and shoot. Advanced mode adds live exposure readings, compensation and a composition grid.
 
 The 0.1.3 candidate saves a finished photo to Photos by default, using HEIC at Medium compression. Camera controls offers JPEG, High/Small compression and optional RAW + processed saving on supported cameras. Native framing preserves the selected camera’s maximum supported photo dimensions; standard ratios crop without upscaling. Quality changes compression, not resolution. JPEG is the fallback if HEIC encoding is unavailable.
