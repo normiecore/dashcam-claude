@@ -1,0 +1,68 @@
+name: Natural Round 4 verification
+on:
+  push:
+    branches: ['claude/round4-hncs-optimise']
+    paths:
+      - 'NaturalColor/ios/**'
+      - '.github/workflows/natural-round4-verify.yml'
+permissions:
+  contents: read
+concurrency:
+  group: natural-round4-verify-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  image-tests:
+    runs-on: macos-26
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: NaturalColor/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare native project and public RAW fixture
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          python3 scripts/acquire_test_raw.py
+          xcodegen generate
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Image, rendering and decoder tests
+        run: |
+          code=0
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural \
+            -destination "id=$SIM_UDID" -only-testing:HassyNaturalTests \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 400 \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/round4-tests.log" 2>&1 || code=$?
+          grep -E '^(HEADROOM_PROBE|ROUND4_PROBE) ' "$RUNNER_TEMP/round4-tests.log" || true
+          grep -E "error:|failed|Test Case .* (passed|failed)|Executed" "$RUNNER_TEMP/round4-tests.log" | tail -60
+          exit $code
+  ui-and-archive:
+    runs-on: macos-26
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: NaturalColor/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare native project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Interface journeys
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural \
+            -destination "id=$SIM_UDID" -only-testing:HassyNaturalUITests \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 300 \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/round4-ui.log" 2>&1 || \
+            { grep -E "error:|failed" "$RUNNER_TEMP/round4-ui.log" | tail -40; tail -40 "$RUNNER_TEMP/round4-ui.log"; exit 1; }
+          grep -E "Test Case .* (passed|failed)|Executed" "$RUNNER_TEMP/round4-ui.log" | tail -20
+      - name: Production archive and resource checksums
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/HassyNatural.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO archive > "$RUNNER_TEMP/round4-archive.log" 2>&1 || \
+            { grep -E "error:" "$RUNNER_TEMP/round4-archive.log" | head -40; tail -60 "$RUNNER_TEMP/round4-archive.log"; exit 1; }
+          python3 scripts/check_bundle.py "$RUNNER_TEMP/HassyNatural.xcarchive/Products/Applications/HassyNatural.app"
