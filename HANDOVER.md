@@ -1,3 +1,7 @@
+## RAW-saving rendering fix — TestFlight upload authorised, 18 October 2026
+
+The owner requested pushing the verified fix through to TestFlight. Release workflow now pins app-tree equality to verified source 0d405590144995297c5d4ab1faa9bb2beebccc66 (successful Xcode run 39103434989); the app implementation and marketing version 0.1.3 are unchanged from that source. Upload will generate a new build number and use the existing internal/external groups. Beta notes describe RAW-toggle parity and retention checks. Upload/Apple processing are pending; do not duplicate an accepted upload. No merge or production App Store submission is requested.
+
 ## Consistent rendering with RAW saving off — 18 October 2026
 
 The owner reported harsher HEIC rendering with Save RAW original off and identified draft PR #11 / branch codex/natural-color-ios-20261015. Confirmed cause: CameraPreview passed save mode into CameraService.capture, switching between ProRAW and Apple-processed HEIC/JPEG. PhotoEngine disables RAW tone boosts/local tone mapping/gamut mapping before the recovered renderer, whereas processed inputs already contain Apple rendering.

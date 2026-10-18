@@ -80,15 +80,15 @@ def distribute():
     else:
         call('betaAppLocalizations',{'data':{'type':'betaAppLocalizations','attributes':{'locale':'en-AU','description':description},
             'relationships':{'app':{'data':{'type':'apps','id':app}}}}})
-    notes=('0.1.3: Restores the colour and tone rendering used in 0.1.1. Simple mode, native framing, processed-only HEIC at Medium quality are the defaults. '
-        'RAW is off by default, including after upgrading from 0.1.1. Allow add-only Photos access on first capture. '
-        'In Camera controls, test JPEG/HEIC, Medium/High/Small quality, optional RAW + processed where supported, '
-        'and Advanced mode. Quality changes compression, not pixel dimensions. Check portrait and both landscape '
-        'file orientations, repeated captures, lens changes, tap-to-focus, standard crops, thumbnail review, '
-        'compare/finish/exposure, imports and sharing. Successful saves remove intermediate files; failed saves '
+    notes=('Rendering consistency update: Save RAW original now controls whether the DNG is kept. '
+        'On supported cameras, the finished HEIC/JPEG uses ProRAW development with RAW saving on or off. '
+        'Compare the same scene with Save RAW original off and on: the finished rendering should match; '
+        'off should save one finished photo, on should also save the RAW original. RAW processing time and '
+        'temporary storage still apply. Pending originals are removed after successful saving; save failures '
         'keep recovery copies in Files > On My iPhone > Natural > Pending Captures and Processed. '
-        'The RAW development settings and rendering from 0.1.1 are restored. '
-        'Please report crashes, save failures, rotation errors or unexpected colour shifts through TestFlight.')
+        'HEIC Medium, native framing and processed-only saving remain the defaults. '
+        'Check repeated captures, lens switches, portrait/both landscape orientations and denied Photos recovery. '
+        'Please report crashes, save failures or unexpected colour differences through TestFlight.')
     existing=call(f'builds/{build["id"]}/betaBuildLocalizations?limit=200')['data']
     if existing:
         loc=existing[0]

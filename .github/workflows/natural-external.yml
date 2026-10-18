@@ -41,7 +41,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Require the already verified application implementation
-        run: git diff --exit-code 2e9bbe8d2a3c3223784b5216fe17aa18c086a791 HEAD -- NaturalColor/ios/HassyNatural NaturalColor/ios/project.yml
+        run: git diff --exit-code 0d405590144995297c5d4ab1faa9bb2beebccc66 HEAD -- NaturalColor/ios/HassyNatural NaturalColor/ios/project.yml
       - name: Toolchain
         working-directory: NaturalColor/ios
         run: |
