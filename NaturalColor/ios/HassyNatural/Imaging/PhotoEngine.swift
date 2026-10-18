@@ -132,9 +132,11 @@ actor PhotoEngine {
         let extent = image.extent
         guard !extent.isInfinite, !extent.isEmpty else { throw PhotoError.invalidImage }
         let scale = min(1, 256 / max(extent.width, extent.height))
-        let small = image.transformed(by: .init(translationX: -extent.minX, y: -extent.minY))
+        // Clamp to extent so resampled edge pixels stay opaque (transparent,
+        // premultiplied edges would count as dark), then crop inside.
+        let small = image.transformed(by: .init(translationX: -extent.minX, y: -extent.minY)).clampedToExtent()
             .applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: scale, kCIInputAspectRatioKey: 1])
-        let bounds = small.extent.integral
+        let bounds = CGRect(x: 0, y: 0, width: floor(extent.width * scale), height: floor(extent.height * scale))
         let width = Int(bounds.width), height = Int(bounds.height)
         guard width > 0, height > 0 else { throw PhotoError.invalidImage }
         var pixels = [Float](repeating: 0, count: width * height * 4)
@@ -152,7 +154,8 @@ actor PhotoEngine {
     /// recovered operator.
     private func sceneTone(for photo: LoadedPhoto, settings: EditSettings) -> hn_scene_tone {
         let identity = hn_scene_tone(exposure: 1, compression: 0, shadowFill: 0)
-        guard photo.isRaw else { return identity }
+        // Strength 0 bypasses the kernel, so no tone (or gain map) applies.
+        guard photo.isRaw, settings.strength > 0 else { return identity }
         var stats = photo.sceneStats ?? hn_scene_stats(white: 0, darkFraction: 0)
         var tone = identity
         return hn_choose_scene_tone(&stats, settings.exposure, &tone) == 1 ? tone : identity
@@ -286,7 +289,7 @@ actor PhotoEngine {
         if tryHEIC, tone.compression > 0 {
             let hdr = try filtered(framed, settings: settings, tone: tone, hdr: true)
             let properties = try exportProperties(photo: photo, settings: settings, output: output, heic: true, hdr: true)
-            if let url = writeGainMapHEIC(sdr: image, hdr: hdr, headroom: exp2(min(tone.compression, 3)),
+            if let url = writeGainMapHEIC(sdr: image, hdr: hdr, headroom: exp2(tone.compression),
                                           properties: properties, quality: output.quality.compression,
                                           to: directory.appendingPathComponent(name + ".heic")) { return url }
         }

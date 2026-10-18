@@ -135,6 +135,9 @@ final class SceneToneTests: XCTestCase {
         // The measured white reaches film white; everything below it keeps tone.
         XCTAssertLessThan(rolled[4], 254, "+4 EV below the measured white is not clipped")
         XCTAssertEqual(Double(original[4 * 4 + 1]), 255, accuracy: 0.5, "The original clipped +4 EV")
+        // Partial strength blends from the folded input, so it keeps the shoulder.
+        let half = try bytes(await engine.preview(photo: bright, settings: .init(strength: 0.5)), space: srgb)
+        XCTAssertLessThan(half[4 * 4 + 1], 254, "Half strength does not re-clip folded highlights")
     }
 
     func testCalibratedFilmExposureMeetsStandardCurveTargets() throws {
@@ -245,6 +248,17 @@ final class SceneToneTests: XCTestCase {
         XCTAssertGreaterThan(hdr[2] / sdr[2], 1.5, "Folded highlights regain range")
         XCTAssertGreaterThan(hdr[3], 2.0, "Scene white extends above SDR white")
         XCTAssertLessThanOrEqual(hdr[3], 8.5, "Headroom stays within three stops")
+        // Strength 0 bypasses the renderer: no tone recorded, no gain map.
+        let plain = try await engine.export(photo: photo, settings: .init(strength: 0), output: .init(format: .heic, quality: .high))
+        defer { try? FileManager.default.removeItem(at: plain) }
+        let plainSource = try XCTUnwrap(CGImageSourceCreateWithURL(plain as CFURL, nil))
+        XCTAssertNil(CGImageSourceCopyAuxiliaryDataInfoAtIndex(plainSource, 0, kCGImageAuxiliaryDataTypeISOGainMap))
+        let plainProperties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(plainSource, 0, nil) as? [CFString: Any])
+        let plainExif = try XCTUnwrap(plainProperties[kCGImagePropertyExifDictionary] as? [CFString: Any])
+        let plainComment = try XCTUnwrap(plainExif[kCGImagePropertyExifUserComment] as? String)
+        let plainProvenance = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(plainComment.utf8)) as? [String: Any])
+        let plainTone = try XCTUnwrap(plainProvenance["sceneTone"] as? [String: Any])
+        XCTAssertEqual((plainTone["compression"] as? NSNumber)?.floatValue, 0)
     }
 
     func testPublicRAWMeasuresSceneAndRecordsTone() async throws {

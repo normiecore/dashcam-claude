@@ -49,8 +49,10 @@ For RAW input only. Processed HEIC/JPEG input keeps the original operator.
    curve. With a calibrated exposure and 2.5 stops of compression, the grey ladder
    is 119/172/214/236/247/253 for 0 to +5 EV (uncompressed: 119/172/224/255).
 5. **Path to white.** Only when compression is active, pixels whose peak is in
-   [0.9, 1] blend toward neutral with a smoothstep weight. This avoids the
-   pink/magenta clipped highlights reported for older Phocus renders.
+   [0.9, 1] blend toward neutral with a smoothstep weight. The weight fades in over
+   the first half stop of compression, so scenes either side of the threshold
+   render alike. This avoids the pink/magenta clipped highlights reported for older
+   Phocus renders.
 6. **Shadow fill.** `0.6 × smoothstep(0.15, 0.45, darkFraction) ×
    smoothstep(0.5, 1, white)` EV at most, so only backlit scenes (dark content
    *and* highlights near film white) are filled; a dim low-key scene keeps its
@@ -61,10 +63,15 @@ For RAW input only. Processed HEIC/JPEG input keeps the original operator.
    Display P3 and keeps colours outside sRGB; JPEG and preview clip once in sRGB.
 8. **HNCS HDR-style gain map.** For HEIC on iOS 26+, when compression > 0, the
    HDR rendition is the finished SDR pixel × 2^ev, where ev is the stops the
-   shoulder removed (capped at 3), tagged with that headroom
+   shoulder removed (capped at the compression, ≤ 2.5), tagged with headroom
+   2^compression
    (`settingContentHeadroom`, iOS 26+; untagged kernel output produced an identity map).
    Core Image's `.hdrImage` writer computes the ISO gain map. Below the knee the two renditions are identical. Quiet scenes,
    JPEG and older systems write SDR only.
+
+The editor's strength slider blends from the scene-toned input to the finished
+rendering, so partial strength keeps the folded highlights; strength 0 bypasses
+the renderer and records no tone or gain map.
 
 A RAW scene whose measured white fits the film domain and that has few dark
 pixels renders exactly as before; the native test

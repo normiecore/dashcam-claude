@@ -108,6 +108,11 @@ def main():
         quiet = Tone(1, 0, 0.3)
         out = tone([0.95, 0.2, 0.1], quiet)
         assert abs(out[1] / out[0] - 0.2 / 0.95) < 1e-6, 'no path to white without compression'
+        # The path to white fades in with compression: no jump at the threshold.
+        # A saturated pixel just under each compression's measured white.
+        ratios = [tone([0.98 * 2 ** c, 0.196 * 2 ** c, 0.098 * 2 ** c], Tone(1, c, 0)) for c in (1e-4, 0.25, 0.5, 1.0)]
+        ratios = [o[1] / o[0] for o in ratios]
+        assert abs(ratios[0] - 0.2) < 1e-3 and ratios[0] < ratios[1] < ratios[2] <= ratios[3], ratios
 
         # HDR gain restores exactly the folded stops, capped at 3 stops.
         t = Tone(1, 2.5, 0)
@@ -117,7 +122,7 @@ def main():
             ev = hdr_ev([v, v * 0.7, v * 0.4], t)
             if sdr_peak < 0.9:
                 assert abs(sdr_peak * 2 ** ev - v) < 1e-4 * v, (v, sdr_peak, ev)
-        assert hdr_ev([1000, 1000, 1000], t) == 3.0
+        assert hdr_ev([1000, 1000, 1000], t) == 2.5, 'HDR gain is capped at the declared headroom'
         results['hdr_stops_at_measured_white'] = round(hdr_ev([2 ** 2.5] * 3, t), 4)
 
         # Measurement and choice on synthetic scenes.

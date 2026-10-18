@@ -41,11 +41,13 @@ float4 recoveredKernel(sampler source, sampler chromaTable, sampler filmTable,
     float3 toned = rgb*tone.x;
     float peak = max(max(toned.r, toned.g), toned.b);
     toned *= exp2(sceneToneEV(peak, tone.xyz));
-    // Neutral path to white for folded highlights; none without compression.
+    // Neutral path to white for folded highlights, fading in over the first
+    // half stop of compression; none without compression.
     if (tone.y > 0.0f) {
         float top = max(max(toned.r, toned.g), toned.b);
         float w = clamp((top-0.9f)/0.1f, 0.0f, 1.0f);
-        toned += (float3(top)-toned)*(w*w*(3.0f-2.0f*w));
+        float f = clamp(tone.y/0.5f, 0.0f, 1.0f);
+        toned += (float3(top)-toned)*(w*w*(3.0f-2.0f*w))*(f*f*(3.0f-2.0f*f));
     }
     float3 p = clamp(toned, 0.0f, 1.0f) * 65535.0f;
     float avg = (p.r + p.g + p.b) * 0.3333333f;
@@ -93,12 +95,15 @@ float4 recoveredKernel(sampler source, sampler chromaTable, sampler filmTable,
             dot(float3(-0.06253000270524556f,1.0766231784366227f,-0.01409303602767471f),native),
             dot(float3(-0.015208859998233059f,-0.07651119599334996f,1.0917201956952851f),native));
     }
+    // Strength blends from the scene-toned input (highlights already folded
+    // below white), not the raw decode, so partial strength keeps the shoulder.
     // Leave colours outside sRGB unclamped: the HEIC encoder keeps them in
     // Display P3, and sRGB outputs clip once at encoding.
-    float3 blended = rgb+(mapped-rgb)*clamp(options.z,0.0f,1.0f);
+    float3 base = min(toned, float3(1.0f));
+    float3 blended = base+(mapped-base)*clamp(options.z,0.0f,1.0f);
     // HDR rendition (options.w = 1): restore the folded highlight stops above
     // SDR white for a gain map; identical to the SDR result elsewhere.
-    if (options.w > 0.5f && peak > 0.0f) blended *= exp2(min(compressionEV(log2(peak/0.125f), tone.y), 3.0f));
+    if (options.w > 0.5f && peak > 0.0f) blended *= exp2(min(compressionEV(log2(peak/0.125f), tone.y), tone.y));
     return float4(blended*alpha,alpha);
 }
 }

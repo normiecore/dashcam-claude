@@ -62,9 +62,10 @@ typedef struct {
 #define HN_MAX_SHADOW_FILL 0.6f
 /* Gain-scaled rgb; out may alias rgb. Success=1, invalid argument=0. */
 int hn_apply_scene_tone(const float rgb[3], const hn_scene_tone* tone, float out[3]);
-/* Stops of highlight range the compression folded away for this pixel
- * (0...3). An HDR rendition multiplies the finished SDR pixel by 2^ev, so a
- * gain map restores the scene's highlights above SDR white and is 1 elsewhere. */
+/* Stops of highlight range the compression folded away for this pixel, at
+ * most the compression (<= 2.5). An HDR rendition multiplies the finished SDR
+ * pixel by 2^ev, so a gain map restores the scene's highlights above SDR white
+ * (headroom 2^compression, within HNCS HDR's +3 stops) and is 1 elsewhere. */
 int hn_scene_highlight_ev(const float rgb[3], const hn_scene_tone* tone, float* ev);
 /* rgba: count pixels of 4 floats in linear sRGB. Non-finite pixels are ignored. */
 int hn_measure_scene(const float* rgba, size_t count, hn_scene_stats* out);

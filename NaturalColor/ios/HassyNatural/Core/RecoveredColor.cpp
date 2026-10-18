@@ -94,7 +94,6 @@ constexpr float filmStops=3.0f;          // log2(1/HN_FILM_MIDDLE_GREY)
 constexpr float kneeStops=1.0f;          // grey and +1 EV keep the Standard curve exactly
 constexpr float fillFloor=-7.0f;         // stops below middle grey where fill reaches zero
 constexpr float fillShape=1.5688f;       // places the fill peak 2.5 stops below grey
-constexpr float maxHDRStops=3.0f;        // HNCS HDR documents up to +3 stops
 // Stops removed at t (stops above film grey). A rational log-domain shoulder
 // from the knee: slope 1 at the knee and the measured white (3+compression)
 // lands on film white (3); beyond it values keep rising and clip in the film.
@@ -131,9 +130,12 @@ extern "C" int hn_apply_scene_tone(const float rgb[3],const hn_scene_tone* tone,
  const float gain=std::exp2(scene_tone_ev(std::max({x[0],x[1],x[2]}),*tone));
  for (int i=0;i<3;++i) x[i]*=gain;
  // Folded highlights approach white neutrally instead of clipping per channel
- // into pink or cyan casts. Scenes without compression are unchanged.
+ // into pink or cyan casts. It fades in over the first half stop of
+ // compression, so scenes without compression are unchanged and similar
+ // scenes on either side of the threshold render alike.
  if (tone->compression>0) {
-  const float peak=std::max({x[0],x[1],x[2]}),w=smooth01((peak-0.9f)/0.1f);
+  const float peak=std::max({x[0],x[1],x[2]});
+  const float w=smooth01((peak-0.9f)/0.1f)*smooth01(tone->compression/0.5f);
   for (int i=0;i<3;++i) x[i]+=(peak-x[i])*w;
  }
  for (int i=0;i<3;++i) out[i]=x[i];
@@ -144,7 +146,8 @@ extern "C" int hn_scene_highlight_ev(const float rgb[3],const hn_scene_tone* ton
  if (!rgb || !ev || !valid_tone(tone)) return 0;
  for (int i=0;i<3;++i) if (!std::isfinite(rgb[i])) return 0;
  const float n=std::max({rgb[0],rgb[1],rgb[2]})*tone->exposure;
- *ev=n>0 ? std::min(compression_ev(std::log2(n/HN_FILM_MIDDLE_GREY),tone->compression),maxHDRStops) : 0.0f;
+ // Capped at the compression, so the HDR peak is the declared headroom.
+ *ev=n>0 ? std::min(compression_ev(std::log2(n/HN_FILM_MIDDLE_GREY),tone->compression),tone->compression) : 0.0f;
  return 1;
 }
 
