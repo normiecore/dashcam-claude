@@ -1,3 +1,9 @@
+## 2026-10-18 — Verified Round3 same-input rendering
+
+- Native original0.1.1/current0.1.3 replay passes two private RAW pairs: exact previews/full sRGB rasters; actual HEICs closely match fresh exports.
+- Verify encrypted artifacts and independent full-file ICC-managed comparisons; distinguish codec thumbnail resampling differences from color changes.
+- Record runtime/phone limitations and keep private comparison images outside Git; no app renderer or TestFlight changes.
+
 ## 2026-10-18 — Round3 isolated replay audit
 
 - Prepare private native same-RAW original/current renderer, preview, full-raster and encoded-output comparisons using encrypted CI ingress/egress; no app implementation changes. Hosted result pending.
