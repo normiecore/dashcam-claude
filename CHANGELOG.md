@@ -3,6 +3,7 @@
 - Review 87 distinct supplied photos, original HNCS research and renderer history; distinguish the earlier incomplete rollback from confirmed latest-build Round 3 results. High-contrast foreground darkness also occurs in the original captures; calibrated Phocus equivalence remains unproven.
 - Add encoded rendering provenance with actual build, RAW/processed input, decoder/edit settings and output profile/quality, excluding source EXIF/GPS. Unavailable diagnostic numbers cannot block saving.
 - Verify decoded JPEG/P3 HEIC appearance and profiles, metadata round trips and native RAW/renderer behavior: 15 image/unit tests plus production Release archive/resource audit pass in run 39119224772 at source 35d762f. This candidate is not uploaded to TestFlight.
+- Verify two actual Round 3 RAWs through original/current native engines in run 39119748186: identical previews and full-resolution pre-encoding sRGB rasters. Identically decoded/resampled JPEG versus HEIC appearance differences average less than one channel code value; actual Round 3 HEICs closely match the replay. Preserve simulator/phone runtime and calibration limits in the assessment.
 
 ## 2026-10-18 — RAW-saving rendering fix on TestFlight
 

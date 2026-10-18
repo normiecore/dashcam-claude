@@ -107,10 +107,55 @@ BaselineExposure values range from about 0.20 to 1.94 EV and their automatic
 white-balance temperatures differ. These are scene/input differences, not proof
 of incorrect processing; do not blindly zero baseline exposure or white balance.
 
-Keep the preferred recovered operator fixed while checking input, exposure,
-profile conversion and codec differences. Compare identical DNGs using identical
-sRGB JPEG settings first; test HEIC separately. Do not fit a new look to unrelated
-scenes or treat successful numerical tests as photographic acceptance.
+## Native same-RAW results
+
+[Replay 39119748186](https://github.com/normiecore/dashcam-claude/actions/runs/39119748186)
+passed for both selected Round 3 RAWs. Original 0.1.1 and released 0.1.3 produce
+**identical preview pixels and identical full-resolution, pre-encoding sRGB
+rasters**, verified by matching SHA-256 values. Source guards require the current
+app to match accepted source `0d40559` and the restored kernel/resources to match
+the original baseline. The generated comparison snapshots preserve the original
+rendering operations and resource paths.
+
+Encoded files were then decoded at full resolution, converted to sRGB and
+resized with the same Lanczos implementation. Untagged JPEGs are interpreted as
+the sRGB authored by the known encoder; HEICs carry actual Display P3 ICC
+profiles. Mean absolute differences below are **8-bit channel code values**,
+not perceptual colour-accuracy scores:
+
+| Comparison | Foliage | Tree/deck |
+| --- | ---: | ---: |
+| Original JPEG versus current JPEG | 0.038 | 0.013 |
+| Original JPEG versus current HEIC | 0.786 | 0.654 |
+| Actual Round 3 HEIC versus replayed current HEIC | 0.871 | 0.659 |
+
+For both JPEG/HEIC scene comparisons, 95% of channel differences are at most two
+code values. Low-frequency differences are smaller still. A larger error from
+an initial ImageIO-thumbnail comparison was a codec-specific resizing artifact;
+it does not establish a colour change. Full-source decoding and identical
+resampling remove that confounder. The private comparison board shows original
+JPEG, current HEIC and actual Round 3 HEIC side by side without added grading.
+
+The hosted replay uses Xcode 26.6 and the deterministically selected iPhone 17
+Pro simulator on iOS 26.5. A separate
+[runtime probe](https://github.com/normiecore/dashcam-claude/actions/runs/39120043014)
+confirmed the same runner image and selection. The supplied phone files report
+iOS 27.0.1. Old/current identity is therefore a same-runtime app comparison;
+the close actual/replayed HEIC results support these two samples across that
+runtime gap, not universal device equivalence or Phocus calibration.
+
+**Conclusion:** the earlier replacement and first rollback had real input/render
+regressions, but the confirmed .629 build restores the original renderer for
+these RAWs. The remaining visible high-contrast shadow problem is present in
+the original rendering too. Its likely contributors are scene exposure and
+the original combination of disabled local tone mapping with a fixed film
+response. The relative contribution of each needs controlled testing. Neither a
+remaining colour-operator difference nor a substantial HEIC colour-conversion
+error explains the two replayed Round 3 examples.
+
+Preserve the recovered colour stages while investigating exposure, shadow and
+highlight handling. Do not fit a new look to unrelated scenes or treat numerical
+parity as photographic acceptance or calibrated Phocus equivalence.
 
 ## Export diagnostics and contract verification
 

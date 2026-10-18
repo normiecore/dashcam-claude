@@ -3,6 +3,8 @@
 The owner confirms Round 3 used **0.1.3 (20261018.629)**. Work is isolated on
 `codex/round3-color-audit-20261018`, based on the existing photo-app branch;
 the assessment is `NaturalColor/verification/release/round-3-reassessment.md`.
+[Draft PR #12](https://github.com/normiecore/dashcam-claude/pull/12) targets the
+photo-app branch, not main.
 Reviewed all 87 distinct finished files across the three rounds with colour
 management. Main visible concern is dark foregrounds in bright/backlit scenes,
 also present among original Round 1 direct captures. Many Round 3 foliage scenes
@@ -28,9 +30,20 @@ and restored-resource checksum audit. This is simulator/archive evidence,
 not physical photographic acceptance. The audit has no signing/upload job.
 
 Private sources and images stay under `/workspace/photo-audit`, outside Git.
-A separate encrypted private native replay compares two matched Round 3 RAWs
-through original/current engines; its final results will be recorded in the
-assessment. No new TestFlight upload or main/photo-branch merge is performed.
+[Native replay 39119748186](https://github.com/normiecore/dashcam-claude/actions/runs/39119748186)
+passed on two matched Round 3 RAWs: original/current previews and full-resolution
+pre-encoding sRGB rasters have identical hashes. Full-file decode, ICC conversion
+and identical resampling give original JPEG versus current HEIC mean channel
+differences 0.786/0.654 out of 255; actual versus replayed HEIC differences are
+0.871/0.659. Initial large thumbnail errors were resizing artifacts, not evidence
+of a HEIC colour regression. The replay uses simulator iOS 26.5, while phone
+files report 27.0.1; runtime probe 39120043014 and the assessment record this limit.
+The original comparison helper first failed due a renamed resource literal;
+that harness error was corrected before the passing run. A parallel bounded
+replay was cancelled after success before consuming new private inputs.
+All returned encrypted artifacts and native output checksums were verified.
+The private same-input board is `native-replay/same-raw-comparison.jpg`.
+No new TestFlight upload or main/photo-branch merge is performed.
 Next colour work must address exposure/dynamic range and calibration against
 controlled targets while preserving the useful original rendering baseline.
 
