@@ -18,8 +18,12 @@ final class PhotoEngineTests: XCTestCase {
         XCTAssertGreaterThan(rendered.height, 1000)
         // Exercise the actual 48 MP graph and default HEIC writer, rather
         // than inferring full-resolution export from a small synthetic image.
-        let exported = try await engine.export(photo: photo, settings: .init(), output: .init())
+        let exported = try await engine.exportCapture(url: url, settings: .init(), output: .init())
         defer { try? FileManager.default.removeItem(at: exported) }
+        // A processed-only capture still develops the actual RAW, but only
+        // the finished image is selected for the Photos transaction.
+        XCTAssertEqual(PhotoSaveMode.processed.resources(original: url, processed: exported), [exported])
+        XCTAssertEqual(PhotoSaveMode.both.resources(original: url, processed: exported), [url, exported])
         let source = try XCTUnwrap(CGImageSourceCreateWithURL(exported as CFURL, nil))
         let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
         XCTAssertEqual((properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue, Int(photo.image.extent.width))

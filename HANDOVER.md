@@ -1,3 +1,11 @@
+## Consistent rendering with RAW saving off — 18 October 2026
+
+The owner reported harsher HEIC rendering with Save RAW original off and identified draft PR #11 / branch codex/natural-color-ios-20261015. Confirmed cause: CameraPreview passed save mode into CameraService.capture, switching between ProRAW and Apple-processed HEIC/JPEG. PhotoEngine disables RAW tone boosts/local tone mapping/gamut mapping before the recovered renderer, whereas processed inputs already contain Apple rendering.
+
+Candidate removes the RAW-request parameter: capture selects available Apple ProRAW independently of save mode, retaining the codec fallback for unsupported cameras. Existing per-shot save selection and cleanup keep only the finished Photos asset in processed-only mode and delete pending originals after success; failures retain recovery files. RAW capture/development costs and temporary review files remain. Renderer, assets, format/compression defaults, Dashcam app code and main are unchanged. The public 48 MP regression now exercises exportCapture and asserts processed-only versus paired Photos resource selection.
+
+Verification: local diff/structural review complete; hosted Xcode image/UI/archive verification pending. Physical iPhone RAW-toggle comparisons, single-asset versus pair, failed-save recovery, repeated captures and lens switches remain necessary. No new TestFlight upload or merge performed.
+
 ## Accepted rendering rollback — 17 October 2026
 
 **0.1.3 (20261017.1525) is uploaded, Apple VALID, existing internal group access True and IN_BETA_TESTING.** Release run https://github.com/normiecore/dashcam-claude/actions/runs/39044915216; release helper commit 6820f4d56f95de0cb109c7227bd07d7cdbe98d18. The upload guard proves app sources/project are identical to verified source 2e9bbe8d2a3c3223784b5216fe17aa18c086a791. Production archive and resource checksum audit passed again during signing. Do not duplicate this upload.

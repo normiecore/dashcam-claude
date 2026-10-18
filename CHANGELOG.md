@@ -1,3 +1,9 @@
+## 2026-10-18 — Consistent finished-photo rendering with RAW saving off
+
+- Use available ProRAW for finished-photo development independently of whether the original is saved, fixing the HEIC rendering change caused by the RAW-saving toggle. Unsupported cameras retain processed capture.
+- Preserve processed-only Photos saving and successful-save cleanup; pending originals remain recoverable on failure. RAW capture still requires processing and temporary storage.
+- Exercise the production RAW capture export path in the public 48 MP regression and verify finished-only versus paired resource selection. Hosted Xcode verification pending.
+
 ## 2026-10-17 — Restore preferred photographic rendering (0.1.3 candidate)
 
 - Restore the 0.1.1 RAW development settings and colour/tone renderer at the user's request, retaining newer storage defaults and capture/UI fixes.

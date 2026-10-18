@@ -221,10 +221,9 @@ final class CameraService: NSObject, ObservableObject {
         }
     }
 
-    func capture(rawRequested: Bool = false, format: PhotoFileFormat = .heic, rotationAngle: CGFloat = 90) {
+    func capture(format: PhotoFileFormat = .heic, rotationAngle: CGFloat = 90) {
         guard canCapture else { return }
         capturing = true
-        let rawRequested = rawRequested && supportsRaw
         let delegate = PhotoCaptureDelegate { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -239,7 +238,10 @@ final class CameraService: NSObject, ObservableObject {
         captureDelegate = delegate
         queue.async { [output] in
             let settings: AVCapturePhotoSettings
-            if rawRequested, let format = output.availableRawPhotoPixelFormatTypes.first(where: { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }) {
+            // The finished photo must use the same RAW development regardless
+            // of whether its original is kept. Save mode is applied by EditorModel
+            // after rendering; unsupported cameras retain the processed fallback.
+            if let format = output.availableRawPhotoPixelFormatTypes.first(where: { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }) {
                 settings = AVCapturePhotoSettings(rawPixelFormatType: format)
             } else {
                 let codec: AVVideoCodecType = format == .heic && output.availablePhotoCodecTypes.contains(.hevc) ? .hevc : .jpeg

@@ -283,7 +283,7 @@ struct CameraView: View {
                 shotRatio = ratio; shotSaveMode = camera.supportsRaw ? saveMode : .processed
                 shotOutput = .init(format: fileFormat, quality: fileQuality)
                 captureAngle = CaptureOrientation.angle(for: UIDevice.current.orientation, previous: captureAngle)
-                camera.capture(rawRequested: saveMode != .processed, format: fileFormat, rotationAngle: captureAngle)
+                camera.capture(format: fileFormat, rotationAngle: captureAngle)
             } label: {
                 ZStack {
                     Circle().stroke(.white.opacity(camera.canCapture ? 1 : 0.3), lineWidth: 2).frame(width: 76, height: 76)
