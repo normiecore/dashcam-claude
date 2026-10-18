@@ -1,3 +1,9 @@
+## 2026-10-18 — Round 3 colour reassessment and export diagnostics
+
+- Review 87 distinct supplied photos, original HNCS research and renderer history; distinguish the earlier incomplete rollback from confirmed latest-build Round 3 results. High-contrast foreground darkness also occurs in the original captures; calibrated Phocus equivalence remains unproven.
+- Add encoded rendering provenance with actual build, RAW/processed input, decoder/edit settings and output profile/quality, excluding source EXIF/GPS. Unavailable diagnostic numbers cannot block saving.
+- Verify decoded JPEG/P3 HEIC appearance and profiles, metadata round trips and native RAW/renderer behavior: 15 image/unit tests plus production Release archive/resource audit pass in run 39119224772 at source 35d762f. This candidate is not uploaded to TestFlight.
+
 ## 2026-10-18 — RAW-saving rendering fix on TestFlight
 
 - Uploaded verified Natural 0.1.3 build 20261018.629: Apple VALID, existing internal group access True, IN_BETA_TESTING. Release run 39104201604; independent status run 39104490714.
