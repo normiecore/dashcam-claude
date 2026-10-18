@@ -164,7 +164,15 @@ actor PhotoEngine {
             ]
         ]
         if let rawDevelopment = photo.rawDevelopment { provenance["rawDevelopment"] = rawDevelopment }
-        let data = try JSONSerialization.data(withJSONObject: provenance, options: [.sortedKeys])
+        // An unavailable decoder readback must not prevent saving a valid photo.
+        // JSON has no NaN/infinity representation; preserve missing diagnostics
+        // as null without changing any value used by the rendering graph.
+        func jsonSafe(_ value: Any) -> Any {
+            if let dictionary = value as? [String: Any] { return dictionary.mapValues(jsonSafe) }
+            if let number = value as? NSNumber, !number.doubleValue.isFinite { return NSNull() }
+            return value
+        }
+        let data = try JSONSerialization.data(withJSONObject: jsonSafe(provenance), options: [.sortedKeys])
         guard let comment = String(data: data, encoding: .utf8) else { throw PhotoError.encoding }
         // Only these app diagnostics are authored here. Source EXIF, names,
         // locations and capture dates are not copied into the finished image.
@@ -189,11 +197,12 @@ actor PhotoEngine {
         for heic in tryHEIC ? [true, false] : [false] {
             let space = heic ? wideDisplay : display
             guard let raster = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: space) else { throw PhotoError.rendering }
+            // Record the actual encoder branch, including a JPEG fallback,
+            // before creating a destination that would need cleanup on failure.
+            let properties = try exportProperties(photo: photo, settings: settings, output: output, heic: heic)
             let url = directory.appendingPathComponent(name + (heic ? ".heic" : ".jpg"))
             let type = heic ? UTType.heic : .jpeg
             guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else { continue }
-            // Record the actual encoder branch, including a JPEG fallback.
-            let properties = try exportProperties(photo: photo, settings: settings, output: output, heic: heic)
             CGImageDestinationAddImage(destination, raster, properties as CFDictionary)
             if CGImageDestinationFinalize(destination) { return url }
             try? FileManager.default.removeItem(at: url)

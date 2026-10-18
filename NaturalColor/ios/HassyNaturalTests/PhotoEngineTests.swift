@@ -204,6 +204,27 @@ final class PhotoEngineTests: XCTestCase {
         }
     }
 
+    func testUnavailableDecoderDiagnosticsDoNotPreventSaving() async throws {
+        let engine = PhotoEngine()
+        let demo = await engine.demoPhoto()
+        let photo = LoadedPhoto(image: demo.image, name: "Unavailable diagnostic fixture", isRaw: true,
+                                rawDevelopment: ["baselineExposure": Float.nan, "shadowBias": Double.infinity])
+        for format in [PhotoFileFormat.jpeg, .heic] {
+            let url = try await engine.export(photo: photo, settings: .init(), output: .init(format: format))
+            defer { try? FileManager.default.removeItem(at: url) }
+            let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+            XCTAssertNotNil(CGImageSourceCreateImageAtIndex(source, 0, nil))
+            let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+            let exif = try XCTUnwrap(properties[kCGImagePropertyExifDictionary] as? [CFString: Any])
+            let comment = try XCTUnwrap(exif[kCGImagePropertyExifUserComment] as? String)
+            let data = try XCTUnwrap(comment.data(using: .utf8))
+            let provenance = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let raw = try XCTUnwrap(provenance["rawDevelopment"] as? [String: Any])
+            XCTAssertTrue(raw["baselineExposure"] is NSNull)
+            XCTAssertTrue(raw["shadowBias"] is NSNull)
+        }
+    }
+
     private let exportPatchWidth = 128
     private let exportPatchHeight = 128
     private let exportPatches: [[Float]] = [
