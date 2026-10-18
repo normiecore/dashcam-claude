@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   core-linux:
+    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') }}
     name: DashcamCore (Linux, swift test)
     runs-on: ubuntu-latest
     container: swift:6.4-noble
@@ -28,7 +29,7 @@ jobs:
     # Xcode 26.6 and the iOS 26.5 SDK. Pull requests use the Xcode 27 lane below;
     # run this additional lane manually for changes that may behave differently on the older SDK.
     name: App (iOS Simulator, xcodebuild test)
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') && (github.event_name == 'workflow_dispatch') }}
     runs-on: macos-26
     timeout-minutes: 25
     steps:
@@ -50,7 +51,7 @@ jobs:
     # Xcode 27 and the iOS 27 SDK, which is what the project is opened with. GitHub's xcode-27 label
     # is a public preview (macOS 27, Xcode 27.0 default, iOS 27.0 simulators).
     name: App (Xcode 27, iOS 27 Simulator)
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
     runs-on: xcode-27
     timeout-minutes: 45
     permissions:
@@ -169,7 +170,7 @@ jobs:
 
   app-layout-xcode27:
     name: Layout (${{ matrix.phone }}, portrait and landscape)
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: ${{ !startsWith(github.head_ref, 'codex/natural-color-ios-') && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
     runs-on: xcode-27
     timeout-minutes: 30
     permissions:

@@ -1,3 +1,76 @@
+## 2026-10-18 — RAW-saving rendering fix on TestFlight
+
+- Uploaded verified Natural 0.1.3 build 20261018.629: Apple VALID, existing internal group access True, IN_BETA_TESTING. Release run 39104201604; independent status run 39104490714.
+- Finished HEIC/JPEG uses ProRAW development with RAW saving on or off on supported cameras. Save RAW original controls retention.
+- External group assignment succeeded, but Beta App Review submission is pending because the previous 0.1.3 build is still in review (Apple ANOTHER_BUILD_IN_REVIEW). No duplicate upload or review cancellation.
+
+## 2026-10-18 — Consistent finished-photo rendering with RAW saving off
+
+- Use available ProRAW for finished-photo development independently of whether the original is saved, fixing the HEIC rendering change caused by the RAW-saving toggle. Unsupported cameras retain processed capture.
+- Preserve processed-only Photos saving and successful-save cleanup; pending originals remain recoverable on failure. RAW capture still requires processing and temporary storage.
+- Exercise the production RAW capture export path in the public 48 MP regression and verify finished-only versus paired resource selection. Hosted image/UI tests, production archive and resource audit passed: https://github.com/normiecore/dashcam-claude/actions/runs/39103434989. Physical phone acceptance remains pending; no TestFlight upload.
+
+## 2026-10-17 — Restore preferred photographic rendering (0.1.3 candidate)
+
+- Restore the 0.1.1 RAW development settings and colour/tone renderer at the user's request, retaining newer storage defaults and capture/UI fixes.
+- Restore numerical rendering regressions and hash-checked production resources. Independent luminance-only finish is excluded.
+- Hosted Xcode image/UI/archive verification and signed upload passed. Apple accepted 0.1.3 (20261017.1525), VALID and IN_BETA_TESTING with existing internal access. External Beta App Review submitted; public approval and physical phone acceptance remain pending.
+
+## Store imagery verification and naming brief — 2026-10-17
+
+- Rendered four private original RAWs through the verified native 0.1.2 pipeline; full native Medium HEIC outputs and decoded presentation previews validated by hashes and dimensions.
+- Replaced the private older-output imagery study with a shape-led selection: fronds, circular sculpture, pennants and framed tower.
+- Expanded name rationale and added a distinct ordinary-language direction around looking and recording. Final naming remains open.
+- Added an encrypted private rendering harness and provenance record; private photographs and authenticated URLs remain outside public source/artifacts. App production code and accepted beta version remain unchanged.
+
+## 0.1.2 (20261017.1315) — 2026-10-17
+
+- Available in the existing internal TestFlight group: Apple VALID / IN_BETA_TESTING.
+- Default HEIC Medium, RAW off on fresh install and upgrade. Optional JPEG, compression presets and RAW + processed.
+- Preserve supported native pixels; standard crops without upsampling. Device-aware capture orientation; durable failed-save recovery and successful-save cleanup.
+- Independent analytic finish and native Apple RAW development. Recovered research code/resources excluded from production and audited absent.
+- Independent consumer/beta/store copy, working name Natural; explicit setting labels and 44pt settings/grid/EV hit targets.
+- Passed 12 image/unit + five UI tests and production archive/bundle audit: https://github.com/normiecore/dashcam-claude/actions/runs/39035011122. Signed upload and processing/group confirmation: https://github.com/normiecore/dashcam-claude/actions/runs/39035815264.
+- Private 55-file photo assessment informed the changes. Store copy, privacy/support drafts, screenshot direction and screened names are prepared; final naming, contact/URL fields, phone acceptance and publication assets remain.
+
+## 0.1.2 candidate — 2026-10-17
+
+- Default processed-only HEIC Medium; optional RAW and JPEG/quality controls.
+- Preserve source dimensions; clean successful capture intermediates and retain recovery files on failure.
+- Independent analytic finish and native Apple RAW development; exclude recovered tables/code from production.
+- Device-aware capture orientation and independent product copy, working name Natural.
+- Verification pending: hosted image/UI tests and Release bundle audit.
+
+# Hassy Natural Simple camera — 0.1.1 — 2026-10-17
+
+- Default to Simple mode, with opt-in Advanced controls and remembered preferences. Save original + processed automatically to Photos; offer either copy alone and retain files if saving fails.
+- Preserve native maximum capture dimensions by default. Offer source-pixel 4:3, 3:2, 16:9 and square crops on the processed copy only.
+- Open directly to capture with a Hasselblad/Phocus-influenced black instrument panel, amber controls, large viewfinder and live ISO/shutter/aperture readings.
+- Add tap-to-focus, real exposure compensation, composition grid and accessible RAW/JPEG/physical-lens controls. Keep shooting after a capture; open review from the thumbnail and return directly to the camera.
+- Stop camera sessions during review/import/about and app backgrounding; retain imports when camera access is denied or no camera exists.
+- Keep the recovered colour operator and full-resolution export intact. Expand hosted UI coverage for capture entry, controls, denied access and the review round trip. Hosted run 38983140789 passes all nine image/unit tests, five UI journeys, and Release archive/bundle checks. Image numerical assertions remain unchanged; UI-only time allowances accommodate observed simulator latency. Apple accepted 0.1.1 build `20261016.2356` in release run 38983940384; processing is VALID and internal state IN_BETA_TESTING. The external group has the eligible build, with public review still pending actual review-contact/feedback metadata.
+
+# Hassy Natural review-contact entry — 2026-10-15
+
+- Rechecked the existing public build; Apple still rejects submission for missing data, with review contact and feedback fields blank. Requested the real contact values rather than fabricating them.
+- Prepared encrypted metadata entry so the owner can provide details here without publishing them in GitHub source/logs. Validated encryption and payload mapping with a throwaway key and dummy data; no live contact metadata was changed.
+
+# Hassy Natural external beta — 2026-10-15
+
+- Enabled the owner's BetaX public link: https://testflight.apple.com/join/Ws45PaMV.
+- Uploaded and processed external-eligible 0.1.0 build `20261015.1353`, using the unchanged, previously verified application. Assigned it to BetaX and enabled automatic tester notification.
+- Apple beta-review submission returned HTTP 422 `ENTITY_UNPROCESSABLE.MISSING_REQUIRED_DATA`; review contact and feedback email are blank. Public installation remains unavailable pending completion and submission. The link exists and is shareable; do not describe it as accepting testers yet.
+- Added a dedicated external upload/distribution workflow with explicit upload triggers so metadata retries cannot upload duplicate builds. Internal-only export remains the default for the existing internal workflow.
+
+# Hassy Natural addition — 2026-10-15
+
+- Added a separate native iPhone app under `NaturalColor/`, with camera/ProRAW, original-file import, compare, exposure/strength, Photos saving and full-resolution sharing. Camera originals persist in Files.
+- Integrated recovered chroma/Standard stages through a direct Metal kernel and documented phone bridge; profile/resource provenance and public comparisons are included. Full HNCS equivalence remains unproven.
+- Added dedicated hosted Xcode and TestFlight workflows, separate app identity/record and requested internal tester enrollment. Hosted run 38703565784 passed all seven unit/image tests (including direct GPU/portable parity and real ProRAW rendering), both UI journeys, and the production Release archive/bundle check. Signing and upload subsequently passed (see release details below).
+- Fixed the concrete JPEG rendering path, explicit float fixtures, lookup-texture row ordering and cream-button text contrast. Dashcam application behavior and release history remain unchanged.
+- Apple accepted 0.1.0 build `20261015.842` in [upload run 38705206450](https://github.com/normiecore/dashcam-claude/actions/runs/38705206450), from application source `a29eab0c81a3649fd79c114ee3841e953719b241`. [Status run 38705678511](https://github.com/normiecore/dashcam-claude/actions/runs/38705678511) confirms processing VALID, internal-group access and IN_BETA_TESTING. The requested tester is enrolled. The owner received and accepted the TestFlight invitation. Physical camera acceptance remains unconfirmed; do not duplicate the upload.
+- [Verification run 38708246055](https://github.com/normiecore/dashcam-claude/actions/runs/38708246055) additionally passes actual 48 MP ProRAW full-resolution JPEG export/decoding, all seven unit/image tests, both UI journeys and the production archive, using unchanged application code.
+
 # Changelog
 
 ## Drive history and recording status - 0.1.1 - 2026-10-12
@@ -335,3 +408,5 @@ physical-device validation pass is complete.
   undocumented; Apple's AVCam treats it as a whole-session interruption. The code handles both:
   frames flowing means a video-only run, frames stopped means a pause that resumes after the call.
   Confirm on a device (checklist step 5).
+
+
