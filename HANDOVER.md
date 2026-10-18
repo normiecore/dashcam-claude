@@ -1,3 +1,5 @@
+Private replay first run 39119028370 compiled successfully but failed after 5.686 seconds: audit-only source prefixing changed the ReferenceProfile resource string. Fixed transformation preserves exact asset literals; application code remains unchanged. Retry pending.
+
 ## Round3 private native replay audit — 18 October 2026
 
 Isolated branch `codex/round3-native-replay-20261018` prepares a hosted native iOS simulator replay of two private Round3 RAW + actual HEIC pairs. It pins the accepted 0.1.3 app tree to 0d405590 and the restored kernel/assets to original 0.1.1 source 5365cfa. Original/current engine source snapshots are generated into tests only; app code is unchanged. Warm runner awaits encrypted short-lived input references. All photographs, source mapping and return private key stay outside Git; CI outputs are encrypted. No TestFlight upload, merge or phone acceptance. Native test results pending.

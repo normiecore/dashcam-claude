@@ -49,8 +49,8 @@ jobs:
             -only-testing:HassyNaturalTests/PrivateNativeReplayTests -parallel-testing-enabled NO \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 900 \
             CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/replay-native.log" 2>&1 || \
-            { grep -m 20 -E 'error:|failed|TEST FAILED' "$RUNNER_TEMP/replay-native.log"; exit 1; }
-          grep -E 'Test Case.*passed|TEST SUCCEEDED' "$RUNNER_TEMP/replay-native.log"
+            { grep -m 40 -E 'error:|failed|TEST FAILED|NATIVE_REPLAY_STAGE' "$RUNNER_TEMP/replay-native.log"; exit 1; }
+          grep -E 'Test Case.*passed|TEST SUCCEEDED|NATIVE_REPLAY_STAGE' "$RUNNER_TEMP/replay-native.log"
       - name: Encrypt private native evidence
         run: '"$RUNNER_TEMP/replay-python/bin/python" .github/scripts/natural_replay.py seal'
       - uses: actions/upload-artifact@v4
@@ -76,6 +76,30 @@ jobs:
         with:
           name: encrypted-native-replay-03
           path: ${{ runner.temp }}/natural-replay/output-03.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-04
+          path: ${{ runner.temp }}/natural-replay/output-04.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-05
+          path: ${{ runner.temp }}/natural-replay/output-05.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-06
+          path: ${{ runner.temp }}/natural-replay/output-06.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-replay-07
+          path: ${{ runner.temp }}/natural-replay/output-07.enc
           if-no-files-found: ignore
           retention-days: 1
       - name: Remove private working files

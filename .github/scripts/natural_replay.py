@@ -26,6 +26,10 @@ def source_snapshot(commit,prefix):
     source=source.replace('\n}\n\nprivate struct ReferenceProfile:',helper+'\n}\n\nprivate struct ReferenceProfile:')
     for name in ['PhotoEngine','EditSettings','PhotoError','LoadedPhoto','ReferenceProfile','ReferenceAssets']:
         source=re.sub(r'\b'+name+r'\b',prefix+name,source)
+    # Prefix Swift identifiers, preserving the on-disk resource name literal.
+    source=source.replace(chr(34)+prefix+'ReferenceProfile'+chr(34),chr(34)+'ReferenceProfile'+chr(34))
+    assert 'data("ReferenceProfile", "json")' in source
+    assert chr(34)+prefix+'ReferenceProfile'+chr(34) not in source
     return '@testable import HassyNatural\n'+source
 
 def prepare():
@@ -74,9 +78,13 @@ def seal():
     secret=key(ephemeral.exchange(ec.ECDH(),recipient),salt,OUTPUT)
     ciphertext=AESGCM(secret).encrypt(nonce,archive.read_bytes(),OUTPUT)
     envelope={k:base64.b64encode(v).decode() for k,v in {'ephemeral_public_key':ephemeral.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo),'salt':salt,'nonce':nonce}.items()}
-    (ROOT/'output-envelope.json').write_text(json.dumps(envelope))
     chunk=20*1024*1024
+    envelope['ciphertext_bytes']=len(ciphertext)
+    envelope['parts']=(len(ciphertext)+chunk-1)//chunk
+    if envelope['parts']>8:raise ValueError('output exceeds upload capacity')
+    (ROOT/'output-envelope.json').write_text(json.dumps(envelope))
     for i,start in enumerate(range(0,len(ciphertext),chunk)):(ROOT/f'output-{i:02d}.enc').write_bytes(ciphertext[start:start+chunk])
+    print('Encrypted evidence parts='+str(envelope['parts'])+' bytes='+str(len(ciphertext)))
     archive.unlink();shutil.rmtree(directory)
     print('Native replays and canonical comparison derivatives sealed; only ciphertext uploaded.')
 SWIFT=r'''import XCTest
@@ -137,6 +145,7 @@ final class PrivateNativeReplayTests: XCTestCase {
         for item in inputs {
             let id=try XCTUnwrap(item["id"]),raw=fixture.appendingPathComponent(id+".dng"),actual=fixture.appendingPathComponent(id+".heic")
             let oldPhoto=try await legacy.load(url:raw),newPhoto=try await current.load(url:raw),auditPhoto=try await audited.load(url:raw)
+            print("NATIVE_REPLAY_STAGE="+id+"-loaded")
             let oldPreview=try await legacy.preview(photo:oldPhoto,settings:.init()),newPreview=try await current.preview(photo:newPhoto,settings:.init())
             let oldPreviewHash=try hash(oldPreview),newPreviewHash=try hash(newPreview)
             XCTAssertEqual(oldPreviewHash,newPreviewHash,"Restored current preview must match original on same RAW")
@@ -144,20 +153,25 @@ final class PrivateNativeReplayTests: XCTestCase {
             XCTAssertEqual(try hash(oldOriginal),try hash(newOriginal))
             let auditedPreview=try await audited.preview(photo:auditPhoto,settings:.init())
             XCTAssertEqual(try hash(auditedPreview),newPreviewHash,"Instrumented source snapshot must match live app")
+            print("NATIVE_REPLAY_STAGE="+id+"-preview-parity")
             let oldRasterHash=try await hash(legacy.auditFullRaster(photo:oldPhoto,settings:.init()))
             let currentRasterHash=try await hash(audited.auditFullRaster(photo:auditPhoto,settings:.init()))
             XCTAssertEqual(oldRasterHash,currentRasterHash,"Full-resolution pre-encoding sRGB raster must match original")
+            print("NATIVE_REPLAY_STAGE="+id+"-full-raster-parity")
             try save(oldPreview,directory.appendingPathComponent(id+"-legacy-preview.jpg"))
             try save(newPreview,directory.appendingPathComponent(id+"-current-preview.jpg"))
             try save(newOriginal,directory.appendingPathComponent(id+"-decoder-zero-strength.jpg"))
             let old=try await legacy.export(photo:oldPhoto,settings:.init())
             let jpeg=try await current.export(photo:newPhoto,settings:.init(),output:.init(format:.jpeg,quality:.high))
             let heic=try await current.export(photo:newPhoto,settings:.init(),output:.init())
+            XCTAssertEqual(heic.pathExtension,"heic","Native HEIC encoding is required")
+            print("NATIVE_REPLAY_STAGE="+id+"-native-exports")
             let files=[("legacy-native.jpg",old),("current-native.jpg",jpeg),("current-native.heic",heic)]
             for (suffix,url) in files {try FileManager.default.copyItem(at:url,to:directory.appendingPathComponent(id+"-"+suffix))}
             let oldDecoded=try canonical(old),jpegDecoded=try canonical(jpeg),heicDecoded=try canonical(heic),actualDecoded=try canonical(actual)
             for (suffix,image) in [("legacy-decoded.jpg",oldDecoded),("current-jpeg-decoded.jpg",jpegDecoded),("current-heic-decoded.jpg",heicDecoded),("actual-r3-decoded.jpg",actualDecoded)] {try save(image,directory.appendingPathComponent(id+"-"+suffix))}
             manifest.append(["id":id,"dng_sha256":item["dng_sha256"]!,"actual_heic_sha256":item["actual_heic_sha256"]!,"legacy_preview_sha256":oldPreviewHash,"current_preview_sha256":newPreviewHash,"legacy_full_srgb_raster_sha256":oldRasterHash,"current_full_srgb_raster_sha256":currentRasterHash,"legacy_vs_current_jpeg":try stats(oldDecoded,jpegDecoded),"legacy_vs_current_heic":try stats(oldDecoded,heicDecoded),"actual_r3_vs_replayed_heic":try stats(actualDecoded,heicDecoded),"legacy_properties":try properties(old),"current_jpeg_properties":try properties(jpeg),"current_heic_properties":try properties(heic),"actual_properties":try properties(actual)])
+            print("NATIVE_REPLAY_STAGE="+id+"-metrics-complete")
             for (_,url) in files {try? FileManager.default.removeItem(at:url)}
         }
         try JSONSerialization.data(withJSONObject:manifest,options:.sortedKeys).write(to:directory.appendingPathComponent("render-manifest.json"))
