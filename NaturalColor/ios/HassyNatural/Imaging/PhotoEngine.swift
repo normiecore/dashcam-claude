@@ -28,6 +28,11 @@ struct LoadedPhoto: @unchecked Sendable {
     let image: CIImage
     let name: String
     let isRaw: Bool
+    let rawDevelopment: [String: Any]?
+    init(image: CIImage, name: String, isRaw: Bool, rawDevelopment: [String: Any]? = nil) {
+        self.image = image; self.name = name; self.isRaw = isRaw
+        self.rawDevelopment = rawDevelopment
+    }
     var dimensions: String { "\(Int(image.extent.width)) × \(Int(image.extent.height))" }
 }
 
@@ -56,6 +61,7 @@ actor PhotoEngine {
         let ext = url.pathExtension.lowercased()
         let raw = ["dng","3fr","fff","arw","cr2","cr3","nef","raf","rw2","orf"].contains(ext)
         let image: CIImage?
+        var rawDevelopment: [String: Any]?
         if raw {
             // A RAW must decode actual sensor data. Never silently substitute its preview.
             if let decoder = CIRAWFilter(imageURL: url) {
@@ -66,6 +72,21 @@ actor PhotoEngine {
                 if decoder.isLocalToneMapSupported { decoder.localToneMapAmount = 0 }
                 decoder.isGamutMappingEnabled = false
                 decoder.exposure = 0
+                // Record the decoder's effective defaults/settings without
+                // altering exposure normalization or scene white balance.
+                rawDevelopment = [
+                    "decoderVersion": String(describing: decoder.decoderVersion),
+                    "baselineExposure": decoder.baselineExposure,
+                    "shadowBias": decoder.shadowBias,
+                    "neutralTemperature": decoder.neutralTemperature,
+                    "neutralTint": decoder.neutralTint,
+                    "exposure": decoder.exposure,
+                    "boostAmount": decoder.boostAmount,
+                    "boostShadowAmount": decoder.boostShadowAmount,
+                    "localToneMapSupported": decoder.isLocalToneMapSupported,
+                    "gamutMappingEnabled": decoder.isGamutMappingEnabled
+                ]
+                if decoder.isLocalToneMapSupported { rawDevelopment?["localToneMapAmount"] = decoder.localToneMapAmount }
                 image = decoder.outputImage
             } else { image = nil }
         } else {
@@ -77,7 +98,8 @@ actor PhotoEngine {
               extent.width > 0, extent.height > 0,
               extent.width * extent.height <= 110_000_000 else { throw PhotoError.invalidImage }
         let origin = CGAffineTransform(translationX: -extent.minX, y: -extent.minY)
-        return LoadedPhoto(image: image.transformed(by: origin), name: url.deletingPathExtension().lastPathComponent, isRaw: raw)
+        return LoadedPhoto(image: image.transformed(by: origin), name: url.deletingPathExtension().lastPathComponent,
+                           isRaw: raw, rawDevelopment: rawDevelopment)
     }
 
     private func filtered(_ image: CIImage, settings: EditSettings) throws -> CIImage {
@@ -119,6 +141,41 @@ actor PhotoEngine {
         try export(photo: load(url: url), settings: settings, output: output)
     }
 
+    private func exportProperties(photo: LoadedPhoto, settings: EditSettings,
+                                  output: PhotoOutputOptions, heic: Bool) throws -> [CFString: Any] {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        // Version this identifier when the RAW development or recovered operator
+        // changes. A marketing version alone cannot distinguish rendering builds.
+        var provenance: [String: Any] = [
+            "schema": "natural-render-v1",
+            "renderer": "recovered-standard-sdr-v1",
+            "input": photo.isRaw ? "raw" : "processed",
+            "strength": settings.strength,
+            "exposureEV": settings.exposure,
+            "aspectRatio": settings.aspectRatio.rawValue,
+            "appVersion": version,
+            "appBuild": build,
+            "output": [
+                "format": heic ? "heic" : "jpeg",
+                "colorSpace": heic ? "Display P3" : "sRGB",
+                "quality": output.quality.rawValue,
+                "compression": output.quality.compression
+            ]
+        ]
+        if let rawDevelopment = photo.rawDevelopment { provenance["rawDevelopment"] = rawDevelopment }
+        let data = try JSONSerialization.data(withJSONObject: provenance, options: [.sortedKeys])
+        guard let comment = String(data: data, encoding: .utf8) else { throw PhotoError.encoding }
+        // Only these app diagnostics are authored here. Source EXIF, names,
+        // locations and capture dates are not copied into the finished image.
+        return [
+            kCGImageDestinationLossyCompressionQuality: output.quality.compression,
+            kCGImagePropertyOrientation: 1,
+            kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFSoftware: "Natural \(version) (\(build))"],
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifUserComment: comment]
+        ]
+    }
+
     func export(photo: LoadedPhoto, settings: EditSettings,
                 output: PhotoOutputOptions = .init(format: .jpeg, quality: .high)) throws -> URL {
         let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings)
@@ -135,10 +192,9 @@ actor PhotoEngine {
             let url = directory.appendingPathComponent(name + (heic ? ".heic" : ".jpg"))
             let type = heic ? UTType.heic : .jpeg
             guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else { continue }
-            CGImageDestinationAddImage(destination, raster, [
-                kCGImageDestinationLossyCompressionQuality: output.quality.compression,
-                kCGImagePropertyOrientation: 1
-            ] as CFDictionary)
+            // Record the actual encoder branch, including a JPEG fallback.
+            let properties = try exportProperties(photo: photo, settings: settings, output: output, heic: heic)
+            CGImageDestinationAddImage(destination, raster, properties as CFDictionary)
             if CGImageDestinationFinalize(destination) { return url }
             try? FileManager.default.removeItem(at: url)
         }
