@@ -1,0 +1,100 @@
+name: Private native pre-film float capture
+on:
+  push:
+    branches: ['codex/round3-native-replay-20261018']
+    paths: ['.github/scripts/natural_prefilm.py', '.github/workflows/natural-prefilm.yml']
+permissions:
+  contents: read
+jobs:
+  floats:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require unchanged released 0.1.3 app
+        run: git diff --exit-code 0d405590144995297c5d4ab1faa9bb2beebccc66 HEAD -- NaturalColor/ios/HassyNatural NaturalColor/ios/project.yml
+      - name: Prepare build and encryption dependencies
+        run: |
+          brew install xcodegen
+          python3 -m venv "$RUNNER_TEMP/prefilm-python"
+          "$RUNNER_TEMP/prefilm-python/bin/pip" install --quiet cryptography
+      - name: Probe exact-model public reference RAW with ordinary browser headers
+        run: '"$RUNNER_TEMP/prefilm-python/bin/python" .github/scripts/natural_prefilm.py probe'
+      - name: Await encrypted private input envelope
+        run: |
+          for attempt in {1..60}; do
+            git fetch --quiet origin codex/round3-native-replay-20261018
+            if git show FETCH_HEAD:.github/prefilm-input.enc.json > "$RUNNER_TEMP/prefilm-envelope" 2>/dev/null; then
+              cp "$RUNNER_TEMP/prefilm-envelope" .github/prefilm-input.enc.json
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+      - name: Download and verify private originals
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: '"$RUNNER_TEMP/prefilm-python/bin/python" .github/scripts/natural_prefilm.py prepare'
+      - name: Generate native float test and select available iPhone runtime
+        working-directory: NaturalColor/ios
+        run: |
+          xcodegen generate
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Render extended float data before the film operator
+        working-directory: NaturalColor/ios
+        run: |
+          "$RUNNER_TEMP/prefilm-python/bin/python" -u ../../.github/scripts/natural_prefilm.py watch &
+          prefilm_watch_pid=$!
+          trap 'kill "$prefilm_watch_pid" 2>/dev/null || true' EXIT
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -destination "id=$SIM_UDID" \
+            -only-testing:HassyNaturalTests/PrivatePrefilmFloatTests -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 600 \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/prefilm-native.log" 2>&1 || \
+            { grep -m 30 -E 'error:|failed|TEST FAILED|PREFILM_STAGE' "$RUNNER_TEMP/prefilm-native.log"; exit 1; }
+          grep -E 'Test Case.*passed|TEST SUCCEEDED' "$RUNNER_TEMP/prefilm-native.log"
+      - name: Authenticate and encrypt float data and decoder metadata
+        run: '"$RUNNER_TEMP/prefilm-python/bin/python" .github/scripts/natural_prefilm.py seal'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-prefilm-00
+          path: |
+            ${{ runner.temp }}/natural-prefilm/output-00.enc
+            ${{ runner.temp }}/natural-prefilm/output-envelope.json
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-prefilm-01
+          path: ${{ runner.temp }}/natural-prefilm/output-01.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-prefilm-02
+          path: ${{ runner.temp }}/natural-prefilm/output-02.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-prefilm-03
+          path: ${{ runner.temp }}/natural-prefilm/output-03.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-prefilm-04
+          path: ${{ runner.temp }}/natural-prefilm/output-04.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-native-prefilm-05
+          path: ${{ runner.temp }}/natural-prefilm/output-05.enc
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Remove private working files
+        if: always()
+        run: |
+          rm -rf NaturalColor/ios/HassyNaturalTests/Fixtures
+          rm -rf "$RUNNER_TEMP/natural-prefilm"

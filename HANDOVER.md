@@ -1,3 +1,7 @@
+## Native pre-film float preparation — 18 October 2026
+
+Prepare two private R3 originals through the unmodified released0.1.3 PhotoEngine.load at0d405590, then render1536px-long-edge RGBAFloat32 in extendedLinearSRGB before exposure/recoveredfilm/integeroutput. Synthetic controls verify negative and above-one retention and rowgeometry; actual decoder defaults/effective settings plus same-job OS/runtime will accompany encrypted floats. No candidate calibration, app edits or full-resolution encoded outputs are authored in this phase. ExactX2DII public RAW range download locally succeeds with ordinaryMozilla/5.0 plus productReferer; hosted range probe pending. Nativeexecution pending.
+
 ## Round3 native replay complete — 18 October 2026
 
 Native run https://github.com/normiecore/dashcam-claude/actions/runs/39119748186 passed the two-pair same-RAW original/current comparison (348.593-second XCTest). Both strength-1 and zero-strength previews match exactly; full-resolution sRGB RGBA8 raster hashes match exactly. Full-file ICC-managed common-resize comparisons show original JPEG versus current HEIC mean absolute differences 0.7863 / 0.6541 8-bit RGB codes, and actual Round3 versus replayed HEIC 0.8711 / 0.6586, p95 2 for both. Initial larger codec-specific ImageIO thumbnail pixel differences were a resampling confound, not evidence of a color failure.

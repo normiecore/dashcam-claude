@@ -1,3 +1,7 @@
+## 2026-10-18 — Native linear float investigation
+
+- Prepare bounded private1536px extended-linear float capture from released app RAW development, with unclipped-range controls and decoder/runtime metadata; no learned calibration or app rendering change.
+
 ## 2026-10-18 — Verified Round3 same-input rendering
 
 - Native original0.1.1/current0.1.3 replay passes two private RAW pairs: exact previews/full sRGB rasters; actual HEICs closely match fresh exports.
