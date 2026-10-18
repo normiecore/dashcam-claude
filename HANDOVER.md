@@ -4,7 +4,7 @@ The owner reported harsher HEIC rendering with Save RAW original off and identif
 
 Candidate removes the RAW-request parameter: capture selects available Apple ProRAW independently of save mode, retaining the codec fallback for unsupported cameras. Existing per-shot save selection and cleanup keep only the finished Photos asset in processed-only mode and delete pending originals after success; failures retain recovery files. RAW capture/development costs and temporary review files remain. Renderer, assets, format/compression defaults, Dashcam app code and main are unchanged. The public 48 MP regression now exercises exportCapture and asserts processed-only versus paired Photos resource selection.
 
-Verification: local diff/structural review complete; hosted Xcode image/UI/archive verification pending. Physical iPhone RAW-toggle comparisons, single-asset versus pair, failed-save recovery, repeated captures and lens switches remain necessary. No new TestFlight upload or merge performed.
+Verification: local diff checks passed. Hosted Xcode image/unit and UI tests, production iPhone Release archive and restored-resource checksum audit passed in https://github.com/normiecore/dashcam-claude/actions/runs/39103434989, testing source 0d405590144995297c5d4ab1faa9bb2beebccc66. Simulator verification is not device acceptance. Physical iPhone RAW-toggle comparisons, single-asset versus pair, failed-save recovery, repeated captures and lens switches remain necessary. No new TestFlight upload or merge performed.
 
 ## Accepted rendering rollback — 17 October 2026
 
