@@ -1,0 +1,31 @@
+name: Native replay runtime probe
+on:
+  push:
+    branches: ['codex/round3-native-replay-20261018']
+    paths: ['.github/workflows/natural-runtime-probe.yml']
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: macos-26
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report public host and Xcode versions
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcode-select -p
+      - name: Report available and deterministically selected iOS runtime
+        run: |
+          python3 - <<'PY'
+          import json,subprocess
+          runtimes=json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','-j']))['runtimes']
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','-j']))['devices']
+          candidates=[(runtime,d) for runtime,items in devices.items() if '.iOS-' in runtime for d in items if d['name'].startswith('iPhone')]
+          runtime,device=max(candidates,key=lambda pair:('iPhone 17 Pro'==pair[1]['name'],pair[0],pair[1]['name']))
+          metadata={x['identifier']:x for x in runtimes}
+          safe=[{k:x.get(k) for k in ['name','version','buildversion','identifier','isAvailable']} for x in runtimes if '.iOS-' in x['identifier']]
+          print('AVAILABLE_IOS_RUNTIMES='+json.dumps(safe,sort_keys=True))
+          print('SELECTED_IOS_RUNTIME='+json.dumps({'device':device['name'],'runtime':runtime,'version':metadata[runtime]['version'],'buildversion':metadata[runtime]['buildversion']},sort_keys=True))
+          PY

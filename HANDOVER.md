@@ -1,3 +1,5 @@
+Public runtime probe prepared in parallel on the same macos-26 runner image. Replay runtime was not logged in the replay job itself; the probe records actual available runtimes and the identical deterministic selection for environmental comparison only. Native replay remains simulator evidence, not phone acceptance.
+
 Private replay first run 39119028370 compiled successfully but failed after 5.686 seconds: audit-only source prefixing changed the ReferenceProfile resource string. Fixed transformation preserves exact asset literals; application code remains unchanged. Retry pending.
 
 ## Round3 private native replay audit — 18 October 2026
