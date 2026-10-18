@@ -1,3 +1,59 @@
+## Round 3 colour reassessment and diagnostic candidate — 18 October 2026
+
+The owner confirms Round 3 used **0.1.3 (20261018.629)**. Work is isolated on
+`codex/round3-color-audit-20261018`, based on the existing photo-app branch;
+the assessment is `NaturalColor/verification/release/round-3-reassessment.md`.
+[Draft PR #12](https://github.com/normiecore/dashcam-claude/pull/12) targets the
+photo-app branch, not main.
+Follow-up sample delivery: latest released photo-app source was rechecked at
+`f2481b1` and remains app-tree identical to `0d40559` / build 20261018.629.
+The two verified native RAW exports are packaged privately at
+`/workspace/photo-audit/latest-build-samples.zip` (10.7 MB), with original
+6048×8064 P3 HEICs, decoded sRGB JPEG previews, settings/proof and checksums.
+These reuse the completed native replay from that exact unchanged renderer;
+no duplicate rendering job, app change, photo publication or upload was needed.
+Reviewed all 87 distinct finished files across the three rounds with colour
+management. Main visible concern is dark foregrounds in bright/backlit scenes,
+also present among original Round 1 direct captures. Many Round 3 foliage scenes
+retain useful colour/detail; no universal cast was established. Round 1 mixes
+app exports and separate Apple-camera images, so it is not a controlled baseline.
+
+History confirms the independent 0.1.2 replaced the recovered chroma/Standard
+stages and changed RAW development/capture. The first 0.1.3 rollback restored
+the stages but still coupled RAW capture to saving; the already-installed .629
+repair fixes that coupling. The current kernel/assets and RAW/filter/preview
+match the original baseline. Original research proves selected reconstructed
+mathematics, not full calibrated iPhone HNCS/Phocus equivalence; the fixed 2007
+fallback profile and early sRGB clipping remain original limitations.
+
+Candidate application source **35d762f** adds safe EXIF rendering provenance:
+app version/build, input type, decoder settings, edit settings and actual encoder
+format/profile/quality. No colour mathematics or decoder values change. Tests
+cover encoded provenance, exclusion of source EXIF/GPS, nonfinite diagnostic
+readbacks, and actual decoded JPEG/P3 HEIC colours/profiles against the preview.
+[Audit 39119224772](https://github.com/normiecore/dashcam-claude/actions/runs/39119224772)
+passes **15 native image/unit tests**, the unsigned production Release archive
+and restored-resource checksum audit. This is simulator/archive evidence,
+not physical photographic acceptance. The audit has no signing/upload job.
+
+Private sources and images stay under `/workspace/photo-audit`, outside Git.
+[Native replay 39119748186](https://github.com/normiecore/dashcam-claude/actions/runs/39119748186)
+passed on two matched Round 3 RAWs: original/current previews and full-resolution
+pre-encoding sRGB rasters have identical hashes. Full-file decode, ICC conversion
+and identical resampling give original JPEG versus current HEIC mean channel
+differences 0.786/0.654 out of 255; actual versus replayed HEIC differences are
+0.871/0.659. Initial large thumbnail errors were resizing artifacts, not evidence
+of a HEIC colour regression. The replay uses simulator iOS 26.5, while phone
+files report 27.0.1; runtime probe 39120043014 and the assessment record this limit.
+The original comparison helper first failed due a renamed resource literal;
+that harness error was corrected before the passing run. A parallel bounded
+replay was cancelled after success before consuming new private inputs.
+All returned encrypted artifacts and native output checksums were verified.
+The private same-input board is `native-replay/same-raw-comparison.jpg`.
+No new TestFlight upload or main/photo-branch merge is performed.
+Next colour work must address exposure/dynamic range and calibration against
+controlled targets while preserving the useful original rendering baseline.
+
 ## RAW-saving rendering fix uploaded — 18 October 2026
 
 Apple accepted Natural 0.1.3 build 20261018.629 in release run https://github.com/normiecore/dashcam-claude/actions/runs/39104201604. Upload and production archive/resource audit succeeded; Apple processing is VALID and the build is assigned to the existing external group. Upload guard pins app implementation to verified source 0d405590144995297c5d4ab1faa9bb2beebccc66. Do not upload a duplicate.

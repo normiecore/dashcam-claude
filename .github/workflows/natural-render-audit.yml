@@ -1,0 +1,61 @@
+name: Natural render audit
+on:
+  push:
+    branches: ['codex/round3-color-audit-20261018']
+    paths:
+      - 'NaturalColor/ios/**'
+      - '.github/workflows/natural-render-audit.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-26
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: NaturalColor/ios
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Confirm preferred recovered operator and resources are unchanged
+        working-directory: .
+        run: |
+          git diff --exit-code 5365cfa6f202c023132ab4fd6cb95d4859d3564f HEAD -- \
+            NaturalColor/ios/HassyNatural/Core \
+            NaturalColor/ios/HassyNatural/Imaging/RecoveredKernel.swift \
+            NaturalColor/ios/HassyNatural/Imaging/RecoveredKernel.ci.metal \
+            NaturalColor/ios/HassyNatural/Resources/ReferenceProfile.json \
+            NaturalColor/ios/HassyNatural/Resources/ReferenceChroma.f32 \
+            NaturalColor/ios/HassyNatural/Resources/StandardCurve.f32
+      - name: Prepare native project and public RAW fixture
+        run: |
+          brew install xcodegen
+          python3 scripts/acquire_test_raw.py
+          xcodegen generate
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Verify real RAW, recovered rendering and decoded export contracts
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural \
+            -destination "id=$SIM_UDID" -only-testing:HassyNaturalTests \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath "$RUNNER_TEMP/RenderAudit.xcresult" \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/render-audit-tests.log" 2>&1 || \
+            { tail -80 "$RUNNER_TEMP/render-audit-tests.log"; exit 1; }
+          tail -35 "$RUNNER_TEMP/render-audit-tests.log"
+      - name: Verify production archive and restored resource checksums
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/HassyNatural.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO archive > "$RUNNER_TEMP/render-audit-archive.log" 2>&1 || \
+            { tail -80 "$RUNNER_TEMP/render-audit-archive.log"; exit 1; }
+          python3 scripts/check_bundle.py "$RUNNER_TEMP/HassyNatural.xcarchive/Products/Applications/HassyNatural.app"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: natural-render-audit
+          path: |
+            ${{ runner.temp }}/RenderAudit.xcresult
+            ${{ runner.temp }}/render-audit-*.log
+          retention-days: 7

@@ -4,6 +4,8 @@ Current internal TestFlight build: **0.1.3 (20261018.629)**, with consistent Pro
 
 A native SwiftUI, AVFoundation and Core Image camera. It opens directly to Simple mode: frame, tap to focus, choose a physical lens and shoot. Advanced mode adds live exposure readings, compensation and a composition grid.
 
+[Round 3 reassessment](verification/release/round-3-reassessment.md) compares the supplied photo rounds with the original research and rollback history. A separately verified diagnostic candidate records the build/rendering path and tests decoded JPEG/HEIC colour conversion. It preserves the preferred rendering baseline; the installed TestFlight build above is unchanged.
+
 The 0.1.3 candidate saves a finished photo to Photos by default, using HEIC at Medium compression. Camera controls offers JPEG, High/Small compression and optional RAW + processed saving on supported cameras. Native framing preserves the selected camera’s maximum supported photo dimensions; standard ratios crop without upscaling. Quality changes compression, not resolution. JPEG is the fallback if HEIC encoding is unavailable.
 
 On ProRAW-capable cameras, both save settings capture and develop ProRAW so the finished image uses the same rendering path. “Save RAW original” controls whether Photos also receives the DNG. With it off, the pending DNG is removed after a successful Photos save; failed saves retain recovery files. Cameras without ProRAW use the processed HEIC/JPEG fallback. RAW processing time and temporary storage still apply.
