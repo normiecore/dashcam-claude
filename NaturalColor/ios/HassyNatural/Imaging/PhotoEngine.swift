@@ -248,13 +248,15 @@ actor PhotoEngine {
 
     /// HNCS HDR-style output: the SDR base plus an ISO gain map that restores
     /// the folded highlight stops on HDR displays. Nil when unavailable.
-    private func writeGainMapHEIC(sdr: CIImage, hdr: CIImage, properties: [CFString: Any],
+    private func writeGainMapHEIC(sdr: CIImage, hdr: CIImage, headroom: Float, properties: [CFString: Any],
                                   quality: Double, to url: URL) -> URL? {
         guard #available(iOS 18.0, *) else { return nil }
         var metadata: [AnyHashable: Any] = [:]
         for (key, value) in properties where key != kCGImageDestinationLossyCompressionQuality { metadata[key as String] = value }
+        // A kernel output reports unknown headroom; Core Image needs it to
+        // scale the gain map, otherwise the map is written as identity.
         let options: [CIImageRepresentationOption: Any] = [
-            .hdrImage: hdr,
+            .hdrImage: hdr.settingContentHeadroom(headroom),
             CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): quality
         ]
         guard let data = context.heifRepresentation(of: sdr.settingProperties(metadata), format: .RGBA8,
@@ -283,7 +285,8 @@ actor PhotoEngine {
         if tryHEIC, tone.compression > 0 {
             let hdr = try filtered(framed, settings: settings, tone: tone, hdr: true)
             let properties = try exportProperties(photo: photo, settings: settings, output: output, heic: true, hdr: true)
-            if let url = writeGainMapHEIC(sdr: image, hdr: hdr, properties: properties, quality: output.quality.compression,
+            if let url = writeGainMapHEIC(sdr: image, hdr: hdr, headroom: exp2(min(tone.compression, 3)),
+                                          properties: properties, quality: output.quality.compression,
                                           to: directory.appendingPathComponent(name + ".heic")) { return url }
         }
         for heic in tryHEIC ? [true, false] : [false] {

@@ -233,8 +233,12 @@ final class SceneToneTests: XCTestCase {
             let width = Int(image.extent.width)
             return values.indices.map { pixels[(32 * width + $0 * 64 + 32) * 4 + 1] }
         }
-        let sdr = centres(try XCTUnwrap(CIImage(contentsOf: url)))
-        let hdr = centres(try XCTUnwrap(CIImage(contentsOf: url, options: [.expandToHDR: true])))
+        let sdrImage = try XCTUnwrap(CIImage(contentsOf: url))
+        let hdrImage = try XCTUnwrap(CIImage(contentsOf: url, options: [.expandToHDR: true]))
+        let sdr = centres(sdrImage)
+        let hdr = centres(hdrImage)
+        print("ROUND4_PROBE {\"gainMapISO\":\(iso != nil),\"gainMapApple\":\(apple != nil)," +
+              "\"decodedHeadroom\":\(hdrImage.contentHeadroom),\"sdr\":\(sdr),\"hdr\":\(hdr)}")
         XCTAssertEqual(sdr[0], 0.286, accuracy: 0.03, "SDR middle grey")
         XCTAssertEqual(sdr[3], 1, accuracy: 0.02, "Measured white reaches SDR white")
         XCTAssertEqual(hdr[0], sdr[0], accuracy: 0.03, "Below the knee SDR and HDR agree")
