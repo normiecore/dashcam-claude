@@ -91,18 +91,24 @@ extern "C" int hn_recovered_pixel_with_curve(const float rgb[3],const float* cbc
 // Scene tone stage. Keep arithmetic synchronized with RecoveredKernel.ci.metal.
 namespace {
 constexpr float filmStops=3.0f;          // log2(1/HN_FILM_MIDDLE_GREY)
-constexpr float compressionPower=1.5f;   // phi(u)=u^1.5 keeps slope 1 at middle grey
+constexpr float kneeStops=1.0f;          // grey and +1 EV keep the Standard curve exactly
 constexpr float fillFloor=-7.0f;         // stops below middle grey where fill reaches zero
 constexpr float fillShape=1.5688f;       // places the fill peak 2.5 stops below grey
+constexpr float maxHDRStops=3.0f;        // HNCS HDR documents up to +3 stops
+// Stops removed at t (stops above film grey). A rational log-domain shoulder
+// from the knee: slope 1 at the knee and the measured white (3+compression)
+// lands on film white (3); beyond it values keep rising and clip in the film.
+float compression_ev(float t,float compression) {
+ if (!(compression>0) || !(t>kneeStops)) return 0;
+ const float span=filmStops-kneeStops,range=span+compression,ratio=range/span;
+ const float u=(t-kneeStops)/range;
+ return t-(kneeStops+span*ratio*u/(1+(ratio-1)*u));
+}
+float smooth01(float x) {const float c=std::clamp(x,0.0f,1.0f);return c*c*(3-2*c);}
 float scene_tone_ev(float n,const hn_scene_tone& tone) {
  if (!(n>0)) return 0;
  const float t=std::log2(n/HN_FILM_MIDDLE_GREY);
- float ev=0;
- if (tone.compression>0 && t>0) {
-  const float u=t/(filmStops+tone.compression);
-  const float phi=u<=1 ? std::pow(u,compressionPower) : 1+compressionPower*(u-1);
-  ev-=tone.compression*phi;
- }
+ float ev=-compression_ev(t,tone.compression);
  if (tone.shadowFill>0 && t<0 && t>fillFloor) {
   const float u=std::pow((t-fillFloor)/-fillFloor,fillShape);
   const float s=std::sin(3.14159265358979f*u);
@@ -123,7 +129,22 @@ extern "C" int hn_apply_scene_tone(const float rgb[3],const hn_scene_tone* tone,
  for (int i=0;i<3;++i) {if (!std::isfinite(rgb[i])) return 0; x[i]=rgb[i]*tone->exposure;}
  // A max(R,G,B) gain keeps hue and keeps compressed highlights within [0,1].
  const float gain=std::exp2(scene_tone_ev(std::max({x[0],x[1],x[2]}),*tone));
- for (int i=0;i<3;++i) out[i]=x[i]*gain;
+ for (int i=0;i<3;++i) x[i]*=gain;
+ // Folded highlights approach white neutrally instead of clipping per channel
+ // into pink or cyan casts. Scenes without compression are unchanged.
+ if (tone->compression>0) {
+  const float peak=std::max({x[0],x[1],x[2]}),w=smooth01((peak-0.9f)/0.1f);
+  for (int i=0;i<3;++i) x[i]+=(peak-x[i])*w;
+ }
+ for (int i=0;i<3;++i) out[i]=x[i];
+ return 1;
+}
+
+extern "C" int hn_scene_highlight_ev(const float rgb[3],const hn_scene_tone* tone,float* ev) {
+ if (!rgb || !ev || !valid_tone(tone)) return 0;
+ for (int i=0;i<3;++i) if (!std::isfinite(rgb[i])) return 0;
+ const float n=std::max({rgb[0],rgb[1],rgb[2]})*tone->exposure;
+ *ev=n>0 ? std::min(compression_ev(std::log2(n/HN_FILM_MIDDLE_GREY),tone->compression),maxHDRStops) : 0.0f;
  return 1;
 }
 

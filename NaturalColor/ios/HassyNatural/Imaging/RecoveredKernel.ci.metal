@@ -5,15 +5,21 @@ using namespace metal;
 // Scene tone stage before the film domain. Keep arithmetic synchronized with
 // hn_apply_scene_tone in Core/RecoveredColor.cpp. tone = (exposure,
 // compression stops, shadow fill EV); (1, 0, 0) is the identity.
+
+// Stops removed by the rational shoulder from the +1 EV knee (see
+// compression_ev): slope 1 at the knee, measured white onto film white.
+static float compressionEV(float t, float compression) {
+    if (!(compression > 0.0f) || !(t > 1.0f)) return 0.0f;
+    float range = 2.0f+compression;
+    float ratio = range/2.0f;
+    float u = (t-1.0f)/range;
+    return t-(1.0f+2.0f*ratio*u/(1.0f+(ratio-1.0f)*u));
+}
+
 static float sceneToneEV(float n, float3 tone) {
     if (!(n > 0.0f)) return 0.0f;
     float t = log2(n/0.125f);
-    float ev = 0.0f;
-    if (tone.y > 0.0f && t > 0.0f) {
-        float u = t/(3.0f+tone.y);
-        float phi = u <= 1.0f ? pow(u, 1.5f) : 1.0f+1.5f*(u-1.0f);
-        ev -= tone.y*phi;
-    }
+    float ev = -compressionEV(t, tone.y);
     if (tone.z > 0.0f && t < 0.0f && t > -7.0f) {
         float u = pow((t+7.0f)/7.0f, 1.5688f);
         float s = sin(3.14159265358979f*u);
@@ -33,7 +39,14 @@ float4 recoveredKernel(sampler source, sampler chromaTable, sampler filmTable,
     float alpha = sampled.a;
     float3 rgb = alpha > 0.0f ? sampled.rgb / alpha : float3(0.0f);
     float3 toned = rgb*tone.x;
-    toned *= exp2(sceneToneEV(max(max(toned.r, toned.g), toned.b), tone.xyz));
+    float peak = max(max(toned.r, toned.g), toned.b);
+    toned *= exp2(sceneToneEV(peak, tone.xyz));
+    // Neutral path to white for folded highlights; none without compression.
+    if (tone.y > 0.0f) {
+        float top = max(max(toned.r, toned.g), toned.b);
+        float w = clamp((top-0.9f)/0.1f, 0.0f, 1.0f);
+        toned += (float3(top)-toned)*(w*w*(3.0f-2.0f*w));
+    }
     float3 p = clamp(toned, 0.0f, 1.0f) * 65535.0f;
     float avg = (p.r + p.g + p.b) * 0.3333333f;
     // Explicit app black policy: native source has an undefined exact-zero path.
@@ -83,6 +96,9 @@ float4 recoveredKernel(sampler source, sampler chromaTable, sampler filmTable,
     // Leave colours outside sRGB unclamped: the HEIC encoder keeps them in
     // Display P3, and sRGB outputs clip once at encoding.
     float3 blended = rgb+(mapped-rgb)*clamp(options.z,0.0f,1.0f);
+    // HDR rendition (options.w = 1): restore the folded highlight stops above
+    // SDR white for a gain map; identical to the SDR result elsewhere.
+    if (options.w > 0.5f && peak > 0.0f) blended *= exp2(min(compressionEV(log2(peak/0.125f), tone.y), 3.0f));
     return float4(blended*alpha,alpha);
 }
 }

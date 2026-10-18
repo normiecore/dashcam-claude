@@ -158,7 +158,8 @@ actor PhotoEngine {
         return hn_choose_scene_tone(&stats, settings.exposure, &tone) == 1 ? tone : identity
     }
 
-    private func filtered(_ image: CIImage, settings: EditSettings, tone: hn_scene_tone) throws -> CIImage {
+    private func filtered(_ image: CIImage, settings: EditSettings, tone: hn_scene_tone,
+                          hdr: Bool = false) throws -> CIImage {
         let exposure = CIFilter.exposureAdjust()
         exposure.inputImage = image
         exposure.ev = settings.exposure
@@ -173,7 +174,8 @@ actor PhotoEngine {
                 divisor: assets.profile.divisor, nativeScale: 1)
         }
         guard let recoveredKernel else { throw PhotoError.rendering }
-        return try recoveredKernel.apply(input: exposed, strength: settings.strength, tone: tone).cropped(to: image.extent)
+        return try recoveredKernel.apply(input: exposed, strength: settings.strength, tone: tone, hdr: hdr)
+            .cropped(to: image.extent)
     }
 
     private func crop(_ image: CIImage, ratio: PhotoAspectRatio) -> CIImage {
@@ -198,7 +200,7 @@ actor PhotoEngine {
     }
 
     private func exportProperties(photo: LoadedPhoto, settings: EditSettings,
-                                  output: PhotoOutputOptions, heic: Bool) throws -> [CFString: Any] {
+                                  output: PhotoOutputOptions, heic: Bool, hdr: Bool = false) throws -> [CFString: Any] {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         // Version this identifier when the RAW development or recovered operator
@@ -218,7 +220,8 @@ actor PhotoEngine {
                 "format": heic ? "heic" : "jpeg",
                 "colorSpace": heic ? "Display P3" : "sRGB",
                 "quality": output.quality.rawValue,
-                "compression": output.quality.compression
+                "compression": output.quality.compression,
+                "hdrGainMap": hdr
             ]
         ]
         if let rawDevelopment = photo.rawDevelopment { provenance["rawDevelopment"] = rawDevelopment }
@@ -243,10 +246,31 @@ actor PhotoEngine {
         ]
     }
 
+    /// HNCS HDR-style output: the SDR base plus an ISO gain map that restores
+    /// the folded highlight stops on HDR displays. Nil when unavailable.
+    private func writeGainMapHEIC(sdr: CIImage, hdr: CIImage, properties: [CFString: Any],
+                                  quality: Double, to url: URL) -> URL? {
+        guard #available(iOS 18.0, *) else { return nil }
+        var metadata: [AnyHashable: Any] = [:]
+        for (key, value) in properties where key != kCGImageDestinationLossyCompressionQuality { metadata[key as String] = value }
+        let options: [CIImageRepresentationOption: Any] = [
+            .hdrImage: hdr,
+            CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): quality
+        ]
+        guard let data = context.heifRepresentation(of: sdr.settingProperties(metadata), format: .RGBA8,
+                                                    colorSpace: wideDisplay, options: options) else { return nil }
+        do { try data.write(to: url, options: .atomic) } catch {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+        return url
+    }
+
     func export(photo: LoadedPhoto, settings: EditSettings,
                 output: PhotoOutputOptions = .init(format: .jpeg, quality: .high)) throws -> URL {
-        let image = try filtered(crop(photo.image, ratio: settings.aspectRatio), settings: settings,
-                                 tone: sceneTone(for: photo, settings: settings))
+        let tone = sceneTone(for: photo, settings: settings)
+        let framed = crop(photo.image, ratio: settings.aspectRatio)
+        let image = try filtered(framed, settings: settings, tone: tone)
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = photo.name.replacingOccurrences(of: "/", with: "-") + "-natural-" + String(UUID().uuidString.prefix(6))
@@ -254,6 +278,14 @@ actor PhotoEngine {
         let tryHEIC = output.format == .heic && types.contains(UTType.heic.identifier)
         // Rasterize a finite image before encoding; keep the source dimensions.
         // HEIC retains a tagged Display P3 image; compatible JPEG uses sRGB.
+        // Only scenes whose highlights were folded into the shoulder carry a
+        // gain map; everything else is identical in SDR and HDR.
+        if tryHEIC, tone.compression > 0 {
+            let hdr = try filtered(framed, settings: settings, tone: tone, hdr: true)
+            let properties = try exportProperties(photo: photo, settings: settings, output: output, heic: true, hdr: true)
+            if let url = writeGainMapHEIC(sdr: image, hdr: hdr, properties: properties, quality: output.quality.compression,
+                                          to: directory.appendingPathComponent(name + ".heic")) { return url }
+        }
         for heic in tryHEIC ? [true, false] : [false] {
             let space = heic ? wideDisplay : display
             guard let raster = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: space) else { throw PhotoError.rendering }

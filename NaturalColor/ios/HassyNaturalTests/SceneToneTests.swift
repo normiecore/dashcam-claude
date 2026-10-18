@@ -129,7 +129,8 @@ final class SceneToneTests: XCTestCase {
                                  sceneStats: hn_scene_stats(white: 4.0, darkFraction: 0))
         let brightBytes = try bytes(await engine.preview(photo: bright, settings: .init()), space: srgb)
         let rolled = (0..<ladder.count).map { Double(brightBytes[$0 * 4 + 1]) }
-        XCTAssertEqual(rolled[0], 142.0, accuracy: 3, "Middle grey barely moves")
+        XCTAssertEqual(rolled[0], Double(original[1]), accuracy: 0.5, "Middle grey keeps the Standard curve")
+        XCTAssertEqual(rolled[1], 197.9, accuracy: 2.5, "+1 EV sits just above the knee")
         for index in 1..<ladder.count { XCTAssertGreaterThan(rolled[index], rolled[index - 1], "Highlights stay separated") }
         // The measured white reaches film white; everything below it keeps tone.
         XCTAssertLessThan(rolled[4], 254, "+4 EV below the measured white is not clipped")
@@ -191,6 +192,51 @@ final class SceneToneTests: XCTestCase {
         XCTAssertGreaterThan(encoded(clamped[0]) - encoded(unclamped[0]), 15, "Clamping would visibly desaturate")
         XCTAssertEqual(Double(p3[centre + 1]), encoded(unclamped[1]), accuracy: 6)
         XCTAssertEqual(Double(p3[centre + 2]), encoded(unclamped[2]), accuracy: 6)
+    }
+
+    func testHighContrastHEICCarriesGainMapThatRestoresHighlights() async throws {
+        guard #available(iOS 18.0, *) else { throw XCTSkip("Gain-map writing needs iOS 18") }
+        let engine = PhotoEngine()
+        let values: [Float] = [0.18, 0.72, 2.0, 4.0]
+        let photo = LoadedPhoto(image: patchImage(values.map { [$0, $0, $0] }, width: 64, height: 64), name: "HDR ladder",
+                                isRaw: true, sceneStats: hn_scene_stats(white: 4.0, darkFraction: 0))
+        let url = try await engine.export(photo: photo, settings: .init(), output: .init(format: .heic, quality: .high))
+        defer { try? FileManager.default.removeItem(at: url) }
+        guard url.pathExtension == "heic" else { throw XCTSkip("HEIC encoding unavailable") }
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let iso = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap)
+        let apple = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap)
+        XCTAssertTrue(iso != nil || apple != nil, "High-contrast HEIC carries a gain map")
+        // Provenance survives the Core Image gain-map writer.
+        let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        let exif = try XCTUnwrap(properties[kCGImagePropertyExifDictionary] as? [CFString: Any])
+        let comment = try XCTUnwrap(exif[kCGImagePropertyExifUserComment] as? String)
+        let provenance = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(comment.utf8)) as? [String: Any])
+        let output = try XCTUnwrap(provenance["output"] as? [String: Any])
+        XCTAssertEqual(output["hdrGainMap"] as? Bool, true)
+        XCTAssertEqual(output["colorSpace"] as? String, "Display P3")
+        let profile = try XCTUnwrap(properties[kCGImagePropertyProfileName] as? String)
+        XCTAssertTrue(profile.lowercased().contains("p3"), profile)
+        // SDR base keeps the finished rendering; the HDR rendition lifts only
+        // the folded highlights above SDR white.
+        let context = CIContext(options: [.workingColorSpace: linear, .workingFormat: CIFormat.RGBAf.rawValue])
+        func centres(_ image: CIImage) -> [Float] {
+            var pixels = [Float](repeating: 0, count: Int(image.extent.width) * Int(image.extent.height) * 4)
+            pixels.withUnsafeMutableBytes { buffer in
+                context.render(image, toBitmap: buffer.baseAddress!, rowBytes: Int(image.extent.width) * 16,
+                               bounds: image.extent, format: .RGBAf, colorSpace: linear)
+            }
+            let width = Int(image.extent.width)
+            return values.indices.map { pixels[(32 * width + $0 * 64 + 32) * 4 + 1] }
+        }
+        let sdr = centres(try XCTUnwrap(CIImage(contentsOf: url)))
+        let hdr = centres(try XCTUnwrap(CIImage(contentsOf: url, options: [.expandToHDR: true])))
+        XCTAssertEqual(sdr[0], 0.286, accuracy: 0.03, "SDR middle grey")
+        XCTAssertEqual(sdr[3], 1, accuracy: 0.02, "Measured white reaches SDR white")
+        XCTAssertEqual(hdr[0], sdr[0], accuracy: 0.03, "Below the knee SDR and HDR agree")
+        XCTAssertGreaterThan(hdr[2] / sdr[2], 1.5, "Folded highlights regain range")
+        XCTAssertGreaterThan(hdr[3], 2.0, "Scene white extends above SDR white")
+        XCTAssertLessThanOrEqual(hdr[3], 8.5, "Headroom stays within three stops")
     }
 
     func testPublicRAWMeasuresSceneAndRecordsTone() async throws {

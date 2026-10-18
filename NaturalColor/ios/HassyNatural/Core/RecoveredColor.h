@@ -35,8 +35,9 @@ int hn_make_reference_cube_shaped(float* rgba, size_t capacity, unsigned n, floa
  * Phocus code). exposure scales the decode into the Standard curve's design
  * domain, where 0.125 renders as display middle grey and 1.0 as white.
  * compression folds that many stops of measured highlight range into the
- * film shoulder using a hue-preserving max(R,G,B) gain; shadowFill lifts lower
- * midtones by up to that many EV and leaves middle grey and blacks alone.
+ * film shoulder above +1 EV using a hue-preserving max(R,G,B) gain, with a
+ * neutral path to white; shadowFill lifts lower midtones by up to that many
+ * EV and leaves middle grey and blacks alone.
  * The identity is {1, 0, 0}. */
 typedef struct {
     float exposure;
@@ -61,6 +62,10 @@ typedef struct {
 #define HN_MAX_SHADOW_FILL 0.6f
 /* Gain-scaled rgb; out may alias rgb. Success=1, invalid argument=0. */
 int hn_apply_scene_tone(const float rgb[3], const hn_scene_tone* tone, float out[3]);
+/* Stops of highlight range the compression folded away for this pixel
+ * (0...3). An HDR rendition multiplies the finished SDR pixel by 2^ev, so a
+ * gain map restores the scene's highlights above SDR white and is 1 elsewhere. */
+int hn_scene_highlight_ev(const float rgb[3], const hn_scene_tone* tone, float* ev);
 /* rgba: count pixels of 4 floats in linear sRGB. Non-finite pixels are ignored. */
 int hn_measure_scene(const float* rgba, size_t count, hn_scene_stats* out);
 /* Chooses the tone for a RAW decode measured by hn_measure_scene, given the

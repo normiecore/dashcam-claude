@@ -57,8 +57,11 @@ final class RecoveredKernel {
     /// Input must be evaluated by a CIContext with extended-linear-sRGB working
     /// space, matching the explicit phone bridge in RecoveredColor.cpp.
     /// The identity tone reproduces the original recovered operator.
+    /// `hdr` returns the HDR rendition used to write a gain map: the SDR
+    /// result multiplied by the highlight stops the compression folded away.
     func apply(input: CIImage, strength: Float,
-               tone: hn_scene_tone = hn_scene_tone(exposure: 1, compression: 0, shadowFill: 0)) throws -> CIImage {
+               tone: hn_scene_tone = hn_scene_tone(exposure: 1, compression: 0, shadowFill: 0),
+               hdr: Bool = false) throws -> CIImage {
         guard strength.isFinite, !input.extent.isEmpty, !input.extent.isInfinite,
               tone.exposure.isFinite, tone.exposure > 0,
               tone.compression.isFinite, (0...HN_MAX_COMPRESSION).contains(tone.compression),
@@ -68,7 +71,7 @@ final class RecoveredKernel {
         let tableExtent = chroma.extent
         let filmExtent = film.extent
         let options = CIVector(x: CGFloat(divisor), y: CGFloat(nativeScale),
-                               z: CGFloat(min(max(strength, 0), 1)), w: 0)
+                               z: CGFloat(min(max(strength, 0), 1)), w: hdr ? 1 : 0)
         guard let output = kernel.apply(extent: input.extent, roiCallback: { index, rect in
             switch index {
             case 1: return tableExtent
