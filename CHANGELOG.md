@@ -1,3 +1,9 @@
+## 2026-10-19 — Natural 0.1.4 TestFlight candidate
+
+- Continue the Round 4 RAW highlight/shadow stage and P3 preservation, retaining the preferred colour renderer and RAW retention fix.
+- Repair and reverify HDR HEIC output; add a release lane requiring native image tests plus UI/archive checks before signing and upload.
+- Version the candidate 0.1.4 and update beta notes to identify its experimental tone/HDR behaviour. Upload and phone acceptance are pending.
+
 ## 2026-10-18 — Round 4 renderer: X2D II-style dynamic range on iPhone (candidate, not uploaded)
 
 - Keep ProRAW highlight headroom from Apple's decoder (`extendedDynamicRangeAmount` 1). On the public iPhone 17 Pro DNG the brightest value rises from 1.18 to 2.40 with unchanged midtones.

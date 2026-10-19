@@ -238,16 +238,47 @@ final class SceneToneTests: XCTestCase {
         }
         let sdrImage = try XCTUnwrap(CIImage(contentsOf: url))
         let hdrImage = try XCTUnwrap(CIImage(contentsOf: url, options: [.expandToHDR: true]))
+        let gainMap = try XCTUnwrap(CIImage(contentsOf: url, options: [.auxiliaryHDRGainMap: true]))
+        let applied = centres(sdrImage.applyingGainMap(gainMap, headroom: 8))
         let sdr = centres(sdrImage)
         let hdr = centres(hdrImage)
+        // Independently render the float HDR kernel output. This distinguishes
+        // lost range during encoding from failures to expand the stored map.
+        let profile = try JSONDecoder().decode(Profile.self, from: resource("ReferenceProfile", "json"))
+        let kernel = try RecoveredKernel(chroma: floats(try resource("ReferenceChroma", "f32")),
+            film: floats(try resource("StandardCurve", "f32")), width: profile.width, height: profile.height,
+            cbStart: profile.start[0], crStart: profile.start[1], divisor: profile.divisor)
+        var stats = hn_scene_stats(white: 4.0, darkFraction: 0)
+        var tone = hn_scene_tone(exposure: 1, compression: 0, shadowFill: 0)
+        XCTAssertEqual(hn_choose_scene_tone(&stats, 0, &tone), 1)
+        let expectedImage = try kernel.apply(input: photo.image, strength: 1, tone: tone, hdr: true)
+        let expected = centres(expectedImage)
         print("ROUND4_PROBE {\"gainMapISO\":\(iso != nil),\"gainMapApple\":\(apple != nil)," +
-              "\"decodedHeadroom\":\(hdrImage.contentHeadroom),\"sdr\":\(sdr),\"hdr\":\(hdr)}")
+              "\"decodedHeadroom\":\(hdrImage.contentHeadroom),\"sdr\":\(sdr),\"hdr\":\(hdr)," +
+              "\"explicitGainMap\":\(applied),\"expectedHDR\":\(expected)}")
+        let encodedAttachment = XCTAttachment(data: try Data(contentsOf: url), uniformTypeIdentifier: UTType.heic.identifier)
+        encodedAttachment.name = "HDR ladder with gain map"
+        encodedAttachment.lifetime = .keepAlways
+        add(encodedAttachment)
+        if let preview = context.pngRepresentation(of: sdrImage, format: .RGBA8, colorSpace: srgb, options: [:]) {
+            let attachment = XCTAttachment(data: preview, uniformTypeIdentifier: UTType.png.identifier)
+            attachment.name = "HDR ladder SDR base"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
         XCTAssertEqual(sdr[0], 0.286, accuracy: 0.03, "SDR middle grey")
         XCTAssertEqual(sdr[3], 1, accuracy: 0.02, "Measured white reaches SDR white")
         XCTAssertEqual(hdr[0], sdr[0], accuracy: 0.03, "Below the knee SDR and HDR agree")
         XCTAssertGreaterThan(hdr[2] / sdr[2], 1.5, "Folded highlights regain range")
         XCTAssertGreaterThan(hdr[3], 2.0, "Scene white extends above SDR white")
         XCTAssertLessThanOrEqual(hdr[3], 8.5, "Headroom stays within three stops")
+        XCTAssertGreaterThan(expected[3], 2, "The float renderer supplies genuine HDR pixels")
+        for index in values.indices {
+            XCTAssertEqual(hdr[index], expected[index], accuracy: max(0.04, expected[index] * 0.08),
+                           "Expanded HEIC preserves the HDR rendition at patch \(index)")
+            XCTAssertEqual(applied[index], hdr[index], accuracy: max(0.04, hdr[index] * 0.05),
+                           "Explicit and automatic gain-map decoding agree at patch \(index)")
+        }
         // Strength 0 bypasses the renderer: no tone recorded, no gain map.
         let plain = try await engine.export(photo: photo, settings: .init(strength: 0), output: .init(format: .heic, quality: .high))
         defer { try? FileManager.default.removeItem(at: plain) }

@@ -80,15 +80,15 @@ def distribute():
     else:
         call('betaAppLocalizations',{'data':{'type':'betaAppLocalizations','attributes':{'locale':'en-AU','description':description},
             'relationships':{'app':{'data':{'type':'apps','id':app}}}}})
-    notes=('Rendering consistency update: Save RAW original now controls whether the DNG is kept. '
-        'On supported cameras, the finished HEIC/JPEG uses ProRAW development with RAW saving on or off. '
-        'Compare the same scene with Save RAW original off and on: the finished rendering should match; '
-        'off should save one finished photo, on should also save the RAW original. RAW processing time and '
-        'temporary storage still apply. Pending originals are removed after successful saving; save failures '
-        'keep recovery copies in Files > On My iPhone > Natural > Pending Captures and Processed. '
-        'HEIC Medium, native framing and processed-only saving remain the defaults. '
-        'Check repeated captures, lens switches, portrait/both landscape orientations and denied Photos recovery. '
-        'Please report crashes, save failures or unexpected colour differences through TestFlight.')
+    notes=('Natural 0.1.4: smoother bright-sky highlights and a restrained foreground lift in backlit RAW scenes. '
+        'The preferred colour rendering remains, with Display P3 HEIC retaining colours outside sRGB. '
+        'High-contrast HEIC includes an HDR gain map on iOS 26 and later; JPEG remains SDR. '
+        'Photos now record rendering build/settings so feedback can identify the exact pipeline. '
+        'Save RAW original still controls retention only on ProRAW-capable cameras. '
+        'Please check backlit foreground detail, sky transitions, foliage and skin colour in Photos, '
+        'plus repeated captures, lens switches, RAW-saving toggle parity and failed-save recovery. '
+        'This is an experimental photographic update; calibrated X2D II equivalence has not been established. '
+        'Report crashes, save failures or unexpected rendering through TestFlight.')
     existing=call(f'builds/{build["id"]}/betaBuildLocalizations?limit=200')['data']
     if existing:
         loc=existing[0]

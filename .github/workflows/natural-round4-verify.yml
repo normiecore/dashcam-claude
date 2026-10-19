@@ -1,10 +1,11 @@
 name: Natural Round 4 verification
 on:
   push:
-    branches: ['claude/round4-hncs-optimise']
+    branches: ['claude/round4-hncs-optimise', 'codex/natural-round4-release-20261019']
     paths:
       - 'NaturalColor/ios/**'
       - '.github/workflows/natural-round4-verify.yml'
+      - '.github/scripts/natural_external.py'
 permissions:
   contents: read
 concurrency:
@@ -33,10 +34,19 @@ jobs:
             -destination "id=$SIM_UDID" -only-testing:HassyNaturalTests \
             -parallel-testing-enabled NO -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 400 \
+            -resultBundlePath "$RUNNER_TEMP/Round4Images.xcresult" \
             CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/round4-tests.log" 2>&1 || code=$?
           grep -E '^(HEADROOM_PROBE|ROUND4_PROBE) ' "$RUNNER_TEMP/round4-tests.log" || true
           grep -E "error:|failed|Test Case .* (passed|failed)|Executed" "$RUNNER_TEMP/round4-tests.log" | tail -60
           exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: natural-round4-images
+          path: |
+            ${{ runner.temp }}/Round4Images.xcresult
+            ${{ runner.temp }}/round4-tests.log
+          retention-days: 14
   ui-and-archive:
     runs-on: macos-26
     timeout-minutes: 40
@@ -67,3 +77,61 @@ jobs:
             CODE_SIGNING_ALLOWED=NO archive > "$RUNNER_TEMP/round4-archive.log" 2>&1 || \
             { grep -E "error:" "$RUNNER_TEMP/round4-archive.log" | head -40; tail -60 "$RUNNER_TEMP/round4-archive.log"; exit 1; }
           python3 scripts/check_bundle.py "$RUNNER_TEMP/HassyNatural.xcarchive/Products/Applications/HassyNatural.app"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: natural-round4-ui-archive-logs
+          path: ${{ runner.temp }}/round4-*.log
+          retention-days: 14
+  testflight:
+    needs: [image-tests, ui-and-archive]
+    if: github.ref == 'refs/heads/codex/natural-round4-release-20261019' && contains(github.event.head_commit.message, '[testflight-upload]')
+    runs-on: macos-26
+    timeout-minutes: 35
+    concurrency:
+      group: natural-testflight
+      cancel-in-progress: false
+    outputs:
+      build_number: ${{ steps.upload.outputs.build_number }}
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      NATURAL_EXTERNAL_TESTING: '1'
+    defaults:
+      run:
+        working-directory: NaturalColor/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare the verified source revision
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+          python3 scripts/apple_identity.py --require-app
+      - name: Sign and upload the verified camera update
+        id: upload
+        run: bash scripts/upload_testflight.sh
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: natural-round4-upload-logs
+          path: ${{ runner.temp }}/natural-upload.log
+          retention-days: 7
+  distribute:
+    needs: testflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      NATURAL_BUILD_NUMBER: ${{ needs.testflight.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm processing and existing tester access
+        run: python3 .github/scripts/natural_external.py distribute

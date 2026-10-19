@@ -257,13 +257,19 @@ actor PhotoEngine {
         guard #available(iOS 26.0, *) else { return nil }
         var metadata: [AnyHashable: Any] = [:]
         for (key, value) in properties where key != kCGImageDestinationLossyCompressionQuality { metadata[key as String] = value }
-        // A kernel output reports unknown headroom; Core Image needs it to
-        // scale the gain map, otherwise the map is written as identity.
+        // Materialize the HDR rendition in an extended, floating-point space.
+        // Passing the lazy kernel graph to the SDR HEIF writer can evaluate
+        // that branch in its bounded output space, losing values above white
+        // before the gain map is calculated. Metadata alone cannot restore them.
+        let extendedP3 = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!
+        guard let raster = context.createCGImage(hdr, from: hdr.extent, format: .RGBAh,
+                                                  colorSpace: extendedP3) else { return nil }
+        let hdrImage = CIImage(cgImage: raster, options: [.contentHeadroom: headroom])
         let options: [CIImageRepresentationOption: Any] = [
-            .hdrImage: hdr.settingContentHeadroom(headroom),
+            .hdrImage: hdrImage,
             CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): quality
         ]
-        guard let data = context.heifRepresentation(of: sdr.settingProperties(metadata), format: .RGBA8,
+        guard let data = context.heifRepresentation(of: sdr.settingProperties(metadata).settingContentHeadroom(1), format: .RGBA8,
                                                     colorSpace: wideDisplay, options: options) else { return nil }
         do { try data.write(to: url, options: .atomic) } catch {
             try? FileManager.default.removeItem(at: url)

@@ -1,3 +1,28 @@
+## Natural 0.1.4 — authorised TestFlight update, 19 October 2026
+
+The owner asked to continue the unfinished Natural camera work and push the update
+to TestFlight. Work is isolated on `codex/natural-round4-release-20261019`, based
+on `claude/round4-hncs-optimise`; dashcam `main` is not changed.
+
+Rechecked actual GitHub results rather than assuming the last green Round 4 run
+covered later edits: run 39127214597 passes UI/archive, but its 23 image tests
+include one failing HDR gain-map test (two assertions: decoded HDR stays at 1).
+The later private float diagnostic run 39152336355 fails compilation at generated
+optional CIColor construction; its repair is audit-only on a separate branch.
+No new private photograph transfer is needed for the public/synthetic checks.
+
+Candidate version is 0.1.4. The release workflow requires both the native image
+suite and UI/production archive checks at the same source SHA to pass before any
+signed upload, and only uploads commits explicitly marked `[testflight-upload]`
+on this release branch. Distribution uses the existing tester groups and records
+Apple processing/internal access separately from external beta review.
+
+Local portable scene-tone verification passes, including monotonic highlights,
+grey anchors and HDR restoration mathematics. Native verification, signed upload
+and actual Apple build number are pending. No physical photographic acceptance
+or calibrated X2D II equivalence is claimed. Existing accepted build remains
+0.1.3 (20261018.629) until a new upload is confirmed below.
+
 ## Round 4 renderer candidate — 18 October 2026
 
 The owner asked to optimise rendering per the repository research, "as true to life as
