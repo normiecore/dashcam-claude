@@ -1,0 +1,44 @@
+name: Native pre-film synthetic verification
+on:
+  push:
+    branches: ['codex/natural-float-diagnostic-20261019']
+    paths: ['.github/scripts/natural_prefilm.py', '.github/workflows/natural-prefilm-compile.yml']
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/natural_prefilm.py
+            NaturalColor/ios
+          sparse-checkout-cone-mode: false
+      - name: Generate Swift without executing private capture code
+        run: |
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          tree = ast.parse(Path('.github/scripts/natural_prefilm.py').read_text())
+          swift = next(ast.literal_eval(node.value) for node in tree.body
+                       if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == 'SWIFT' for target in node.targets))
+          Path('NaturalColor/ios/HassyNaturalTests/PrivatePrefilmFloatTests.swift').write_text(swift)
+          PY
+      - name: Generate project and select available iPhone simulator
+        working-directory: NaturalColor/ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          python3 scripts/select_simulator.py >> "$GITHUB_ENV"
+      - name: Compile diagnostic and exercise synthetic float control only
+        working-directory: NaturalColor/ios
+        run: |
+          xcodebuild -project HassyNatural.xcodeproj -scheme HassyNatural \
+            -destination "id=$SIM_UDID" -parallel-testing-enabled NO \
+            -only-testing:HassyNaturalTests/PrivatePrefilmFloatTests/testExtendedRangeAndGeometryControl \
+            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/prefilm-synthetic.log" 2>&1 || \
+            { tail -100 "$RUNNER_TEMP/prefilm-synthetic.log"; exit 1; }
+          tail -30 "$RUNNER_TEMP/prefilm-synthetic.log"

@@ -1,3 +1,16 @@
+## Audit-only float diagnostic repair — 19 October 2026
+
+On `codex/natural-float-diagnostic-20261019`, unwrap the failable colour-space
+`CIColor` initializers in generated `PrivatePrefilmFloatTests.swift`. Add a
+secrets-free synthetic workflow that extracts the Swift literal without importing
+or executing the Python capture module, compiles the complete diagnostic and runs
+only its float-range/coordinate control. It neither downloads photographs nor
+reads encrypted input. Production app sources and release workflows are unchanged.
+
+Local Python compilation and diff whitespace checks pass. Hosted simulator result
+is pending; this is not a private RAW replay, camera validation or TestFlight build.
+Next: inspect the synthetic workflow result and record its actual evidence.
+
 First float setup run39152104279 stopped at its optional public DPReview transfer probe before any private input was supplied. Probe failures are now diagnostic/nonblocking and report safe HTTP status; actual private decoding/rendering remains fatal. Include a1536px lossless sRGB current-render control from the unmodified app preview API applied to the exact same pre-scaled CIImage as each float buffer. No additional resampling or candidate calibration is introduced.
 
 ## Native pre-film float preparation — 18 October 2026

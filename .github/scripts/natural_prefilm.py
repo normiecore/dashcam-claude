@@ -120,17 +120,21 @@ final class PrivatePrefilmFloatTests: XCTestCase {
     func rangeControl() throws -> [String:Any] {
         try autoreleasepool {
             let c=context();defer{c.clearCaches()}
-            var expected:[Float]=[2,0.5,-0.25,1]
+            let expected:[Float]=[2,0.5,-0.25,1]
             let image=expected.withUnsafeBytes {CIImage(bitmapData:Data($0),bytesPerRow:16,size:CGSize(width:1,height:1),format:.RGBAf,colorSpace:linear)}
             let actual=bitmap(image,width:1,height:1,using:c)
             for i in 0..<4 {XCTAssertEqual(actual[i],expected[i],accuracy:0.00001,"Float output must preserve extended and negative values")}
-            let bottom=CIImage(color:CIColor(red:0.25,green:0.25,blue:0.25,alpha:1,colorSpace:linear)).cropped(to:CGRect(x:0,y:0,width:2,height:1))
-            let top=CIImage(color:CIColor(red:0.75,green:0.75,blue:0.75,alpha:1,colorSpace:linear)).cropped(to:CGRect(x:0,y:1,width:2,height:1))
+            let bottom=CIImage(color:try XCTUnwrap(CIColor(red:0.25,green:0.25,blue:0.25,alpha:1,colorSpace:linear))).cropped(to:CGRect(x:0,y:0,width:2,height:1))
+            let top=CIImage(color:try XCTUnwrap(CIColor(red:0.75,green:0.75,blue:0.75,alpha:1,colorSpace:linear))).cropped(to:CGRect(x:0,y:1,width:2,height:1))
             let rows=bitmap(top.composited(over:bottom).cropped(to:CGRect(x:0,y:0,width:2,height:2)),width:2,height:2,using:c)
             let first=rows[0],last=rows[8]
             XCTAssertTrue(abs(first-0.25)<0.00001 || abs(first-0.75)<0.00001)
+            XCTAssertEqual(first+last,1,accuracy:0.00001,"Both distinct coordinate rows must survive rendering")
             return ["expected_rgba":expected,"actual_rgba":actual,"coordinate_probe_first_row_red":first,"coordinate_probe_second_row_red":last,"buffer_row_order":abs(first-0.25)<0.00001 ? "bottom_to_top_in_CoreImage_coordinates":"top_to_bottom_in_CoreImage_coordinates"]
         }
+    }
+    func testExtendedRangeAndGeometryControl() throws {
+        _ = try rangeControl()
     }
     func capture(_ item:[String:String],fixture:URL,directory:URL) async throws -> [String:Any] {
         let id=try XCTUnwrap(item["id"]),url=fixture.appendingPathComponent(id+".dng")

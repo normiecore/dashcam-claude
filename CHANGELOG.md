@@ -1,3 +1,8 @@
+## 2026-10-19 — Audit-only float diagnostic compile repair
+
+- Unwrap failable colour-space CIColor values in generated diagnostic Swift.
+- Add a secrets-free simulator compile/synthetic control workflow without private inputs or capture execution; production rendering remains unchanged.
+
 ## 2026-10-18 — Native linear float investigation
 
 - Prepare bounded private1536px extended-linear float capture from released app RAW development, with unclipped-range controls and decoder/runtime metadata; no learned calibration or app rendering change.
