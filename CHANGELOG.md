@@ -1,3 +1,9 @@
+## 2026-10-19 — Assess the first supplied 0.1.4 photos
+
+- Review eight finished HEICs and seven original DNG metadata records privately; confirm exact build/rendering settings and a paired +0.7-EV edit.
+- Identify subtly heavy lower/mid tones in the food scenes with no active highlight compression or shadow fill. Record conservative same-RAW brightness experiments and preserve successful-scene controls.
+- Add aggregate findings only. No photo/identifier publication, app change, native candidate render or TestFlight upload.
+
 ## 2026-10-19 — Prepare the 0.1.4 photographic collection round
 
 - Audit the current embedded rendering metadata and document which capture fields still require the original DNG.

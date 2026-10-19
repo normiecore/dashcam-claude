@@ -2,7 +2,7 @@
 
 Current internal TestFlight build: **0.1.4 (20261019.613)**. Apple processing is VALID and existing internal group access is confirmed (IN_BETA_TESTING). External Beta App Review was submitted; approval was still pending at the recorded checkpoint. [Release and access confirmation](https://github.com/normiecore/dashcam-claude/actions/runs/39207824311) · [Verification evidence](verification/release/0.1.4-evidence.md).
 
-The owner is collecting sample photographs over the next few days. Keep this round on 0.1.4 and retain DNG + finished HEIC pairs where supported. The [collection and calibration plan](verification/CALIBRATION-PLAN.md) inventories the existing diagnostics and defines the controlled same-RAW review. No telemetry or new app release is needed for collection.
+The owner is collecting sample photographs over the next few days. Keep this round on 0.1.4 and retain DNG + finished HEIC pairs where supported. The [collection and calibration plan](verification/CALIBRATION-PLAN.md) inventories the existing diagnostics and defines the controlled same-RAW review. No telemetry or new app release is needed for collection. The [first Round 4 photo review](verification/release/round-4-reassessment.md) confirms the current metadata is usable and records the slight-darkness feedback and controlled next experiments.
 
 A native SwiftUI, AVFoundation and Core Image camera. It opens directly to Simple mode: frame, tap to focus, choose a physical lens and shoot. Advanced mode adds live exposure readings, compensation and a composition grid.
 

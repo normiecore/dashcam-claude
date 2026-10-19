@@ -1,3 +1,31 @@
+## First 0.1.4 Round 4 photos reviewed — 19 October 2026, Australia/Perth
+
+The owner shared a new Round 4 Drive folder and says some edits are very slightly
+dark. Read-only Drive access succeeded. All seven DNGs/eight HEICs were downloaded
+and size/hash recorded privately under `/workspace/photo-audit-round4`, outside Git.
+Reviewed every finished file with its embedded profile converted to sRGB; checked
+actual provenance and DNG capture metadata. No private photo transfer to GitHub,
+Drive write, RAW development, candidate render, app change or upload was performed.
+
+All eight outputs are 0.1.4 (20261019.613), RAW input, strength 1, native dimensions,
+P3 HEIC High. Seven have edit EV 0; a second version of one capture has +0.7 EV.
+Three declare HDR and five SDR, consistent with HEIF tone-map branding. The three
+food scenes are the clearest dark examples and have both compression and fill 0,
+so their darkness cannot be attributed to the highlight shoulder. Existing dim-
+scene gating leaves their baseline lower-mid rendering unchanged. Keep successful
+brighter scenes as regression controls; do not brighten everything indiscriminately.
+
+Aggregate assessment and proposed +0.1/+0.2 EV versus selective lower-mid lift
+experiments: `NaturalColor/verification/release/round-4-reassessment.md`. These are
+untested candidate ranges, not a newly calibrated renderer. The current review is
+SDR; the owner has been asked asynchronously whether darkness is mainly in Photos,
+Natural or shared/Drive viewing. No answer was available at this checkpoint.
+
+Next: continue collection on accepted 0.1.4; clarify viewing context, then perform
+a controlled same-RAW native comparison before choosing a subtle change. Private
+mapping/provenance/contact sheet remain outside source control. No new TestFlight
+upload or automatic photo transfer is authorised by this review checkpoint.
+
 ## Sample collection over the next few days — 19 October 2026, Australia/Perth
 
 The owner will collect photographs over the next few days and asked what can be
