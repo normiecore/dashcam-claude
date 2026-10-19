@@ -253,9 +253,19 @@ final class SceneToneTests: XCTestCase {
         XCTAssertEqual(hn_choose_scene_tone(&stats, 0, &tone), 1)
         let expectedImage = try kernel.apply(input: photo.image, strength: 1, tone: tone, hdr: true)
         let expected = centres(expectedImage)
+        // A tiny, explicitly rasterized reference isolates the writer's lazy
+        // graph handling without imposing this allocation on real captures.
+        let extendedP3 = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!
+        let raster = try XCTUnwrap(context.createCGImage(expectedImage, from: expectedImage.extent,
+                                                        format: .RGBAh, colorSpace: extendedP3))
+        let referenceData = try XCTUnwrap(context.heifRepresentation(
+            of: try kernel.apply(input: photo.image, strength: 1, tone: tone).settingContentHeadroom(1),
+            format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.displayP3)!,
+            options: [.hdrImage: CIImage(cgImage: raster, options: [.contentHeadroom: exp2(tone.compression)])]))
+        let rasterReference = centres(try XCTUnwrap(CIImage(data: referenceData, options: [.expandToHDR: true])))
         print("ROUND4_PROBE {\"gainMapISO\":\(iso != nil),\"gainMapApple\":\(apple != nil)," +
               "\"decodedHeadroom\":\(hdrImage.contentHeadroom),\"sdr\":\(sdr),\"hdr\":\(hdr)," +
-              "\"explicitGainMap\":\(applied),\"expectedHDR\":\(expected)}")
+              "\"explicitGainMap\":\(applied),\"expectedHDR\":\(expected),\"rasterReference\":\(rasterReference)}")
         let encodedAttachment = XCTAttachment(data: try Data(contentsOf: url), uniformTypeIdentifier: UTType.heic.identifier)
         encodedAttachment.name = "HDR ladder with gain map"
         encodedAttachment.lifetime = .keepAlways
@@ -274,6 +284,8 @@ final class SceneToneTests: XCTestCase {
         XCTAssertLessThanOrEqual(hdr[3], 8.5, "Headroom stays within three stops")
         XCTAssertGreaterThan(expected[3], 2, "The float renderer supplies genuine HDR pixels")
         for index in values.indices {
+            XCTAssertEqual(rasterReference[index], expected[index], accuracy: max(0.04, expected[index] * 0.08),
+                           "Rasterized reference preserves HDR at patch \(index)")
             XCTAssertEqual(hdr[index], expected[index], accuracy: max(0.04, expected[index] * 0.08),
                            "Expanded HEIC preserves the HDR rendition at patch \(index)")
             XCTAssertEqual(applied[index], hdr[index], accuracy: max(0.04, hdr[index] * 0.05),
@@ -307,5 +319,24 @@ final class SceneToneTests: XCTestCase {
         XCTAssertEqual(photo.rawDevelopment?["extendedDynamicRangeAmount"] as? Float, PhotoEngine.rawExtendedDynamicRange)
         print("ROUND4_PROBE " + "{\"publicSceneWhite\":\(stats.white),\"publicDarkFraction\":\(stats.darkFraction)," +
               "\"compression\":\(tone.compression),\"shadowFill\":\(tone.shadowFill)}")
+        // The public scene normally chooses SDR. Force the high-contrast path
+        // on the same full-resolution decoded image to cover gain-map export
+        // at camera resolution, rather than only on the tiny ladder fixture.
+        guard #available(iOS 26.0, *) else { return }
+        let stressed = LoadedPhoto(image: photo.image, name: "Full-resolution HDR regression", isRaw: true,
+                                   sceneStats: hn_scene_stats(white: 4, darkFraction: 0))
+        let exported = try await engine.export(photo: stressed, settings: .init(),
+                                              output: .init(format: .heic, quality: .medium))
+        defer { try? FileManager.default.removeItem(at: exported) }
+        guard exported.pathExtension == "heic" else { throw XCTSkip("HEIC encoding unavailable") }
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(exported as CFURL, nil))
+        let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        XCTAssertEqual((properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue, Int(photo.image.extent.width))
+        XCTAssertEqual((properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue, Int(photo.image.extent.height))
+        XCTAssertNotNil(CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap))
+        let expanded = try XCTUnwrap(CIImage(contentsOf: exported, options: [.expandToHDR: true]))
+        XCTAssertGreaterThan(expanded.contentHeadroom, 1)
+        print("ROUND4_PROBE {\"fullResolutionHDRWidth\":\(Int(expanded.extent.width))," +
+              "\"height\":\(Int(expanded.extent.height)),\"decodedHeadroom\":\(expanded.contentHeadroom)}")
     }
 }
