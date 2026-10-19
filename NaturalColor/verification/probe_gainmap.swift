@@ -41,6 +41,7 @@ if #available(macOS 26.0, *) {
                 for (formatName, format) in [("RGBA8", CIFormat.RGBA8), ("RGB10", CIFormat.RGB10)] {
                   for explicitISO in [false, true] {
                    for fileWriter in [false, true] {
+                    for (spaceName, outputSpace) in [("P3", p3), ("extendedP3", extendedP3)] {
                     let sdr = image(sdrValues).settingContentHeadroom(1)
                     var hdr = image(hdrValues).settingContentHeadroom(4)
                     if rasterized, let raster = context.createCGImage(hdr, from: hdr.extent, format: .RGBAh, colorSpace: extendedP3) {
@@ -50,16 +51,16 @@ if #available(macOS 26.0, *) {
                     if explicitISO {
                         options[CIImageRepresentationOption(rawValue: kCGImageDestinationEncodeRequest as String)] = kCGImageDestinationEncodeToISOGainmap
                     }
-                    let label = "\(contextName)-\(rasterized ? "raster" : "CIImage")-\(rgb ? "RGBmap" : "monoMap")-\(formatName)-\(explicitISO ? "ISO" : "default")-\(fileWriter ? "file" : "data")"
+                    let label = "\(contextName)-\(rasterized ? "raster" : "CIImage")-\(rgb ? "RGBmap" : "monoMap")-\(formatName)-\(explicitISO ? "ISO" : "default")-\(fileWriter ? "file" : "data")-\(spaceName)"
                     var encoded: Data?
                     if fileWriter {
                         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".heic")
                         do {
-                            try context.writeHEIFRepresentation(of: sdr, to: url, format: format, colorSpace: p3, options: options)
+                            try context.writeHEIFRepresentation(of: sdr, to: url, format: format, colorSpace: outputSpace, options: options)
                             encoded = try Data(contentsOf: url)
                         } catch { print("GAINMAP_PROBE \(label) WRITE_ERROR \(error)") }
                         try? FileManager.default.removeItem(at: url)
-                    } else { encoded = context.heifRepresentation(of: sdr, format: format, colorSpace: p3, options: options) }
+                    } else { encoded = context.heifRepresentation(of: sdr, format: format, colorSpace: outputSpace, options: options) }
                     guard let data = encoded,
                           let decoded = CIImage(data: data, options: [.expandToHDR: true]),
                           let source = CGImageSourceCreateWithData(data as CFData, nil) else {
@@ -73,6 +74,7 @@ if #available(macOS 26.0, *) {
                         "values": values, "ISO": iso != nil, "Apple": apple != nil,
                         "maxError": zip(values, hdrValues).map { abs($0.0 - $0.1) }.max()!]
                     print("GAINMAP_PROBE " + String(data: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), encoding: .utf8)!)
+                    }
                    }
                   }
                 }
