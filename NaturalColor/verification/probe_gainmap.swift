@@ -31,20 +31,50 @@ func centres(_ image: CIImage) -> [Float] {
 
 if CommandLine.arguments.dropFirst().first == "--decode" {
     var checked = 0
+    var fullResolutionChecked = 0
     var failures = 0
     for path in CommandLine.arguments.dropFirst(2) {
-        guard let decoded = CIImage(contentsOf: URL(fileURLWithPath: path), options: [.expandToHDR: true]),
-              Int(decoded.extent.width) == 256, Int(decoded.extent.height) == 64 else { continue }
+        let url = URL(fileURLWithPath: path)
+        guard let decoded = CIImage(contentsOf: url, options: [.expandToHDR: true]) else { continue }
+        let width = Int(decoded.extent.width), height = Int(decoded.extent.height)
+        if width == 8064 && height == 6048 {
+            fullResolutionChecked += 1
+            let source = CGImageSourceCreateWithURL(url as CFURL, nil)!
+            let iso = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap)
+            let maximum = decoded.applyingFilter("CIAreaMaximum", parameters: [kCIInputExtentKey: CIVector(cgRect: decoded.extent)])
+            var peak = [Float](repeating: 0, count: 4)
+            peak.withUnsafeMutableBytes {
+                reader.render(maximum, toBitmap: $0.baseAddress!, rowBytes: 16,
+                              bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBAf, colorSpace: linear)
+            }
+            let peakRGB = peak.prefix(3).max()!
+            let passed = decoded.contentHeadroom > 1 && decoded.contentHeadroom <= 8.5 && iso != nil && peakRGB > 1
+            if !passed { failures += 1 }
+            let payload: [String: Any] = ["path": path, "width": width, "height": height,
+                "headroom": decoded.contentHeadroom, "peakRGB": peakRGB, "ISO": iso != nil, "passed": passed]
+            print("GAINMAP_HOST_FULL_RES " + String(data: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), encoding: .utf8)!)
+            continue
+        }
+        guard width == 256, height == 64 else { continue }
         checked += 1
         let values = centres(decoded)
         let error = zip(values, hdrValues).map { abs($0.0 - $0.1) }.max()!
-        let passed = decoded.contentHeadroom > 2 && error < 0.32
+        guard let sdr = CIImage(contentsOf: url),
+              let map = CIImage(contentsOf: url, options: [.auxiliaryHDRGainMap: true]) else {
+            print("Cannot independently decode the SDR base and gain map"); exit(2)
+        }
+        let applied = centres(sdr.applyingGainMap(map, headroom: 8))
+        let passed = decoded.contentHeadroom > 2 && decoded.contentHeadroom <= 8.5 &&
+            values.indices.allSatisfy { abs(values[$0] - hdrValues[$0]) <= max(0.04, hdrValues[$0] * 0.08) } &&
+            values.indices.allSatisfy { abs(applied[$0] - values[$0]) <= max(0.04, values[$0] * 0.05) } &&
+            values[2] / sdrValues[2] > 1.5 && values[3] > 2
         if !passed { failures += 1 }
         let payload: [String: Any] = ["path": path, "headroom": decoded.contentHeadroom,
-                                     "values": values, "maxError": error, "passed": passed]
+                                     "values": values, "explicitGainMap": applied, "maxError": error, "passed": passed]
         print("GAINMAP_HOST_DECODE " + String(data: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), encoding: .utf8)!)
     }
     guard checked > 0 else { print("No 256x64 ladder HEIC attachments found"); exit(2) }
+    guard fullResolutionChecked > 0 else { print("No 8064x6048 public RAW HEIC attachments found"); exit(2) }
     exit(failures == 0 ? 0 : 1)
 }
 

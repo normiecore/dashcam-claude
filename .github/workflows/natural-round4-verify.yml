@@ -39,6 +39,16 @@ jobs:
           grep -E '^(HEADROOM_PROBE|ROUND4_PROBE) ' "$RUNNER_TEMP/round4-tests.log" || true
           grep -E "error:|failed|Test Case .* (passed|failed)|Executed" "$RUNNER_TEMP/round4-tests.log" | tail -60
           exit $code
+      - name: Verify actual exported HDR pixels with the native macOS decoder
+        run: |
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/Round4Images.xcresult" --output-path "$RUNNER_TEMP/round4-attachments"
+          python3 - <<'PYCODE'
+          import os, subprocess
+          from pathlib import Path
+          images = list(Path(os.environ['RUNNER_TEMP'], 'round4-attachments').rglob('*.heic'))
+          assert images, 'Missing actual app HEIC test attachments'
+          subprocess.run(['xcrun', 'swift', '../verification/probe_gainmap.swift', '--decode', *map(str, images)], check=True)
+          PYCODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -46,6 +56,7 @@ jobs:
           path: |
             ${{ runner.temp }}/Round4Images.xcresult
             ${{ runner.temp }}/round4-tests.log
+            ${{ runner.temp }}/round4-attachments
           retention-days: 14
   ui-and-archive:
     runs-on: macos-26

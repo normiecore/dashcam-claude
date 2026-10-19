@@ -65,8 +65,8 @@ For RAW input only. Processed HEIC/JPEG input keeps the original operator.
    HDR rendition is the finished SDR pixel × 2^ev, where ev is the stops the
    shoulder removed (capped at the compression, ≤ 2.5), tagged with headroom
    2^compression
-   (`settingContentHeadroom`, iOS 26+; untagged kernel output produced an identity map).
-   Core Image's `.hdrImage` writer computes the ISO gain map. Below the knee the two renditions are identical. Quiet scenes,
+   (`settingContentHeadroom`, iOS 26+). The SDR graph is explicitly tagged with
+   headroom 1. Core Image's `.hdrImage` writer computes the ISO gain map. Below the knee the two renditions are identical. Quiet scenes,
    JPEG and older systems write SDR only.
 
 The editor's strength slider blends from the scene-toned input to the finished
@@ -89,6 +89,19 @@ equality with the original operator.
   C++ agreement across headroom and settings, quiet-scene byte equality,
   roll-off, shadow fill, P3 retention, the gain-map HEIC (presence, provenance,
   SDR/HDR values) and public-RAW measurement.
+
+The iOS 26.6 simulator's Core Image reader reports a valid ISO gain map as SDR,
+including when the map is explicitly applied. This initially looked like an
+identity-map encoder failure. Native macOS independently decoded the exact
+simulator-app HEIC attachment in run
+[39207515652](https://github.com/normiecore/dashcam-claude/actions/runs/39207515652):
+headroom 4 and ladder values `[0.287, 1.040, 2.310, 3.998]`, within 0.006 of the
+float HDR rendition. Rasterizing the HDR branch did not change this behavior and
+is not used in the app. Simulator tests retain source-float, SDR, map and
+provenance assertions; the required native-host CI step checks the actual HEIC
+attachments for restored HDR values and full 8064 × 6048 export. Physical-device
+tests also retain local HDR-decoding assertions. This is simulator and host
+evidence, not acceptance of a physical iPhone capture or an X2D II match.
 - `HassyNaturalTests/DecoderHeadroomTests.swift` logs decoder headroom, local
   tone map and shadow-bias effects for the public fixture.
 

@@ -1,7 +1,7 @@
 ## 2026-10-19 — Natural 0.1.4 TestFlight candidate
 
 - Continue the Round 4 RAW highlight/shadow stage and P3 preservation, retaining the preferred colour renderer and RAW retention fix.
-- Repair and reverify HDR HEIC output; add a release lane requiring native image tests plus UI/archive checks before signing and upload.
+- Keep HDR export lazy with explicit headroom. Diagnose the simulator HDR readback limitation using the actual app HEIC on native macOS; require independent saved-pixel validation plus native image/UI/archive checks before upload.
 - Version the candidate 0.1.4 and update beta notes to identify its experimental tone/HDR behaviour. Upload and phone acceptance are pending.
 
 ## 2026-10-18 — Round 4 renderer: X2D II-style dynamic range on iPhone (candidate, not uploaded)

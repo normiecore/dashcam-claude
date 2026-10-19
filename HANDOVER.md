@@ -1,27 +1,35 @@
 ## Natural 0.1.4 — authorised TestFlight update, 19 October 2026
 
-The owner asked to continue the unfinished Natural camera work and push the update
-to TestFlight. Work is isolated on `codex/natural-round4-release-20261019`, based
-on `claude/round4-hncs-optimise`; dashcam `main` is not changed.
+The owner asked to finish the Natural camera work and push the update to TestFlight.
+Work is isolated on `codex/natural-round4-release-20261019`; dashcam main is unchanged.
 
-Rechecked actual GitHub results rather than assuming the last green Round 4 run
-covered later edits: run 39127214597 passes UI/archive, but its 23 image tests
-include one failing HDR gain-map test (two assertions: decoded HDR stays at 1).
-The later private float diagnostic run 39152336355 fails compilation at generated
-optional CIColor construction; its repair is audit-only on a separate branch.
-No new private photograph transfer is needed for the public/synthetic checks.
+The apparent HDR export failure is an **iOS Simulator HDR decoder limitation**.
+Run 39207515652 independently decoded the actual app HEIC from failed simulator
+run 39206541891 on native macOS: headroom 4, ladder approximately
+[0.287, 1.040, 2.310, 3.998], maximum linear error 0.0054. The file contains real
+HDR pixels. Both automatic and explicit simulator gain-map readback stay at SDR.
+Native macOS writer probes also restored the expected range. Do not describe the
+old failed assertions as proof of a broken encoded file.
 
-Candidate version is 0.1.4. The release workflow requires both the native image
-suite and UI/production archive checks at the same source SHA to pass before any
-signed upload, and only uploads commits explicitly marked `[testflight-upload]`
-on this release branch. Distribution uses the existing tester groups and records
-Apple processing/internal access separately from external beta review.
+The candidate keeps HDR export lazy, avoiding an extra approximately 390 MB
+floating-point raster at 48 MP, and explicitly declares SDR/HDR headroom.
+The full workflow checks source HDR/SDR, provenance and gain-map presence in iOS;
+then independently decodes actual attached ladder and 48 MP app HEICs on macOS.
+Native host assertions enforce expected HDR pixels and full-resolution output.
+On physical-device test targets the local HDR expansion assertions remain enabled.
+Production UI journeys, Release archive and resource audits already passed for
+application source e605fc8; final combined image/host/UI/archive acceptance is pending.
 
-Local portable scene-tone verification passes, including monotonic highlights,
-grey anchors and HDR restoration mathematics. Native verification, signed upload
-and actual Apple build number are pending. No physical photographic acceptance
-or calibrated X2D II equivalence is claimed. Existing accepted build remains
-0.1.3 (20261018.629) until a new upload is confirmed below.
+Candidate 0.1.4 includes Round 4 scene tone/P3 preservation and render provenance.
+The commit marked `[testflight-upload]` uploads only after BOTH full verification
+jobs pass for its same source SHA, then confirms Apple processing and tester access.
+No upload is yet claimed. Existing accepted build remains 0.1.3 (20261018.629).
+No physical photographic acceptance or calibrated X2D II equivalence is claimed.
+
+The separate audit repair is verified on `codex/natural-float-diagnostic-20261019`
+at source f1138bc (documentation checkpoint 18ae03d): run 39206388330 passes all
+generated Swift compilation and synthetic extended-range/coordinate control.
+Private RAW replay was not run and no private photographs were transferred.
 
 ## Round 4 renderer candidate — 18 October 2026
 
