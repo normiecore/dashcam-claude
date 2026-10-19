@@ -1,0 +1,17 @@
+name: Natural gain-map API probe
+on:
+  push:
+    branches: ['codex/natural-round4-release-20261019']
+    paths:
+      - 'NaturalColor/verification/probe_gainmap.swift'
+      - '.github/workflows/natural-gainmap-probe.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-gain-map-matrix:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe Core Image gain-map writers with synthetic float pixels
+        run: xcrun swift NaturalColor/verification/probe_gainmap.swift
