@@ -175,7 +175,8 @@ final class PrivatePrefilmFloatTests: XCTestCase {
         let control=try rangeControl();print("PREFILM_STAGE=extended-range-control-passed")
         var result=[[String:Any]]()
         for item in inputs {result.append(try await capture(item,fixture:fixture,directory:directory))}
-        let manifest:[String:Any]=["schema":"natural-prefilm-float-v1","rendered_app_source":"0d405590144995297c5d4ab1faa9bb2beebccc66","operating_system":ProcessInfo.processInfo.operatingSystemVersionString,"device_system_version":UIDevice.current.systemVersion,"rendering":"native iOS simulator; decoded original RAW using unmodified released app loader; no learned calibration or film transform","extended_range_and_geometry_control":control,"inputs":result]
+        let systemVersion = await MainActor.run { UIDevice.current.systemVersion }
+        let manifest:[String:Any]=["schema":"natural-prefilm-float-v1","rendered_app_source":"0d405590144995297c5d4ab1faa9bb2beebccc66","operating_system":ProcessInfo.processInfo.operatingSystemVersionString,"device_system_version":systemVersion,"rendering":"native iOS simulator; decoded original RAW using unmodified released app loader; no learned calibration or film transform","extended_range_and_geometry_control":control,"inputs":result]
         try JSONSerialization.data(withJSONObject:manifest,options:.sortedKeys).write(to:directory.appendingPathComponent("float-manifest.json"))
         print("PREFILM_DIRECTORY="+directory.path)
     }

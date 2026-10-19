@@ -26,6 +26,8 @@ jobs:
                        if isinstance(node, ast.Assign)
                        and any(isinstance(target, ast.Name) and target.id == 'SWIFT' for target in node.targets))
           Path('NaturalColor/ios/HassyNaturalTests/PrivatePrefilmFloatTests.swift').write_text(swift)
+          # The test target always copies this folder; keep it empty for synthetic checks.
+          Path('NaturalColor/ios/HassyNaturalTests/Fixtures').mkdir(exist_ok=True)
           PY
       - name: Generate project and select available iPhone simulator
         working-directory: NaturalColor/ios
