@@ -1,3 +1,31 @@
+## Sample collection over the next few days — 19 October 2026, Australia/Perth
+
+The owner will collect photographs over the next few days and asked what can be
+prepared meanwhile. Audited the actual 0.1.4 provenance writer: build/renderer,
+RAW decoder settings, scene measurements/tone decisions, edits and actual output
+settings are present. Lens/ISO/shutter and other capture details are not copied
+into finished-photo provenance; retain the original DNG to inspect available
+capture fields. No new diagnostic app feature or telemetry was implemented.
+
+Prepared `NaturalColor/verification/CALIBRATION-PLAN.md` and an optional blank
+sample-note CSV. The plan fixes the collection baseline at accepted 0.1.4, covers
+private pairing/provenance review, same-RAW native replay, managed SDR versus HDR
+assessment, single-family tuning and successful-scene regression checks. Public
+reports should use generic labels and allowlisted settings, not source metadata
+blobs, locations, filenames or identifiers. A future optional report-sharing UI
+remains a proposal, not an existing app control.
+
+Updated NaturalColor/README.md, whose current-build/candidate text was stale, to
+reflect the accepted 0.1.4 checkpoint and link the collection plan. Verified fields
+against PhotoEngine.swift and checked documentation paths/CSV structure. These
+are documentation-only preparations; application/tests/resources and the accepted
+TestFlight binary are unchanged. No automatic job, reminder, photograph transfer,
+new TestFlight upload or main merge was performed.
+
+Next: receive original DNG/finished HEIC pairs and a few subjective notes; perform
+the private same-input review before deciding whether to change rendering or add
+a report-export feature. Controlled X2D II reference calibration is still separate.
+
 ## Natural 0.1.4 uploaded and available — 19 October 2026
 
 **Apple accepted Natural 0.1.4 (20261019.613); processing VALID, existing internal

@@ -1,3 +1,9 @@
+## 2026-10-19 — Prepare the 0.1.4 photographic collection round
+
+- Audit the current embedded rendering metadata and document which capture fields still require the original DNG.
+- Add a private sample-intake/same-RAW calibration plan and an optional blank note template; keep collection on 0.1.4 without telemetry or app changes.
+- Correct the NaturalColor README's stale current-build/candidate status. No further TestFlight upload.
+
 ## 2026-10-19 — Natural 0.1.4 available in internal TestFlight
 
 - Apple accepted 0.1.4 build 20261019.613; VALID, existing internal group access confirmed and IN_BETA_TESTING. Signed upload/distribution run 39207824311, verified source ca05d6c. External Beta App Review submitted; public approval remains pending.
