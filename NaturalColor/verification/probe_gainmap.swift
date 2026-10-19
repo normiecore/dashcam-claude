@@ -29,6 +29,25 @@ func centres(_ image: CIImage) -> [Float] {
     return (0..<4).map { rgba[(32 * 256 + $0 * 64 + 32) * 4 + 1] }
 }
 
+if CommandLine.arguments.dropFirst().first == "--decode" {
+    var checked = 0
+    var failures = 0
+    for path in CommandLine.arguments.dropFirst(2) {
+        guard let decoded = CIImage(contentsOf: URL(fileURLWithPath: path), options: [.expandToHDR: true]),
+              Int(decoded.extent.width) == 256, Int(decoded.extent.height) == 64 else { continue }
+        checked += 1
+        let values = centres(decoded)
+        let error = zip(values, hdrValues).map { abs($0.0 - $0.1) }.max()!
+        let passed = decoded.contentHeadroom > 2 && error < 0.32
+        if !passed { failures += 1 }
+        let payload: [String: Any] = ["path": path, "headroom": decoded.contentHeadroom,
+                                     "values": values, "maxError": error, "passed": passed]
+        print("GAINMAP_HOST_DECODE " + String(data: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), encoding: .utf8)!)
+    }
+    guard checked > 0 else { print("No 256x64 ladder HEIC attachments found"); exit(2) }
+    exit(failures == 0 ? 0 : 1)
+}
+
 if #available(macOS 26.0, *) {
     let contexts: [(String, CIContext)] = [
         ("default", CIContext(options: [.cacheIntermediates: false])),
