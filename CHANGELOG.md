@@ -2,6 +2,7 @@
 
 - Unwrap failable colour-space CIColor values in generated diagnostic Swift.
 - Add a secrets-free simulator compile/synthetic control workflow without private inputs or capture execution; production rendering remains unchanged.
+- Hosted run 39206388330 passes the complete diagnostic build and one synthetic extended-range/coordinate test, zero failures (source f1138bc). No private RAW replay or TestFlight upload.
 
 ## 2026-10-18 — Native linear float investigation
 

@@ -7,9 +7,17 @@ or executing the Python capture module, compiles the complete diagnostic and run
 only its float-range/coordinate control. It neither downloads photographs nor
 reads encrypted input. Production app sources and release workflows are unchanged.
 
-Local Python compilation and diff whitespace checks pass. Hosted simulator result
-is pending; this is not a private RAW replay, camera validation or TestFlight build.
-Next: inspect the synthetic workflow result and record its actual evidence.
+Local Python compilation and diff whitespace checks pass. Hosted simulator run
+[39206388330](https://github.com/normiecore/dashcam-claude/actions/runs/39206388330)
+passes against source `f1138bc`: complete generated diagnostic Swift builds and
+one synthetic extended-range/coordinate test passes (0 failures). Initial run
+39206236005 cleared the CIColor compile error but failed copying the missing
+Fixtures resource folder; follow-up creates an empty folder, without photo data.
+The diagnostic also reads UIDevice metadata through MainActor. This is simulator
+synthetic evidence, not a private RAW replay, camera validation or TestFlight build.
+No private input, encrypted transfer, production app change or upload was run.
+Next: carry the audit-only repair forward when the diagnostic is needed; remaining
+colour calibration and physical phone validation belong to separate release work.
 
 First float setup run39152104279 stopped at its optional public DPReview transfer probe before any private input was supplied. Probe failures are now diagnostic/nonblocking and report safe HTTP status; actual private decoding/rendering remains fatal. Include a1536px lossless sRGB current-render control from the unmodified app preview API applied to the exact same pre-scaled CIImage as each float buffer. No additional resampling or candidate calibration is introduced.
 
