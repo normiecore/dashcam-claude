@@ -222,8 +222,8 @@ final class SceneToneTests: XCTestCase {
         let output = try XCTUnwrap(provenance["output"] as? [String: Any])
         XCTAssertEqual(output["hdrGainMap"] as? Bool, true)
         XCTAssertEqual(output["colorSpace"] as? String, "Display P3")
-        let profile = try XCTUnwrap(properties[kCGImagePropertyProfileName] as? String)
-        XCTAssertTrue(profile.lowercased().contains("p3"), profile)
+        let outputProfile = try XCTUnwrap(properties[kCGImagePropertyProfileName] as? String)
+        XCTAssertTrue(outputProfile.lowercased().contains("p3"), outputProfile)
         // SDR base keeps the finished rendering; the HDR rendition lifts only
         // the folded highlights above SDR white.
         let context = CIContext(options: [.workingColorSpace: linear, .workingFormat: CIFormat.RGBAf.rawValue])
