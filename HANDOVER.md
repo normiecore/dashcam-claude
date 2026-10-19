@@ -1,3 +1,40 @@
+## Natural 0.1.4 uploaded and available — 19 October 2026
+
+**Apple accepted Natural 0.1.4 (20261019.613); processing VALID, existing internal
+group access True, IN_BETA_TESTING.** Release and distribution run:
+https://github.com/normiecore/dashcam-claude/actions/runs/39207824311.
+Verified/uploaded application source: `ca05d6cbe12a9b033326448cb9d392ab87b30049` on
+`codex/natural-round4-release-20261019`. The owner explicitly authorised continuing
+and pushing the update to TestFlight. Upload succeeded at 06:16 UTC; processing
+and internal access were confirmed at 06:18 UTC. Do not upload a duplicate.
+
+Both required verification jobs passed before signing: 23 native image tests,
+all five UI journeys, production Release archive/resource audit, plus mandatory
+native macOS decoding of actual app HEIC attachments. The full 8064 x 6048 output
+retains an ISO map, headroom 4 and actual peak RGB 3.25273. The HDR ladder restores
+approximately [0.28742, 1.04044, 2.30962, 3.99809], maximum linear error 0.0054,
+with matching explicit gain-map application. The actual public landscape preview
+was visually inspected and its quiet-scene output matches the recovered baseline
+on the same decode exactly. These are simulator/desktop checks, not phone captures.
+
+The external build was assigned to the existing public group and successfully
+submitted for Apple Beta App Review. Public availability still awaits approval;
+the invitation link alone is not proof of public installation access.
+
+This beta incorporates the Round 4 highlight shoulder/backlit shadow fill,
+P3 preservation, decoder headroom and render provenance. HDR export stays lazy
+with explicit SDR/HDR headroom; no separate full-size float raster is retained.
+The apparent HDR failure was a simulator readback limitation, independently
+confirmed by reading the exact simulator-produced file on native macOS.
+See `NaturalColor/verification/release/0.1.4-evidence.md` for evidence and limits.
+The following candidate entry is historical; this accepted release supersedes it.
+
+Next: install/update Natural through the existing TestFlight app and check actual
+bright-sky/foreground detail, foliage/skin, HDR in Photos, repeated 48 MP captures,
+lens switches, RAW-toggle parity and denied-Photos recovery. Controlled X2D II
+reference/grey-card calibration is still outstanding; no calibrated equivalence
+or physical capture reliability is claimed. Main and the dashcam app are unchanged.
+
 ## Natural 0.1.4 — authorised TestFlight update, 19 October 2026
 
 The owner asked to finish the Natural camera work and push the update to TestFlight.

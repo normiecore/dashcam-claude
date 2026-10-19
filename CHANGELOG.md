@@ -1,3 +1,10 @@
+## 2026-10-19 — Natural 0.1.4 available in internal TestFlight
+
+- Apple accepted 0.1.4 build 20261019.613; VALID, existing internal group access confirmed and IN_BETA_TESTING. Signed upload/distribution run 39207824311, verified source ca05d6c. External Beta App Review submitted; public approval remains pending.
+- Ship Round 4 RAW scene-tone/P3 preservation and render provenance with the preferred recovered colour renderer. Keep HDR export lazy with explicit headroom.
+- Pass 23 image tests, five UI journeys, production archive/resource audit and mandatory native saved-HDR checks, including 48 MP output. Confirm the earlier HDR test failure was a simulator decoder limitation, not a broken exported file.
+- Fix the separate generated-float diagnostic and pass its synthetic native check without private photo transfers. Physical phone and controlled X2D II calibration remain outstanding.
+
 ## 2026-10-19 — Natural 0.1.4 TestFlight candidate
 
 - Continue the Round 4 RAW highlight/shadow stage and P3 preservation, retaining the preferred colour renderer and RAW retention fix.
